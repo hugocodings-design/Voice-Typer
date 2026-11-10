@@ -61,14 +61,19 @@ Once the venv is set up, you can simply double-click **`Start Voice Typer.bat`**
 - **AI model:** select a model and click **Use this model** (or double-click). If it isn't on the PC yet,
   it asks before downloading. The current model keeps working until the new one is ready.
 
-| Model | Size | Best for |
-|---|---|---|
-| Tiny / Base | 75–145 MB | Instant results, lower accuracy |
-| Small | 480 MB | Everyday balance (default) |
-| Medium | 1.5 GB | More accurate, slower on CPU |
-| Large v3 Turbo | 1.6 GB | Near-best accuracy, reasonable speed |
-| Large v3 | 3.1 GB | Best accuracy, slow without a GPU |
-| Distil Large v3.5 | 1.5 GB | English only, fast and accurate |
+| Group | Model | Size | Best for |
+|---|---|---|---|
+| French | Français Distil (rapide) — `bofenghuang/whisper-large-v3-french-distil-dec2` | 1.5 GB | Fastest French-trained model |
+| French | **Français Distil (précis)** — `…-french-distil-dec16` | 2.2 GB | Recommended for French |
+| French | Français Large v3 — `bofenghuang/whisper-large-v3-french` | 3.1 GB | Most accurate French, slow on CPU |
+| Multi | Tiny / Base / Small / Medium | 75 MB–1.5 GB | From instant to accurate |
+| Multi | **Large v3 Turbo (compact)** — `Zoont/faster-whisper-large-v3-turbo-int8-ct2` | 810 MB | Recommended for French + English |
+| Multi | Large v3 Turbo / Large v3 | 1.6 / 3.1 GB | Near-best / best multilingual |
+| English | English Distil Small / Medium | 330 / 790 MB | Very fast English |
+| English | **English Distil Large v3.5** | 1.5 GB | Recommended for English |
+
+The French models are Whisper Large v3 fine-tuned on French by bofenghuang (MIT license); their
+CTranslate2 files live in a `ctranslate2/` subfolder, written `repo#ctranslate2` in the catalog.
 
 - **Import model folder…:** add a model already on disk. It must be in CTranslate2 format
   (folder containing `model.bin` + `config.json`, as published in `faster-whisper-…` repos).

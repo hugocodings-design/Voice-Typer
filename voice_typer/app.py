@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 
+from voice_typer import models
 from voice_typer.config import Config
 from voice_typer.hotkey import Hotkey
 from voice_typer.output import send_text
@@ -46,7 +47,8 @@ class Engine:
         def work():
             try:
                 started = time.perf_counter()
-                new = Transcriber(source, self.config.device, self.config.compute_type)
+                path = models.resolve(source)  # downloads on first use
+                new = Transcriber(source, path, self.config.device, self.config.compute_type)
                 self.transcriber = new
                 self.config.model = source
                 self.config.save()

@@ -56,6 +56,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "hf_prompt": "Nom du dépôt Hugging Face d'un modèle faster-whisper (CTranslate2),\npar exemple :  Systran/faster-whisper-large-v3",
         "hf_invalid_title": "Nom invalide",
         "hf_invalid_msg": "Utilisez la forme  propriétaire/nom-du-modèle",
+        "hf_not_ct2": "Ce dépôt ne contient pas de modèle au format CTranslate2 (model.bin).\nCherchez une version « faster-whisper » ou « ct2 » du modèle.",
+        "hf_network": "Impossible de lire ce dépôt sur Hugging Face :\n\n{err}",
         "remove_title": "Retirer le modèle",
         "remove_msg": "Retirer « {name} » de la liste ?\n\n(Les fichiers sur le disque ne sont pas supprimés.)",
         "model_error_title": "Erreur de modèle",
@@ -137,6 +139,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "hf_prompt": "Hugging Face repository of a faster-whisper (CTranslate2) model,\nfor example:  Systran/faster-whisper-large-v3",
         "hf_invalid_title": "Invalid name",
         "hf_invalid_msg": "Use the form  owner/model-name",
+        "hf_not_ct2": "This repository has no CTranslate2 model (model.bin).\nLook for a 'faster-whisper' or 'ct2' version of the model.",
+        "hf_network": "Couldn't read this repository on Hugging Face:\n\n{err}",
         "remove_title": "Remove model",
         "remove_msg": "Remove '{name}' from the list?\n\n(Files on disk are not deleted.)",
         "model_error_title": "Model error",
@@ -165,25 +169,49 @@ STRINGS: dict[str, dict[str, str]] = {
     },
 }
 
+FR_D2 = "bofenghuang/whisper-large-v3-french-distil-dec2#ctranslate2"
+FR_D16 = "bofenghuang/whisper-large-v3-french-distil-dec16#ctranslate2"
+FR_L3 = "bofenghuang/whisper-large-v3-french#ctranslate2"
+TURBO_C = "Zoont/faster-whisper-large-v3-turbo-int8-ct2"
+
 MODEL_NOTES = {
     "fr": {
+        FR_D2: "Entraîné sur le français : le plus rapide des modèles français",
+        FR_D16: "★ Recommandé français : presque aussi précis que Large v3",
+        FR_L3: "Le plus précis en français, mais lent sans carte graphique",
         "tiny": "Instantané, mais beaucoup d'erreurs",
         "base": "Rapide, correct pour des phrases courtes",
-        "small": "Bon équilibre (par défaut)",
+        "small": "Bon équilibre, léger",
         "medium": "Précis, plus lent sans carte graphique",
+        TURBO_C: "★ Recommandé FR + EN : qualité Turbo, 2× plus léger",
         "large-v3-turbo": "Presque la meilleure précision, bien plus rapide que Large v3",
-        "large-v3": "Meilleure précision, lent sans carte graphique",
-        "distil-large-v3.5": "Anglais uniquement",
+        "large-v3": "Meilleure précision multilingue, lent sans carte graphique",
+        "distil-small.en": "Anglais uniquement, très rapide",
+        "distil-medium.en": "Anglais uniquement, rapide et précis",
+        "distil-large-v3.5": "★ Recommandé anglais : précision Large v3, plus rapide",
     },
     "en": {
+        FR_D2: "Trained on French: the fastest French model",
+        FR_D16: "★ Recommended for French: nearly Large v3 accuracy",
+        FR_L3: "Most accurate in French, but slow without a GPU",
         "tiny": "Instant, but many mistakes",
         "base": "Fast, OK for short sentences",
-        "small": "Good balance (default)",
+        "small": "Good balance, lightweight",
         "medium": "Accurate, slower without a GPU",
+        TURBO_C: "★ Recommended FR + EN: Turbo quality, half the size",
         "large-v3-turbo": "Near-best accuracy, much faster than Large v3",
-        "large-v3": "Best accuracy, slow without a GPU",
-        "distil-large-v3.5": "English only",
+        "large-v3": "Best multilingual accuracy, slow without a GPU",
+        "distil-small.en": "English only, very fast",
+        "distil-medium.en": "English only, fast and accurate",
+        "distil-large-v3.5": "★ Recommended for English: Large v3 accuracy, faster",
     },
+}
+
+GROUP_LABELS = {
+    "fr": {"fr": "Spécialisés français", "multi": "Multilingues (FR, EN + ~100 langues)",
+           "en": "Spécialisés anglais", "custom": "Mes modèles importés"},
+    "en": {"fr": "French-specialised", "multi": "Multilingual (FR, EN + ~100 languages)",
+           "en": "English-specialised", "custom": "My imported models"},
 }
 
 KEY_NAMES = {

@@ -12,7 +12,7 @@ import keyboard
 from voice_typer import autostart, models
 from voice_typer.app import Engine
 from voice_typer.hotkey import validate as validate_hotkey
-from voice_typer.i18n import MODEL_NOTES, pretty_hotkey, tr
+from voice_typer.i18n import GROUP_LABELS, MODEL_NOTES, pretty_hotkey, tr
 from voice_typer.overlay import Overlay
 from voice_typer.tray import Tray
 
@@ -34,7 +34,7 @@ class Window:
 
         self.root = tk.Tk()
         self.root.title("Voice Typer")
-        self.root.geometry("860x620")
+        self.root.geometry("960x680")
         self.root.minsize(720, 560)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         style = ttk.Style(self.root)
@@ -141,10 +141,11 @@ class Window:
         cols = ("size", "speed", "accuracy", "status", "note")
         self.tree = ttk.Treeview(tab, columns=cols, show="tree headings", selectmode="browse")
         self.tree.heading("#0", text=self.t("col_model"))
-        self.tree.column("#0", width=150, stretch=False)
-        for col, key, width in [("size", "col_size", 70), ("speed", "col_speed", 80),
-                                ("accuracy", "col_accuracy", 80), ("status", "col_status", 115),
-                                ("note", "col_notes", 260)]:
+        self.tree.column("#0", width=230, stretch=False)
+        self.tree.tag_configure("group", font=("Segoe UI", 9, "bold"), background="#eef3fd")
+        for col, key, width in [("size", "col_size", 65), ("speed", "col_speed", 75),
+                                ("accuracy", "col_accuracy", 75), ("status", "col_status", 110),
+                                ("note", "col_notes", 300)]:
             self.tree.heading(col, text=self.t(key))
             self.tree.column(col, width=width, stretch=(col == "note"))
         self.tree.pack(fill="both", expand=True, padx=10, pady=(6, 4))
@@ -242,17 +243,25 @@ class Window:
         selected = self.tree.selection()
         self.tree.delete(*self.tree.get_children())
         active = self.engine.transcriber.source if self.engine.transcriber else None
-        for m in models.all_models(self.config.custom_models):
-            if m.source == self.engine.loading_source:
-                status = self.t("st_loading")
-            elif m.source == active:
-                status = self.t("st_in_use")
-            elif models.is_downloaded(m.source):
-                status = self.t("st_downloaded")
-            else:
-                status = self.t("st_not_downloaded")
-            self.tree.insert("", "end", iid=m.source, text=m.label,
-                             values=(m.size, m.speed, m.accuracy, status, self._note_for(m)))
+        all_m = models.all_models(self.config.custom_models)
+        labels = GROUP_LABELS.get(self.config.ui_language, GROUP_LABELS["en"])
+        for group in models.GROUPS:
+            members = [m for m in all_m if m.group == group]
+            if not members:
+                continue
+            gid = f"group:{group}"
+            self.tree.insert("", "end", iid=gid, text=labels[group], open=True, tags=("group",))
+            for m in members:
+                if m.source == self.engine.loading_source:
+                    status = self.t("st_loading")
+                elif m.source == active:
+                    status = self.t("st_in_use")
+                elif models.is_downloaded(m.source):
+                    status = self.t("st_downloaded")
+                else:
+                    status = self.t("st_not_downloaded")
+                self.tree.insert(gid, "end", iid=m.source, text=m.label,
+                                 values=(m.size, m.speed, m.accuracy, status, self._note_for(m)))
         keep = [s for s in selected if self.tree.exists(s)]
         if keep:
             self.tree.selection_set(keep)
@@ -314,7 +323,15 @@ class Window:
         if repo.count("/") != 1:
             messagebox.showerror(self.t("hf_invalid_title"), self.t("hf_invalid_msg"), parent=self.root)
             return
-        self._add_custom(repo.split("/")[1], repo)
+        try:
+            source = models.hf_source_for(repo)
+        except Exception as exc:  # noqa: BLE001 — offline, typo, private repo…
+            messagebox.showerror(self.t("hf_title"), self.t("hf_network", err=exc), parent=self.root)
+            return
+        if source is None:
+            messagebox.showerror(self.t("hf_title"), self.t("hf_not_ct2"), parent=self.root)
+            return
+        self._add_custom(repo.split("/")[1], source)
 
     def _remove_selected(self) -> None:
         m = self._selected()
