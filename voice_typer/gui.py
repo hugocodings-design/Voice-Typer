@@ -1,24 +1,60 @@
-"""Desktop window: status, shortcut, language, model manager and settings (tkinter)."""
+"""Desktop window: sidebar navigation + pages (Accueil, Dictionnaire, Langues, Modèles IA, Réglages)."""
 
+import datetime as dt
+import os
 import queue
 import threading
 import tkinter as tk
+import webbrowser
 from collections.abc import Callable
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 import keyboard
 
-from voice_typer import autostart, gpu, models
+from voice_typer import __version__, autostart, gpu, languages, models, ui_theme
 from voice_typer.app import Engine
+from voice_typer.config import SETTINGS_DIR, load_history, save_history
 from voice_typer.hotkey import validate as validate_hotkey
 from voice_typer.i18n import GROUP_LABELS, MODEL_NOTES, pretty_hotkey, tr
 from voice_typer.overlay import Overlay
+from voice_typer.recorder import Recorder, list_microphones
 from voice_typer.tray import Tray
 
-COLORS = {"ready": "#2e9d4f", "recording": "#d93025", "busy": "#e8a317", "error": "#9e9e9e"}
 UI_LANGUAGES = [("fr", "Français"), ("en", "English")]
+THEMES = ["system", "light", "dark"]
 PRESETS = ["f9", "right ctrl", "ctrl+windows", "ctrl+alt+space"]
+LANG_PRESETS = ["f8", "ctrl+alt+l", "ctrl+shift+l"]
+PAGES = [("home", "home"), ("dictionary", "dictionary"), ("languages", "language"),
+         ("models", "models"), ("settings", "settings")]
+
+
+class ScrollFrame(ttk.Frame):
+    """Vertically scrollable container (mouse wheel works anywhere over it)."""
+
+    def __init__(self, master, bg: str):
+        super().__init__(master)
+        self.canvas = tk.Canvas(self, highlightthickness=0, bg=bg, bd=0)
+        bar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.inner = ttk.Frame(self.canvas)
+        self.inner.bind("<Configure>", lambda _e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self._win = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(self._win, width=e.width))
+        self.canvas.configure(yscrollcommand=bar.set)
+        self.canvas.pack(side="left", fill="both", expand=True)
+        bar.pack(side="right", fill="y")
+        self.bind_all("<MouseWheel>", self._wheel, add="+")
+
+    def _wheel(self, event) -> None:
+        try:
+            widget = self.winfo_containing(event.x_root, event.y_root)
+        except (KeyError, tk.TclError):
+            return
+        while widget is not None:
+            if widget is self:
+                self.canvas.yview_scroll(int(-event.delta / 120), "units")
+                return
+            widget = widget.master
 
 
 class Window:
@@ -27,219 +63,632 @@ class Window:
         self.config = engine.config
         self._calls: queue.Queue[Callable[[], None]] = queue.Queue()
         self._status = ("status_starting", "busy", True, {})
-        self._last = None  # (key, kwargs) or raw text
+        self._last_info = None
         self._hint_shown = False
         self._rec_dialog: tk.Toplevel | None = None
         self._rec_token = 0
+        self._page = "home"
+        self.history: list[dict] = load_history()
+        self._cuda = gpu.cuda_available()
+        self._gpu_name = gpu.gpu_name() if self._cuda else None
+        self._mic_test: Recorder | None = None
 
         self.root = tk.Tk()
         self.root.title("Voice Typer")
-        self.root.geometry("960x680")
-        self.root.minsize(720, 560)
+        self.root.geometry("1060x740")
+        self.root.minsize(900, 640)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-        style = ttk.Style(self.root)
-        if "vista" in style.theme_names():
-            style.theme_use("vista")
-        style.configure("Treeview", rowheight=26)
-        style.configure("Key.TLabel", font=("Segoe UI", 16, "bold"), padding=(14, 6),
-                        background="#eef3fd", foreground="#174ea6")
-        style.configure("Hint.TLabel", foreground="#666")
-        style.configure("Status.TLabel", font=("Segoe UI", 12, "bold"))
-
-        self._cuda = gpu.cuda_available()
-        self._gpu_name = gpu.gpu_name() if self._cuda else None
+        self.fonts = ui_theme.Fonts(self.root)
         self.overlay = Overlay(self.root, lambda: self.engine.recorder.level)
-        self.tray: Tray | None = None
-        self._make_tray()
+        self.tray = Tray(self._tray_menu)
+        self.tray.start()
         self._build()
 
-    # ---- helpers ------------------------------------------------------------------------
+    # ================================================================== helpers
     def t(self, key: str, **kw) -> str:
         return tr(self.config.ui_language, key, **kw)
+
+    def lang_name(self, code: str | None) -> str:
+        return languages.name(code, self.config.ui_language)
 
     def call_soon(self, fn: Callable[[], None]) -> None:
         """Thread-safe: run fn on the tkinter thread."""
         self._calls.put(fn)
 
-    def _hotkey_label(self) -> str:
-        return pretty_hotkey(self.config.ui_language, self.config.hotkey)
+    def _hotkey_label(self, combo: str | None = None) -> str:
+        return pretty_hotkey(self.config.ui_language, combo if combo is not None else self.config.hotkey)
 
-    def _make_tray(self) -> None:
-        if self.tray:
-            self.tray.stop()
-        self.tray = Tray(
-            {"open": self.t("tray_open"), "quit": self.t("tray_quit")},
-            on_open=lambda: self.call_soon(self._show_window),
-            on_quit=lambda: self.call_soon(self._quit),
-        )
-        self.tray.start()
+    def _card(self, parent, title: str | None = None, subtitle: str | None = None, *,
+              col: int | None = None, wrap: int = 720, **pack) -> ttk.Frame:
+        outer = ttk.Frame(parent, style="Card.TFrame", padding=(18, 14))
+        if col is not None:  # equal-width columns inside a _columns() frame
+            outer.grid(row=0, column=col, sticky="nsew", padx=(0, 6) if col == 0 else (6, 0), pady=(0, 12))
+        else:
+            outer.pack(fill=pack.pop("fill", "x"), expand=pack.pop("expand", False),
+                       pady=pack.pop("pady", (0, 12)), **pack)
+        if title:
+            ttk.Label(outer, text=title, font=self.fonts.h2).pack(anchor="w")
+        if subtitle:
+            ttk.Label(outer, text=subtitle, style="Muted.TLabel", wraplength=wrap,
+                      justify="left").pack(anchor="w", pady=(2, 0))
+        if title or subtitle:
+            ttk.Frame(outer, height=10).pack()
+        return outer
 
-    # ---- layout -------------------------------------------------------------------------
+    @staticmethod
+    def _columns(parent, expand: bool = False) -> ttk.Frame:
+        row = ttk.Frame(parent)
+        row.pack(fill="both" if expand else "x", expand=expand)
+        row.columnconfigure(0, weight=1, uniform="cols")
+        row.columnconfigure(1, weight=1, uniform="cols")
+        row.rowconfigure(0, weight=1)
+        return row
+
+    def _keycaps(self, parent, combo: str) -> tk.Frame:
+        pal = self.pal
+        row = tk.Frame(parent, bg=pal["card"])
+        if not combo:
+            tk.Label(row, text=self.t("none"), font=self.fonts.body, bg=pal["card"], fg=pal["muted"]).pack()
+            return row
+        names = pretty_hotkey(self.config.ui_language, combo).split(" + ")
+        for i, n in enumerate(names):
+            if i:
+                tk.Label(row, text="+", font=self.fonts.body, bg=pal["card"], fg=pal["muted"]).pack(side="left", padx=4)
+            cap = tk.Label(row, text=n, font=self.fonts.key, bg=pal["key_bg"], fg=pal["text"], padx=12, pady=5,
+                           highlightthickness=1, highlightbackground=pal["key_border"])
+            cap.pack(side="left")
+        return row
+
+    def _menu(self) -> tk.Menu:
+        pal = self.pal
+        return tk.Menu(self.root, tearoff=False, bg=pal["card"], fg=pal["text"], activebackground=pal["accent"],
+                       activeforeground=pal["accent_fg"], bd=0, relief="flat", font=self.fonts.body)
+
+    @staticmethod
+    def _popup(menu: tk.Menu, event) -> None:
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    @staticmethod
+    def _tree_row_at(tree: ttk.Treeview, event) -> str | None:
+        iid = tree.identify_row(event.y)
+        if iid:
+            tree.selection_set(iid)
+            tree.focus(iid)
+        return iid or None
+
+    # ================================================================== layout
     def _build(self) -> None:
+        self._stop_mic_test()
         for child in self.root.winfo_children():
             if child is not self.overlay.top:
                 child.destroy()
+        self.mode, self.pal = ui_theme.apply(self.root, self.config.theme)
+        pal = self.pal
+        self.root.configure(bg=pal["bg"])
 
-        header = ttk.Frame(self.root)
-        header.pack(fill="x", padx=14, pady=(12, 4))
-        self.dot = tk.Canvas(header, width=18, height=18, highlightthickness=0)
-        self.dot.pack(side="left")
-        self.dot_id = self.dot.create_oval(2, 2, 16, 16, fill=COLORS["busy"], outline="")
-        self.status_var = tk.StringVar()
-        ttk.Label(header, textvariable=self.status_var, style="Status.TLabel").pack(side="left", padx=8)
-        self.progress = ttk.Progressbar(header, mode="indeterminate", length=140)
+        side = tk.Frame(self.root, bg=pal["sidebar"], width=230)
+        side.pack(side="left", fill="y")
+        side.pack_propagate(False)
+        brand = tk.Frame(side, bg=pal["sidebar"])
+        brand.pack(fill="x", padx=18, pady=(22, 18))
+        tk.Label(brand, text=ui_theme.ICONS["mic"], font=(self.fonts.icon[0], 18), bg=pal["sidebar"],
+                 fg=pal["accent"]).pack(side="left")
+        tk.Label(brand, text="Voice Typer", font=self.fonts.app, bg=pal["sidebar"], fg=pal["text"]).pack(
+            side="left", padx=10)
 
-        nb = ttk.Notebook(self.root)
-        nb.pack(fill="both", expand=True, padx=12, pady=(4, 12))
-        home, models_tab, settings = ttk.Frame(nb), ttk.Frame(nb), ttk.Frame(nb)
-        nb.add(home, text=f"  {self.t('tab_home')}  ")
-        nb.add(models_tab, text=f"  {self.t('tab_models')}  ")
-        nb.add(settings, text=f"  {self.t('tab_settings')}  ")
-        self._build_home(home)
-        self._build_models(models_tab)
-        self._build_settings(settings)
+        self.nav_items: dict[str, tuple] = {}
+        for key, icon in PAGES:
+            self._nav_item(side, key, icon)
 
+        foot = tk.Frame(side, bg=pal["sidebar"])
+        foot.pack(side="bottom", fill="x", padx=18, pady=16)
+        self.side_status_dot = tk.Canvas(foot, width=10, height=10, highlightthickness=0, bg=pal["sidebar"])
+        self.side_status_dot.pack(side="left")
+        self.side_dot_id = self.side_status_dot.create_oval(1, 1, 9, 9, fill=pal["busy"], outline="")
+        self.side_status = tk.Label(foot, text="", font=self.fonts.small, bg=pal["sidebar"], fg=pal["muted"],
+                                    anchor="w", justify="left")
+        self.side_status.pack(side="left", padx=8)
+
+        self.content = ttk.Frame(self.root, padding=(30, 24, 30, 18))
+        self.content.pack(side="left", fill="both", expand=True)
+        self.pages: dict[str, ttk.Frame] = {}
+        for key, _ in PAGES:
+            frame = ttk.Frame(self.content)
+            self.pages[key] = frame
+            getattr(self, f"_page_{key}")(frame)
+        self._show_page(self._page)
         self._render_status()
         self._render_last()
-        self._refresh_models()
+        self._render_home_language()
 
-    def _build_home(self, tab: ttk.Frame) -> None:
-        pad = {"padx": 10, "pady": 8}
+    def _nav_item(self, side, key: str, icon: str) -> None:
+        pal = self.pal
+        row = tk.Frame(side, bg=pal["sidebar"], cursor="hand2")
+        row.pack(fill="x", padx=10, pady=2)
+        bar = tk.Frame(row, bg=pal["sidebar"], width=3, height=20)
+        bar.pack(side="left", padx=(2, 8), pady=8)
+        ic = tk.Label(row, text=ui_theme.ICONS[icon], font=self.fonts.icon, bg=pal["sidebar"], fg=pal["text"])
+        ic.pack(side="left")
+        lbl = tk.Label(row, text=self.t(f"nav_{key}"), font=self.fonts.nav, bg=pal["sidebar"], fg=pal["text"])
+        lbl.pack(side="left", padx=12, pady=9)
+        widgets = (row, bar, ic, lbl)
+        self.nav_items[key] = widgets
 
-        sc = ttk.LabelFrame(tab, text=self.t("shortcut_title"))
-        sc.pack(fill="x", **pad)
-        row = ttk.Frame(sc)
-        row.pack(fill="x", padx=10, pady=(10, 4))
-        self.key_label = ttk.Label(row, text=self._hotkey_label(), style="Key.TLabel")
-        self.key_label.pack(side="left")
-        ttk.Button(row, text=self.t("shortcut_change"), command=self._record_hotkey).pack(side="left", padx=12)
+        def enter(_e):
+            if self._page != key:
+                for w in (row, ic, lbl):
+                    w.configure(bg=pal["hover"])
+                bar.configure(bg=pal["hover"])
+
+        def leave(_e):
+            self._paint_nav(key)
+
+        for w in widgets:
+            w.bind("<Button-1>", lambda _e, k=key: self._show_page(k))
+            w.bind("<Enter>", enter)
+            w.bind("<Leave>", leave)
+
+    def _paint_nav(self, key: str) -> None:
+        pal = self.pal
+        row, bar, ic, lbl = self.nav_items[key]
+        active = key == self._page
+        bg = pal["accent_soft"] if active else pal["sidebar"]
+        for w in (row, ic, lbl):
+            w.configure(bg=bg)
+        bar.configure(bg=pal["accent"] if active else bg)
+        lbl.configure(font=self.fonts.bold if active else self.fonts.nav)
+        ic.configure(fg=pal["accent"] if active else pal["text"])
+
+    def _show_page(self, key: str) -> None:
+        if key != "settings":
+            self._stop_mic_test()
+        self._page = key
+        for k, frame in self.pages.items():
+            frame.pack_forget()
+        self.pages[key].pack(fill="both", expand=True)
+        for k in self.nav_items:
+            self._paint_nav(k)
+        if key == "models":
+            self._refresh_models()
+
+    def _page_header(self, parent, key: str) -> None:
+        ttk.Label(parent, text=self.t(f"title_{key}"), font=self.fonts.h1).pack(anchor="w")
+        ttk.Label(parent, text=self.t(f"sub_{key}"), style="Muted.TLabel").pack(anchor="w", pady=(2, 18))
+
+    # ================================================================== page: home
+    def _page_home(self, page: ttk.Frame) -> None:
+        pal = self.pal
+        self._page_header(page, "home")
+
+        hero = self._card(page)
+        top = ttk.Frame(hero)
+        top.pack(fill="x")
+        self.dot = tk.Canvas(top, width=16, height=16, highlightthickness=0, bg=pal["card"])
+        self.dot.pack(side="left", padx=(0, 10))
+        self.dot_id = self.dot.create_oval(2, 2, 14, 14, fill=pal["busy"], outline="")
+        self.status_var = tk.StringVar()
+        ttk.Label(top, textvariable=self.status_var, font=self.fonts.status).pack(side="left")
+        self.progress = ttk.Progressbar(top, mode="indeterminate", length=160)
+        self.chips_var = tk.StringVar()
+        ttk.Label(hero, textvariable=self.chips_var, style="Muted.TLabel").pack(anchor="w", pady=(8, 0))
+        self.last_var = tk.StringVar()
+        ttk.Label(hero, textvariable=self.last_var, wraplength=720, justify="left").pack(anchor="w", pady=(6, 0))
+
+        row = self._columns(page)
+        lang = self._card(row, self.t("home_lang_title"), self.t("home_lang_sub"), col=0, wrap=330)
+        self.lang_buttons = ttk.Frame(lang)
+        self.lang_buttons.pack(anchor="w", fill="x")
+        ttk.Button(lang, text=self.t("manage_languages"), style="TButton",
+                   command=lambda: self._show_page("languages")).pack(anchor="w", pady=(10, 0))
+
+        sc = self._card(row, self.t("shortcut_title"), col=1)
+        caps_row = ttk.Frame(sc)
+        caps_row.pack(fill="x")
+        self._keycaps(caps_row, self.config.hotkey).pack(side="left")
+        ttk.Button(caps_row, text=self.t("change"), command=lambda: self._record_hotkey("main")).pack(
+            side="right")
         self.mode_var = tk.StringVar(value=self.config.mode)
         for value, key in (("hold", "mode_hold"), ("toggle", "mode_toggle")):
             ttk.Radiobutton(sc, text=self.t(key), value=value, variable=self.mode_var,
-                            command=self._on_mode).pack(anchor="w", padx=12, pady=2)
-        ttk.Frame(sc, height=6).pack()
+                            command=self._on_mode).pack(anchor="w", pady=(8 if value == "hold" else 2, 0))
 
-        lang = ttk.LabelFrame(tab, text=self.t("lang_title"))
-        lang.pack(fill="x", **pad)
-        self.lang_codes = [code for code, _ in models.LANGUAGES]
-        names = [self.t("lang_auto") if code is None else name for code, name in models.LANGUAGES]
-        self.lang_combo = ttk.Combobox(lang, state="readonly", width=30, values=names)
-        current = self.config.language if self.config.language in self.lang_codes else None
-        self.lang_combo.current(self.lang_codes.index(current))
-        self.lang_combo.bind("<<ComboboxSelected>>", self._on_language)
-        self.lang_combo.pack(anchor="w", padx=10, pady=(10, 2))
-        ttk.Label(lang, text=self.t("lang_hint"), style="Hint.TLabel").pack(anchor="w", padx=10, pady=(0, 10))
+        hist = self._card(page, self.t("history_title"), fill="both", expand=True)
+        wrap = ttk.Frame(hist)
+        wrap.pack(fill="both", expand=True)
+        self.hist_tree = ttk.Treeview(wrap, columns=("time", "lang", "text"), show="headings", height=5)
+        for col, key, width, stretch in (("time", "col_time", 110, False), ("lang", "col_lang", 70, False),
+                                         ("text", "col_text", 400, True)):
+            self.hist_tree.heading(col, text=self.t(key), anchor="w")
+            self.hist_tree.column(col, width=width, stretch=stretch, anchor="w")
+        sb = ttk.Scrollbar(wrap, orient="vertical", command=self.hist_tree.yview)
+        self.hist_tree.configure(yscrollcommand=sb.set)
+        self.hist_tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        self.hist_tree.bind("<Button-3>", self._history_menu)
+        self.hist_tree.bind("<Double-1>", lambda _e: self._history_copy())
+        self.hist_empty = ttk.Label(hist, style="Muted.TLabel")
+        self._refresh_history()
 
-        last = ttk.LabelFrame(tab, text=self.t("last_title"))
-        last.pack(fill="both", expand=True, **pad)
-        self.last_var = tk.StringVar()
-        ttk.Label(last, textvariable=self.last_var, wraplength=760, justify="left").pack(
-            anchor="w", padx=10, pady=10, fill="x"
-        )
-        ttk.Button(last, text=self.t("copy"), command=self._copy_last).pack(anchor="e", padx=10, pady=(0, 10))
+    def _render_home_language(self) -> None:
+        if not hasattr(self, "lang_buttons"):
+            return
+        for w in self.lang_buttons.winfo_children():
+            w.destroy()
+        options = [None] + [c for c in self.config.favorite_languages]
+        for code in options:
+            selected = code == self.config.language
+            ttk.Button(self.lang_buttons, text=("✓ " if selected else "") + self.lang_name(code),
+                       style="Accent.TButton" if selected else "TButton",
+                       command=lambda c=code: self.engine.set_language(c)).pack(side="left", padx=(0, 6), pady=2)
+        self._render_chips()
 
-    def _build_models(self, tab: ttk.Frame) -> None:
-        ttk.Label(tab, text=self.t("models_intro"), style="Hint.TLabel").pack(anchor="w", padx=12, pady=(10, 0))
+    def _render_chips(self) -> None:
+        if not hasattr(self, "chips_var"):
+            return
+        tr_ = self.engine.transcriber
+        parts = []
+        if tr_:
+            parts.append(f"{self.t('chip_model')} : {self._label_for(tr_.source)}")
+            parts.append(self.t("chip_gpu") if tr_.device == "cuda" else self.t("chip_cpu"))
+        parts.append(f"{self.t('chip_lang')} : {self.lang_name(self.config.language)}")
+        if self.config.vocabulary:
+            parts.append(self.t("chip_dict", n=len(self.config.vocabulary)))
+        self.chips_var.set("   ·   ".join(parts))
+
+    # ---- history
+    def _refresh_history(self) -> None:
+        if not hasattr(self, "hist_tree"):
+            return
+        self.hist_tree.delete(*self.hist_tree.get_children())
+        for i, item in enumerate(reversed(self.history)):
+            idx = len(self.history) - 1 - i
+            try:
+                when = dt.datetime.fromisoformat(item["time"]).strftime("%d/%m %H:%M")
+            except (KeyError, ValueError):
+                when = ""
+            self.hist_tree.insert("", "end", iid=str(idx),
+                                  values=(when, languages.short(item.get("lang")), item.get("text", "")))
+        if not self.history:
+            self.hist_empty.configure(text=self.t("history_empty") if self.config.history_enabled
+                                      else self.t("history_off"))
+            self.hist_empty.pack(anchor="w", pady=(8, 0))
+        else:
+            self.hist_empty.pack_forget()
+
+    def _history_selected(self) -> dict | None:
+        sel = self.hist_tree.selection()
+        if not sel:
+            return None
+        idx = int(sel[0])
+        return self.history[idx] if 0 <= idx < len(self.history) else None
+
+    def _history_copy(self) -> None:
+        item = self._history_selected()
+        if item:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(item.get("text", ""))
+
+    def _history_delete(self) -> None:
+        sel = self.hist_tree.selection()
+        if sel:
+            del self.history[int(sel[0])]
+            save_history(self.history)
+            self._refresh_history()
+
+    def _history_clear(self) -> None:
+        if self.history and messagebox.askyesno(self.t("history_clear"), self.t("history_clear_confirm"),
+                                                parent=self.root):
+            self.history = []
+            save_history(self.history)
+            self._refresh_history()
+
+    def _history_add_to_dict(self) -> None:
+        item = self._history_selected()
+        if item:
+            self._show_page("dictionary")
+            self.repl_from.delete(0, "end")
+            self.repl_from.insert(0, item.get("text", ""))
+            self.repl_to.focus_set()
+
+    def _history_menu(self, event) -> None:
+        if not self._tree_row_at(self.hist_tree, event):
+            return
+        m = self._menu()
+        m.add_command(label=self.t("copy"), command=self._history_copy)
+        m.add_command(label=self.t("hist_to_dict"), command=self._history_add_to_dict)
+        m.add_separator()
+        m.add_command(label=self.t("delete"), command=self._history_delete)
+        m.add_command(label=self.t("history_clear"), command=self._history_clear)
+        self._popup(m, event)
+
+    # ================================================================== page: dictionary
+    def _page_dictionary(self, page: ttk.Frame) -> None:
+        self._page_header(page, "dictionary")
+        cols = self._columns(page, expand=True)
+        left = self._card(cols, self.t("vocab_title"), self.t("vocab_sub"), col=0, wrap=330)
+        add = ttk.Frame(left)
+        add.pack(fill="x")
+        self.vocab_entry = ttk.Entry(add)
+        self.vocab_entry.pack(side="left", fill="x", expand=True)
+        self.vocab_entry.bind("<Return>", lambda _e: self._vocab_add())
+        ttk.Button(add, text=self.t("add"), style="Accent.TButton", command=self._vocab_add).pack(
+            side="left", padx=(8, 0))
+        self.vocab_tree = ttk.Treeview(left, columns=("term",), show="headings")
+        self.vocab_tree.heading("term", text=self.t("col_term"), anchor="w")
+        self.vocab_tree.pack(fill="both", expand=True, pady=(10, 0))
+        self.vocab_tree.bind("<Button-3>", self._vocab_menu)
+        self.vocab_tree.bind("<Delete>", lambda _e: self._vocab_delete())
+        self.vocab_tree.bind("<Double-1>", lambda _e: self._vocab_edit())
+
+        right = self._card(cols, self.t("repl_title"), self.t("repl_sub"), col=1, wrap=330)
+        form = ttk.Frame(right)
+        form.pack(fill="x")
+        form.columnconfigure(0, weight=1)
+        form.columnconfigure(2, weight=1)
+        ttk.Label(form, text=self.t("repl_from"), style="Muted.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(form, text=self.t("repl_to"), style="Muted.TLabel").grid(row=0, column=2, sticky="w")
+        self.repl_from = ttk.Entry(form)
+        self.repl_from.grid(row=1, column=0, sticky="ew")
+        ttk.Label(form, text="→").grid(row=1, column=1, padx=6)
+        self.repl_to = ttk.Entry(form)
+        self.repl_to.grid(row=1, column=2, sticky="ew")
+        self.repl_to.bind("<Return>", lambda _e: self._repl_add())
+        ttk.Button(form, text=self.t("add"), style="Accent.TButton", command=self._repl_add).grid(
+            row=1, column=3, padx=(8, 0))
+        self.repl_tree = ttk.Treeview(right, columns=("from", "to"), show="headings")
+        self.repl_tree.heading("from", text=self.t("repl_from"), anchor="w")
+        self.repl_tree.heading("to", text=self.t("repl_to"), anchor="w")
+        self.repl_tree.pack(fill="both", expand=True, pady=(10, 0))
+        self.repl_tree.bind("<Button-3>", self._repl_menu)
+        self.repl_tree.bind("<Delete>", lambda _e: self._repl_delete())
+        self.repl_tree.bind("<Double-1>", lambda _e: self._repl_edit())
+        ttk.Label(page, text=self.t("dict_tip"), style="Muted.TLabel", wraplength=740,
+                  justify="left").pack(anchor="w", pady=(4, 0))
+        self._refresh_dictionary()
+
+    def _refresh_dictionary(self) -> None:
+        self.vocab_tree.delete(*self.vocab_tree.get_children())
+        for i, term in enumerate(self.config.vocabulary):
+            self.vocab_tree.insert("", "end", iid=str(i), values=(term,))
+        self.repl_tree.delete(*self.repl_tree.get_children())
+        for i, rule in enumerate(self.config.replacements):
+            self.repl_tree.insert("", "end", iid=str(i), values=(rule.get("from", ""), rule.get("to", "")))
+        self._render_chips()
+
+    def _vocab_add(self) -> None:
+        term = self.vocab_entry.get().strip()
+        if term and term.lower() not in (t.lower() for t in self.config.vocabulary):
+            self.config.vocabulary.append(term)
+            self.config.save()
+            self._refresh_dictionary()
+        self.vocab_entry.delete(0, "end")
+
+    def _vocab_index(self) -> int | None:
+        sel = self.vocab_tree.selection()
+        return int(sel[0]) if sel else None
+
+    def _vocab_edit(self) -> None:
+        i = self._vocab_index()
+        if i is None:
+            return
+        new = simpledialog.askstring(self.t("edit"), self.t("col_term"), initialvalue=self.config.vocabulary[i],
+                                     parent=self.root)
+        if new and new.strip():
+            self.config.vocabulary[i] = new.strip()
+            self.config.save()
+            self._refresh_dictionary()
+
+    def _vocab_delete(self) -> None:
+        i = self._vocab_index()
+        if i is not None:
+            del self.config.vocabulary[i]
+            self.config.save()
+            self._refresh_dictionary()
+
+    def _vocab_menu(self, event) -> None:
+        if not self._tree_row_at(self.vocab_tree, event):
+            return
+        m = self._menu()
+        m.add_command(label=self.t("edit"), command=self._vocab_edit)
+        m.add_command(label=self.t("delete"), command=self._vocab_delete)
+        self._popup(m, event)
+
+    def _repl_add(self) -> None:
+        src, dst = self.repl_from.get().strip(), self.repl_to.get().strip()
+        if not src:
+            return
+        self.config.replacements = [r for r in self.config.replacements if r.get("from", "").lower() != src.lower()]
+        self.config.replacements.append({"from": src, "to": dst})
+        self.config.save()
+        self.repl_from.delete(0, "end")
+        self.repl_to.delete(0, "end")
+        self.repl_from.focus_set()
+        self._refresh_dictionary()
+
+    def _repl_index(self) -> int | None:
+        sel = self.repl_tree.selection()
+        return int(sel[0]) if sel else None
+
+    def _repl_edit(self) -> None:
+        i = self._repl_index()
+        if i is None:
+            return
+        rule = self.config.replacements.pop(i)
+        self.config.save()
+        self._refresh_dictionary()
+        self.repl_from.delete(0, "end")
+        self.repl_from.insert(0, rule.get("from", ""))
+        self.repl_to.delete(0, "end")
+        self.repl_to.insert(0, rule.get("to", ""))
+        self.repl_to.focus_set()
+
+    def _repl_delete(self) -> None:
+        i = self._repl_index()
+        if i is not None:
+            del self.config.replacements[i]
+            self.config.save()
+            self._refresh_dictionary()
+
+    def _repl_menu(self, event) -> None:
+        if not self._tree_row_at(self.repl_tree, event):
+            return
+        m = self._menu()
+        m.add_command(label=self.t("edit"), command=self._repl_edit)
+        m.add_command(label=self.t("delete"), command=self._repl_delete)
+        self._popup(m, event)
+
+    # ================================================================== page: languages
+    def _page_languages(self, page: ttk.Frame) -> None:
+        self._page_header(page, "languages")
+        top = ttk.Frame(page)
+        top.pack(fill="x")
+        hk = self._card(top, self.t("lang_hotkey_title"), self.t("lang_hotkey_sub"), side="left", fill="both",
+                        expand=True)
+        r = ttk.Frame(hk)
+        r.pack(fill="x")
+        self._keycaps(r, self.config.language_hotkey).pack(side="left")
+        if self.config.language_hotkey:
+            ttk.Button(r, text=self.t("disable"), command=lambda: self._set_lang_hotkey("")).pack(side="right")
+        ttk.Button(r, text=self.t("change"), command=lambda: self._record_hotkey("lang")).pack(
+            side="right", padx=6)
+
+        card = self._card(page, self.t("all_languages"), self.t("all_languages_sub"), fill="both", expand=True)
+        search_row = ttk.Frame(card)
+        search_row.pack(fill="x")
+        self.lang_search = tk.StringVar()
+        entry = ttk.Entry(search_row, textvariable=self.lang_search)
+        entry.pack(side="left", fill="x", expand=True)
+        ttk.Label(search_row, text=ui_theme.ICONS["language"], font=self.fonts.icon_small).pack(side="left", padx=8)
+        self.lang_search.trace_add("write", lambda *_: self._refresh_languages())
+        wrap = ttk.Frame(card)
+        wrap.pack(fill="both", expand=True, pady=(10, 0))
+        self.lang_tree = ttk.Treeview(wrap, columns=("fav", "name", "code", "active"), show="headings")
+        for col, key, width, stretch in (("fav", "col_fav", 60, False), ("name", "col_language", 260, True),
+                                         ("code", "col_code", 80, False), ("active", "col_active", 140, False)):
+            self.lang_tree.heading(col, text=self.t(key), anchor="w")
+            self.lang_tree.column(col, width=width, stretch=stretch, anchor="w")
+        sb = ttk.Scrollbar(wrap, orient="vertical", command=self.lang_tree.yview)
+        self.lang_tree.configure(yscrollcommand=sb.set)
+        self.lang_tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+        self.lang_tree.bind("<Button-3>", self._languages_menu)
+        self.lang_tree.bind("<Double-1>", lambda _e: self._toggle_favorite())
+        self._refresh_languages()
+
+    def _refresh_languages(self) -> None:
+        if not hasattr(self, "lang_tree"):
+            return
+        query = self.lang_search.get().strip().lower() if hasattr(self, "lang_search") else ""
+        favs = self.config.favorite_languages
+        rows = [(c, self.lang_name(c)) for c, _fr, _en in languages.LANGUAGES]
+        rows.sort(key=lambda r: (r[0] not in favs, favs.index(r[0]) if r[0] in favs else 0, r[1].lower()))
+        self.lang_tree.delete(*self.lang_tree.get_children())
+        auto_active = self.config.language is None
+        if not query or query in self.lang_name(None).lower():
+            self.lang_tree.insert("", "end", iid="__auto__",
+                                  values=("", self.lang_name(None), "auto", self.t("active") if auto_active else ""))
+        for code, nm in rows:
+            if query and query not in nm.lower() and query not in code:
+                continue
+            self.lang_tree.insert("", "end", iid=code, values=(
+                "★" if code in favs else "☆", nm, code, self.t("active") if code == self.config.language else ""))
+
+    def _selected_language(self) -> str | None | bool:
+        sel = self.lang_tree.selection()
+        if not sel:
+            return False
+        return None if sel[0] == "__auto__" else sel[0]
+
+    def _toggle_favorite(self, code=False) -> None:
+        if code is False:
+            code = self._selected_language()
+        if code is False or code is None:
+            return
+        favs = self.config.favorite_languages
+        if code in favs:
+            favs.remove(code)
+        else:
+            favs.append(code)
+        self.config.save()
+        self._after_languages_changed()
+
+    def _move_favorite(self, code: str, delta: int) -> None:
+        favs = self.config.favorite_languages
+        i = favs.index(code)
+        j = max(0, min(len(favs) - 1, i + delta))
+        favs.insert(j, favs.pop(i))
+        self.config.save()
+        self._after_languages_changed()
+
+    def _after_languages_changed(self) -> None:
+        sel = self.lang_tree.selection()
+        self._refresh_languages()
+        if sel and self.lang_tree.exists(sel[0]):
+            self.lang_tree.selection_set(sel[0])
+            self.lang_tree.see(sel[0])
+        self._render_home_language()
+        self.tray.refresh()
+
+    def _languages_menu(self, event) -> None:
+        if not self._tree_row_at(self.lang_tree, event):
+            return
+        code = self._selected_language()
+        favs = self.config.favorite_languages
+        m = self._menu()
+        m.add_command(label=self.t("use_now"), command=lambda: self.engine.set_language(code))
+        if code is not None:
+            m.add_separator()
+            if code in favs:
+                m.add_command(label=self.t("fav_remove"), command=lambda: self._toggle_favorite(code))
+                m.add_command(label=self.t("move_up"), command=lambda: self._move_favorite(code, -1),
+                              state="normal" if favs.index(code) > 0 else "disabled")
+                m.add_command(label=self.t("move_down"), command=lambda: self._move_favorite(code, 1),
+                              state="normal" if favs.index(code) < len(favs) - 1 else "disabled")
+            else:
+                m.add_command(label=self.t("fav_add"), command=lambda: self._toggle_favorite(code))
+        self._popup(m, event)
+
+    # ================================================================== page: models
+    def _page_models(self, page: ttk.Frame) -> None:
+        self._page_header(page, "models")
+        card = self._card(page, fill="both", expand=True)
+        wrap = ttk.Frame(card)
+        wrap.pack(fill="both", expand=True)
         cols = ("size", "speed", "accuracy", "status", "note")
-        self.tree = ttk.Treeview(tab, columns=cols, show="tree headings", selectmode="browse")
-        self.tree.heading("#0", text=self.t("col_model"))
-        self.tree.column("#0", width=230, stretch=False)
-        self.tree.tag_configure("group", font=("Segoe UI", 9, "bold"), background="#eef3fd")
-        for col, key, width in [("size", "col_size", 65), ("speed", "col_speed", 75),
-                                ("accuracy", "col_accuracy", 75), ("status", "col_status", 110),
-                                ("note", "col_notes", 300)]:
-            self.tree.heading(col, text=self.t(key))
-            self.tree.column(col, width=width, stretch=(col == "note"))
-        self.tree.pack(fill="both", expand=True, padx=10, pady=(6, 4))
+        self.tree = ttk.Treeview(wrap, columns=cols, show="tree headings", selectmode="browse")
+        self.tree.heading("#0", text=self.t("col_model"), anchor="w")
+        self.tree.column("#0", width=250, minwidth=200, stretch=False)
+        self.tree.tag_configure("group", font=self.fonts.bold, background=self.pal["group_bg"])
+        for col, key, width in [("size", "col_size", 62), ("speed", "col_speed", 76),
+                                ("accuracy", "col_accuracy", 76), ("status", "col_status", 112),
+                                ("note", "col_notes", 120)]:
+            self.tree.heading(col, text=self.t(key), anchor="w")
+            self.tree.column(col, width=width, stretch=(col == "note"), anchor="w")
+        sb = ttk.Scrollbar(wrap, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=sb.set)
+        self.tree.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
         self.tree.bind("<Double-1>", lambda _e: self._use_selected())
-        self.tree.bind("<<TreeviewSelect>>", lambda _e: self._update_buttons())
+        self.tree.bind("<<TreeviewSelect>>", lambda _e: (self._update_buttons(), self._render_model_detail()))
+        self.tree.bind("<Button-3>", self._models_menu)
 
-        buttons = ttk.Frame(tab)
-        buttons.pack(fill="x", padx=10, pady=(4, 10))
-        self.use_btn = ttk.Button(buttons, text=self.t("btn_use"), command=self._use_selected)
+        self.model_detail = tk.StringVar()
+        ttk.Label(card, textvariable=self.model_detail, style="Muted.TLabel", wraplength=720,
+                  justify="left").pack(anchor="w", pady=(10, 0))
+        buttons = ttk.Frame(card)
+        buttons.pack(fill="x", pady=(10, 0))
+        self.use_btn = ttk.Button(buttons, text=self.t("btn_use"), style="Accent.TButton",
+                                  command=self._use_selected)
         self.use_btn.pack(side="left")
         ttk.Button(buttons, text=self.t("btn_import_folder"), command=self._import_folder).pack(side="left", padx=6)
         ttk.Button(buttons, text=self.t("btn_import_hf"), command=self._import_hf).pack(side="left")
-        self.remove_btn = ttk.Button(buttons, text=self.t("btn_remove"), command=self._remove_selected)
-        self.remove_btn.pack(side="right")
+        self.disk_var = tk.StringVar()
+        ttk.Label(buttons, textvariable=self.disk_var, style="Muted.TLabel").pack(side="right")
+        ttk.Label(page, text=self.t("models_tip"), style="Muted.TLabel").pack(anchor="w")
 
-    def _build_settings(self, tab: ttk.Frame) -> None:
-        pad = {"padx": 10, "pady": 8}
-        gen = ttk.LabelFrame(tab, text=self.t("set_general"))
-        gen.pack(fill="x", **pad)
-        self.autostart_var = tk.BooleanVar(value=autostart.is_enabled())
-        ttk.Checkbutton(gen, text=self.t("set_autostart"), variable=self.autostart_var,
-                        command=self._on_autostart).pack(anchor="w", padx=10, pady=(10, 4))
-        self.overlay_var = tk.BooleanVar(value=self.config.overlay)
-        ttk.Checkbutton(gen, text=self.t("set_overlay"), variable=self.overlay_var,
-                        command=self._on_overlay).pack(anchor="w", padx=10, pady=(4, 10))
-
-        acc = ttk.LabelFrame(tab, text=self.t("set_accel"))
-        acc.pack(fill="x", **pad)
-        self.device_var = tk.StringVar(value=self.config.device)
-        for value, key in (("auto", "accel_auto"), ("cuda", "accel_cuda"), ("cpu", "accel_cpu")):
-            ttk.Radiobutton(acc, text=self.t(key), value=value, variable=self.device_var,
-                            command=self._on_device).pack(anchor="w", padx=10, pady=(6 if value == "auto" else 2, 2))
-        self.accel_var = tk.StringVar()
-        ttk.Label(acc, textvariable=self.accel_var, style="Hint.TLabel").pack(anchor="w", padx=10, pady=(4, 10))
-        self._render_accel()
-
-        out = ttk.LabelFrame(tab, text=self.t("set_output"))
-        out.pack(fill="x", **pad)
-        self.output_var = tk.StringVar(value=self.config.output)
-        for value, key in (("paste", "out_paste"), ("type", "out_type")):
-            ttk.Radiobutton(out, text=self.t(key), value=value, variable=self.output_var,
-                            command=self._on_output).pack(anchor="w", padx=10, pady=4)
-
-        ui = ttk.LabelFrame(tab, text=self.t("set_ui_lang"))
-        ui.pack(fill="x", **pad)
-        self.ui_combo = ttk.Combobox(ui, state="readonly", width=20, values=[n for _, n in UI_LANGUAGES])
-        codes = [c for c, _ in UI_LANGUAGES]
-        self.ui_combo.current(codes.index(self.config.ui_language) if self.config.ui_language in codes else 0)
-        self.ui_combo.bind("<<ComboboxSelected>>", self._on_ui_language)
-        self.ui_combo.pack(anchor="w", padx=10, pady=10)
-
-        ttk.Button(tab, text=self.t("btn_quit"), command=self._quit).pack(anchor="e", padx=12, pady=12)
-
-    # ---- status / last dictation ----------------------------------------------------------
-    def _set_status(self, key: str, color: str, busy: bool = False, **kw) -> None:
-        self._status = (key, color, busy, kw)
-        self._render_status()
-
-    def _set_ready(self) -> None:
-        key = "status_ready_toggle" if self.config.mode == "toggle" else "status_ready_hold"
-        self._set_status(key, "ready")
-
-    def _render_status(self) -> None:
-        key, color, busy, kw = self._status
-        self.status_var.set(self.t(key, **{**kw, "hotkey": self._hotkey_label()}))
-        self.dot.itemconfigure(self.dot_id, fill=COLORS[color])
-        if busy:
-            self.progress.pack(side="right")
-            self.progress.start(12)
-        else:
-            self.progress.stop()
-            self.progress.pack_forget()
-
-    def _set_last(self, value) -> None:
-        self._last = value
-        self._render_last()
-
-    def _render_last(self) -> None:
-        if self._last is None:
-            self.last_var.set(self.t("last_empty", hotkey=self._hotkey_label()))
-        elif isinstance(self._last, tuple):
-            key, kw = self._last
-            self.last_var.set(self.t(key, **kw))
-        else:
-            self.last_var.set(self._last)
-
-    def _copy_last(self) -> None:
-        text = self.last_var.get()
-        self.root.clipboard_clear()
-        self.root.clipboard_append(text.split(")  ", 1)[-1] if text.startswith("(") else text)
-
-    # ---- models ---------------------------------------------------------------------------
     def _label_for(self, source: str) -> str:
         for m in models.all_models(self.config.custom_models):
             if m.source == source:
@@ -252,11 +701,14 @@ class Window:
         return MODEL_NOTES.get(self.config.ui_language, MODEL_NOTES["en"]).get(m.source, m.note)
 
     def _refresh_models(self) -> None:
+        if not hasattr(self, "tree"):
+            return
         selected = self.tree.selection()
         self.tree.delete(*self.tree.get_children())
         active = self.engine.transcriber.source if self.engine.transcriber else None
         all_m = models.all_models(self.config.custom_models)
         labels = GROUP_LABELS.get(self.config.ui_language, GROUP_LABELS["en"])
+        total = 0
         for group in models.GROUPS:
             members = [m for m in all_m if m.group == group]
             if not members:
@@ -264,22 +716,31 @@ class Window:
             gid = f"group:{group}"
             self.tree.insert("", "end", iid=gid, text=labels[group], open=True, tags=("group",))
             for m in members:
+                downloaded = models.is_downloaded(m.source)
+                if downloaded and not models.is_local_folder(m.source):
+                    total += models.disk_size(m.source)
                 if m.source == self.engine.loading_source:
                     status = self.t("st_loading")
                 elif m.source == active:
                     status = self.t("st_in_use")
-                elif models.is_downloaded(m.source):
+                elif downloaded:
                     status = self.t("st_downloaded")
                 else:
                     status = self.t("st_not_downloaded")
                 self.tree.insert(gid, "end", iid=m.source, text=m.label,
                                  values=(m.size, m.speed, m.accuracy, status, self._note_for(m)))
+        self.disk_var.set(self.t("disk_used", size=models.human_size(total)))
         keep = [s for s in selected if self.tree.exists(s)]
         if keep:
             self.tree.selection_set(keep)
         elif active and self.tree.exists(active):
             self.tree.selection_set(active)
         self._update_buttons()
+        self._render_model_detail()
+
+    def _render_model_detail(self) -> None:
+        m = self._selected()
+        self.model_detail.set(f"{m.label} — {self._note_for(m)}   ({m.source})" if m else "")
 
     def _selected(self) -> models.ModelInfo | None:
         sel = self.tree.selection()
@@ -292,10 +753,9 @@ class Window:
         active = self.engine.transcriber.source if self.engine.transcriber else None
         busy = self.engine.loading_source is not None
         self.use_btn.state(["!disabled"] if m and not busy and m.source != active else ["disabled"])
-        self.remove_btn.state(["!disabled"] if m and m.custom and m.source != active else ["disabled"])
 
-    def _use_selected(self) -> None:
-        m = self._selected()
+    def _use_selected(self, m: models.ModelInfo | None = None) -> None:
+        m = m or self._selected()
         if m is None or self.engine.loading_source is not None:
             return
         if not models.is_downloaded(m.source):
@@ -304,6 +764,74 @@ class Window:
                                        parent=self.root):
                 return
         self.engine.load_model(m.source)
+
+    def _download_only(self, m: models.ModelInfo) -> None:
+        size = f" ({m.size})" if m.size else ""
+        if not messagebox.askyesno(self.t("dl_title"), self.t("dl_only_msg", name=m.label, size=size),
+                                   parent=self.root):
+            return
+        self._set_status("status_downloading", "busy", busy=True, name=m.label)
+
+        def work():
+            try:
+                models.resolve(m.source)
+                self.call_soon(lambda: (self._set_last(self.t("downloaded_msg", name=m.label)),
+                                        self._refresh_models(), self._set_ready()))
+            except Exception as exc:  # noqa: BLE001
+                err = str(exc)
+                self.call_soon(lambda: (self._set_ready(), messagebox.showerror(
+                    self.t("model_error_title"), self.t("model_error_msg", name=m.label, err=err),
+                    parent=self.root)))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _delete_model_files(self, m: models.ModelInfo) -> None:
+        size = models.human_size(models.disk_size(m.source))
+        if not messagebox.askyesno(self.t("delete_files_title"), self.t("delete_files_msg", name=m.label, size=size),
+                                   icon="warning", parent=self.root):
+            return
+        try:
+            models.delete_files(m.source)
+        except OSError as exc:
+            messagebox.showerror(self.t("delete_files_title"), str(exc), parent=self.root)
+        self._refresh_models()
+
+    def _open_model_folder(self, m: models.ModelInfo) -> None:
+        try:
+            os.startfile(models.resolve(m.source, local_only=True))  # noqa: S606
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _models_menu(self, event) -> None:
+        iid = self._tree_row_at(self.tree, event)
+        m = self._selected() if iid else None
+        if m is None:
+            return
+        active = self.engine.transcriber.source if self.engine.transcriber else None
+        downloaded = models.is_downloaded(m.source)
+        busy = self.engine.loading_source is not None
+        menu = self._menu()
+        menu.add_command(label=self.t("btn_use"), command=lambda: self._use_selected(m),
+                         state="disabled" if m.source == active or busy else "normal")
+        if not downloaded:
+            menu.add_command(label=self.t("download_only"), command=lambda: self._download_only(m))
+        menu.add_separator()
+        if downloaded:
+            menu.add_command(label=self.t("open_folder"), command=lambda: self._open_model_folder(m))
+        url = models.hf_url(m.source)
+        if url:
+            menu.add_command(label=self.t("open_hf"), command=lambda: webbrowser.open(url))
+        menu.add_command(label=self.t("copy_id"), command=lambda: (self.root.clipboard_clear(),
+                                                                  self.root.clipboard_append(m.source)))
+        if (downloaded and not models.is_local_folder(m.source)) or m.custom:
+            menu.add_separator()
+        if downloaded and not models.is_local_folder(m.source):
+            menu.add_command(label=self.t("delete_files"), command=lambda: self._delete_model_files(m),
+                             state="disabled" if m.source == active else "normal")
+        if m.custom:
+            menu.add_command(label=self.t("btn_remove"), command=lambda: self._remove_custom(m),
+                             state="disabled" if m.source == active else "normal")
+        self._popup(menu, event)
 
     def _add_custom(self, label: str, source: str) -> None:
         if any(m.source == source for m in models.all_models(self.config.custom_models)):
@@ -345,34 +873,103 @@ class Window:
             return
         self._add_custom(repo.split("/")[1], source)
 
-    def _remove_selected(self) -> None:
-        m = self._selected()
-        if m is None or not m.custom:
-            return
+    def _remove_custom(self, m: models.ModelInfo) -> None:
         if not messagebox.askyesno(self.t("remove_title"), self.t("remove_msg", name=m.label), parent=self.root):
             return
         self.config.custom_models = [c for c in self.config.custom_models if c["source"] != m.source]
         self.config.save()
         self._refresh_models()
 
-    # ---- settings -------------------------------------------------------------------------
-    def _on_language(self, _event=None) -> None:
-        self.config.language = self.lang_codes[self.lang_combo.current()]
-        self.config.save()
+    # ================================================================== page: settings
+    def _page_settings(self, page: ttk.Frame) -> None:
+        self._page_header(page, "settings")
+        scroll = ScrollFrame(page, self.pal["bg"])
+        scroll.pack(fill="both", expand=True)
+        body = scroll.inner
+        inner_pad = {"padx": (0, 14)}
 
-    def _on_mode(self) -> None:
-        self.config.mode = self.mode_var.get()
-        self.config.save()
-        if not self.engine.recorder.is_recording and self._status[1] == "ready":
-            self._set_ready()
+        # Appearance
+        c = self._card(body, self.t("set_appearance"), **inner_pad)
+        grid = ttk.Frame(c)
+        grid.pack(fill="x")
+        ttk.Label(grid, text=self.t("set_theme")).grid(row=0, column=0, sticky="w", pady=4)
+        self.theme_combo = ttk.Combobox(grid, state="readonly", width=22,
+                                        values=[self.t(f"theme_{k}") for k in THEMES])
+        self.theme_combo.current(THEMES.index(self.config.theme) if self.config.theme in THEMES else 0)
+        self.theme_combo.bind("<<ComboboxSelected>>", self._on_theme)
+        self.theme_combo.grid(row=0, column=1, sticky="w", padx=16, pady=4)
+        ttk.Label(grid, text=self.t("set_ui_lang")).grid(row=1, column=0, sticky="w", pady=4)
+        self.ui_combo = ttk.Combobox(grid, state="readonly", width=22, values=[n for _, n in UI_LANGUAGES])
+        codes = [c_ for c_, _ in UI_LANGUAGES]
+        self.ui_combo.current(codes.index(self.config.ui_language) if self.config.ui_language in codes else 0)
+        self.ui_combo.bind("<<ComboboxSelected>>", self._on_ui_language)
+        self.ui_combo.grid(row=1, column=1, sticky="w", padx=16, pady=4)
+        self.overlay_var = tk.BooleanVar(value=self.config.overlay)
+        ttk.Checkbutton(c, text=self.t("set_overlay"), style="Switch.TCheckbutton", variable=self.overlay_var,
+                        command=self._on_overlay).pack(anchor="w", pady=(10, 0))
 
-    def _on_overlay(self) -> None:
-        self.config.overlay = self.overlay_var.get()
-        self.config.save()
-        if not self.config.overlay:
-            self.overlay.hide()
+        # Microphone
+        c = self._card(body, self.t("set_mic"), self.t("set_mic_sub"), **inner_pad)
+        row = ttk.Frame(c)
+        row.pack(fill="x")
+        self._mics = [None] + list_microphones()
+        names = [self.t("mic_default")] + self._mics[1:]
+        self.mic_combo = ttk.Combobox(row, state="readonly", width=48, values=names)
+        cur = self.config.input_device if self.config.input_device in self._mics else None
+        self.mic_combo.current(self._mics.index(cur))
+        self.mic_combo.bind("<<ComboboxSelected>>", self._on_mic)
+        self.mic_combo.pack(side="left")
+        self.mic_test_btn = ttk.Button(row, text=self.t("mic_test"), command=self._toggle_mic_test)
+        self.mic_test_btn.pack(side="left", padx=10)
+        self.mic_level = ttk.Progressbar(c, mode="determinate", maximum=100, length=360)
+        self.mic_level.pack(anchor="w", pady=(10, 0))
+        self.sounds_var = tk.BooleanVar(value=self.config.sounds)
+        ttk.Checkbutton(c, text=self.t("set_sounds"), style="Switch.TCheckbutton", variable=self.sounds_var,
+                        command=self._on_sounds).pack(anchor="w", pady=(10, 0))
+
+        # Output
+        c = self._card(body, self.t("set_output"), **inner_pad)
+        self.output_var = tk.StringVar(value=self.config.output)
+        for value, key in (("paste", "out_paste"), ("type", "out_type")):
+            ttk.Radiobutton(c, text=self.t(key), value=value, variable=self.output_var,
+                            command=self._on_output).pack(anchor="w", pady=2)
+        self.space_var = tk.BooleanVar(value=self.config.trailing_space)
+        ttk.Checkbutton(c, text=self.t("set_trailing_space"), style="Switch.TCheckbutton", variable=self.space_var,
+                        command=self._on_space).pack(anchor="w", pady=(10, 0))
+
+        # Acceleration
+        c = self._card(body, self.t("set_accel"), **inner_pad)
+        self.device_var = tk.StringVar(value=self.config.device)
+        for value, key in (("auto", "accel_auto"), ("cuda", "accel_cuda"), ("cpu", "accel_cpu")):
+            ttk.Radiobutton(c, text=self.t(key), value=value, variable=self.device_var,
+                            command=self._on_device).pack(anchor="w", pady=2)
+        self.accel_var = tk.StringVar()
+        ttk.Label(c, textvariable=self.accel_var, style="Muted.TLabel").pack(anchor="w", pady=(8, 0))
+        self._render_accel()
+
+        # Startup & history
+        c = self._card(body, self.t("set_startup"), **inner_pad)
+        self.autostart_var = tk.BooleanVar(value=autostart.is_enabled())
+        ttk.Checkbutton(c, text=self.t("set_autostart"), style="Switch.TCheckbutton", variable=self.autostart_var,
+                        command=self._on_autostart).pack(anchor="w", pady=2)
+        self.history_var = tk.BooleanVar(value=self.config.history_enabled)
+        ttk.Checkbutton(c, text=self.t("set_history"), style="Switch.TCheckbutton", variable=self.history_var,
+                        command=self._on_history).pack(anchor="w", pady=(8, 2))
+        ttk.Button(c, text=self.t("history_clear"), command=self._history_clear).pack(anchor="w", pady=(8, 0))
+
+        # Folders & about
+        c = self._card(body, self.t("set_about"), **inner_pad)
+        ttk.Label(c, text=self.t("about_text", version=__version__), style="Muted.TLabel").pack(anchor="w")
+        row = ttk.Frame(c)
+        row.pack(fill="x", pady=(10, 0))
+        ttk.Button(row, text=self.t("open_models_dir"), command=self._open_models_dir).pack(side="left")
+        ttk.Button(row, text=self.t("open_settings_dir"),
+                   command=lambda: os.startfile(SETTINGS_DIR)).pack(side="left", padx=6)  # noqa: S606
+        ttk.Button(row, text=self.t("btn_quit"), command=self._quit).pack(side="right")
 
     def _render_accel(self) -> None:
+        if not hasattr(self, "accel_var"):
+            return
         tr_ = self.engine.transcriber
         if tr_ is not None and tr_.device == "cuda":
             self.accel_var.set(self.t("accel_now_gpu", name=self._gpu_name or "NVIDIA"))
@@ -382,16 +979,83 @@ class Window:
         else:
             self.accel_var.set("")
 
+    def _on_theme(self, _e=None) -> None:
+        self.config.theme = THEMES[self.theme_combo.current()]
+        self.config.save()
+        self._build()
+
+    def _on_ui_language(self, _e=None) -> None:
+        self.config.ui_language = UI_LANGUAGES[self.ui_combo.current()][0]
+        self.config.save()
+        self.tray.refresh()
+        self._build()
+
+    def _on_overlay(self) -> None:
+        self.config.overlay = self.overlay_var.get()
+        self.config.save()
+        if not self.config.overlay:
+            self.overlay.hide()
+
+    def _on_mic(self, _e=None) -> None:
+        self.config.input_device = self._mics[self.mic_combo.current()]
+        self.config.save()
+        if self._mic_test:
+            self._stop_mic_test()
+            self._toggle_mic_test()
+
+    def _toggle_mic_test(self) -> None:
+        if self._mic_test:
+            self._stop_mic_test()
+            return
+        rec = Recorder(self.config.sample_rate)
+        rec.device_name = self.config.input_device
+        try:
+            rec.start()
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror(self.t("set_mic"), str(exc), parent=self.root)
+            return
+        self._mic_test = rec
+        self.mic_test_btn.configure(text=self.t("mic_stop"))
+        self._mic_tick()
+
+    def _mic_tick(self) -> None:
+        if not self._mic_test:
+            return
+        try:
+            self.mic_level["value"] = min(100, self._mic_test.level * 1200)
+        except tk.TclError:
+            self._stop_mic_test()
+            return
+        self.root.after(60, self._mic_tick)
+
+    def _stop_mic_test(self) -> None:
+        if self._mic_test:
+            self._mic_test.stop()
+            self._mic_test = None
+        try:
+            self.mic_level["value"] = 0
+            self.mic_test_btn.configure(text=self.t("mic_test"))
+        except (AttributeError, tk.TclError):
+            pass
+
+    def _on_sounds(self) -> None:
+        self.config.sounds = self.sounds_var.get()
+        self.config.save()
+
+    def _on_output(self) -> None:
+        self.config.output = self.output_var.get()
+        self.config.save()
+
+    def _on_space(self) -> None:
+        self.config.trailing_space = self.space_var.get()
+        self.config.save()
+
     def _on_device(self) -> None:
         if self.device_var.get() == self.config.device:
             return
         self.config.device = self.device_var.get()
         self.config.save()
         self.engine.reload_model()
-
-    def _on_output(self) -> None:
-        self.config.output = self.output_var.get()
-        self.config.save()
 
     def _on_autostart(self) -> None:
         try:
@@ -400,35 +1064,92 @@ class Window:
             self.autostart_var.set(autostart.is_enabled())
             messagebox.showerror("Voice Typer", str(exc), parent=self.root)
 
-    def _on_ui_language(self, _event=None) -> None:
-        self.config.ui_language = UI_LANGUAGES[self.ui_combo.current()][0]
+    def _on_history(self) -> None:
+        self.config.history_enabled = self.history_var.get()
         self.config.save()
-        self._make_tray()
+        self._refresh_history()
+
+    def _on_mode(self) -> None:
+        self.config.mode = self.mode_var.get()
+        self.config.save()
+        if not self.engine.recorder.is_recording and self._status[1] == "ok":
+            self._set_ready()
+
+    def _open_models_dir(self) -> None:
+        from huggingface_hub import constants
+
+        Path(constants.HF_HUB_CACHE).mkdir(parents=True, exist_ok=True)
+        os.startfile(constants.HF_HUB_CACHE)  # noqa: S606
+
+    # ================================================================== status
+    def _set_status(self, key: str, color: str, busy: bool = False, **kw) -> None:
+        self._status = (key, color, busy, kw)
+        self._render_status()
+
+    def _set_ready(self) -> None:
+        key = "status_ready_toggle" if self.config.mode == "toggle" else "status_ready_hold"
+        self._set_status(key, "ok")
+
+    def _render_status(self) -> None:
+        key, color, busy, kw = self._status
+        text = self.t(key, **{**kw, "hotkey": self._hotkey_label()})
+        self.status_var.set(text)
+        self.dot.itemconfigure(self.dot_id, fill=self.pal[color])
+        self.side_status_dot.itemconfigure(self.side_dot_id, fill=self.pal[color])
+        self.side_status.configure(text=self.t(f"side_{color}"))
+        if busy:
+            self.progress.pack(side="right")
+            self.progress.start(12)
+        else:
+            self.progress.stop()
+            self.progress.pack_forget()
+        self._render_chips()
+
+    def _set_last(self, value) -> None:
+        self._last_info = value
+        self._render_last()
+
+    def _render_last(self) -> None:
+        if self._last_info is None:
+            self.last_var.set(self.t("last_empty", hotkey=self._hotkey_label()))
+        elif isinstance(self._last_info, tuple):
+            key, kw = self._last_info
+            self.last_var.set(self.t(key, **kw))
+        else:
+            self.last_var.set(self._last_info)
+
+    # ================================================================== shortcut recording
+    def _set_lang_hotkey(self, combo: str) -> None:
+        self.engine.set_language_hotkey(combo)
         self._build()
 
-    # ---- shortcut recording ---------------------------------------------------------------
-    def _record_hotkey(self) -> None:
+    def _record_hotkey(self, target: str) -> None:
         if self._rec_dialog is not None:
             return
+        self._rec_target = target
         self.engine.pause_hotkey()
         dlg = self._rec_dialog = tk.Toplevel(self.root)
         dlg.title(self.t("rec_title"))
         dlg.transient(self.root)
         dlg.resizable(False, False)
+        dlg.configure(bg=self.pal["bg"])
         dlg.protocol("WM_DELETE_WINDOW", self._close_recorder)
-        ttk.Label(dlg, text=self.t("rec_prompt"), justify="center").pack(padx=24, pady=(18, 8))
-        ttk.Label(dlg, text=self.t("rec_waiting"), style="Key.TLabel").pack(padx=24, pady=8)
-        ttk.Label(dlg, text=self.t("rec_presets"), style="Hint.TLabel").pack(pady=(10, 4))
-        row = ttk.Frame(dlg)
-        row.pack(padx=16, pady=(0, 8))
-        for combo in PRESETS:
+        box = ttk.Frame(dlg, padding=24)
+        box.pack()
+        ttk.Label(box, text=self.t("rec_prompt"), justify="center").pack(pady=(0, 10))
+        ttk.Label(box, text=self.t("rec_waiting"), font=self.fonts.status).pack(pady=8)
+        ttk.Label(box, text=self.t("rec_presets"), style="Muted.TLabel").pack(pady=(12, 6))
+        row = ttk.Frame(box)
+        row.pack(pady=(0, 10))
+        for combo in (PRESETS if target == "main" else LANG_PRESETS):
             ttk.Button(row, text=pretty_hotkey(self.config.ui_language, combo),
                        command=lambda c=combo: self._apply_hotkey(c)).pack(side="left", padx=4)
-        ttk.Button(dlg, text=self.t("rec_cancel"), command=self._close_recorder).pack(pady=(4, 16))
+        ttk.Button(box, text=self.t("cancel"), command=self._close_recorder).pack(pady=(6, 0))
         dlg.update_idletasks()
         x = self.root.winfo_rootx() + (self.root.winfo_width() - dlg.winfo_reqwidth()) // 2
         y = self.root.winfo_rooty() + (self.root.winfo_height() - dlg.winfo_reqheight()) // 3
         dlg.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+        ui_theme._dark_title_bar(dlg, self.mode == "dark")  # noqa: SLF001
         dlg.grab_set()
         dlg.focus_force()
         self._listen_for_hotkey()
@@ -453,8 +1174,11 @@ class Window:
             self._close_recorder()
             return
         error = validate_hotkey(combo)
+        other = self.config.language_hotkey if self._rec_target == "main" else self.config.hotkey
+        if not error and other and combo.strip().lower() == other:
+            error = "same"
         if error:
-            key = "rec_err_unknown" if error == "unknown" else "rec_err_single"
+            key = {"unknown": "rec_err_unknown", "same": "rec_err_same"}.get(error, "rec_err_single")
             messagebox.showerror(self.t("rec_err_title"),
                                  self.t(key, combo=pretty_hotkey(self.config.ui_language, combo)),
                                  parent=self._rec_dialog)
@@ -463,11 +1187,13 @@ class Window:
         self._apply_hotkey(combo)
 
     def _apply_hotkey(self, combo: str) -> None:
-        self.engine.set_hotkey(combo)
+        target = self._rec_target
         self._close_recorder()
-        self.key_label.configure(text=self._hotkey_label())
-        self._render_status()
-        self._render_last()
+        if target == "main":
+            self.engine.set_hotkey(combo)
+        else:
+            self.engine.set_language_hotkey(combo)
+        self._build()
 
     def _close_recorder(self) -> None:
         self._rec_token += 1
@@ -477,7 +1203,23 @@ class Window:
             self._rec_dialog = None
         self.engine.resume_hotkey()
 
-    # ---- engine events --------------------------------------------------------------------
+    # ================================================================== tray
+    def _tray_menu(self, pystray):
+        def lang_item(code):
+            return pystray.MenuItem(
+                self.lang_name(code),
+                lambda: self.call_soon(lambda: self.engine.set_language(code)),
+                checked=lambda _item: self.config.language == code, radio=True)
+
+        lang_items = [lang_item(None)] + [lang_item(c) for c in self.config.favorite_languages]
+        return pystray.Menu(
+            pystray.MenuItem(self.t("tray_open"), lambda: self.call_soon(self._show_window), default=True),
+            pystray.MenuItem(self.t("tray_language"), pystray.Menu(*lang_items)),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem(self.t("tray_quit"), lambda: self.call_soon(self._quit)),
+        )
+
+    # ================================================================== engine events
     def _poll(self) -> None:
         while True:
             try:
@@ -491,6 +1233,9 @@ class Window:
                 break
             self._handle(kind, payload)
         self.root.after(60, self._poll)
+
+    def _overlay_lang(self) -> str:
+        return languages.short(self.config.language)
 
     def _handle(self, kind: str, payload) -> None:
         if kind == "model_loading":
@@ -516,48 +1261,58 @@ class Window:
             if self.engine.transcriber:
                 self._set_ready()
             else:
-                self._set_status("status_no_model", "error")
+                self._set_status("status_no_model", "off")
             messagebox.showerror(self.t("model_error_title"),
                                  self.t("model_error_msg", name=self._label_for(source), err=err),
                                  parent=self.root)
         elif kind == "recording":
             key = "status_recording_toggle" if self.config.mode == "toggle" else "status_recording_hold"
-            self._set_status(key, "recording")
+            self._set_status(key, "rec")
             if self.config.overlay:
-                self.overlay.show("recording", self.t("overlay_listening"))
-            if self.tray:
-                self.tray.set_recording(True)
+                self.overlay.show("recording", f"{self.t('overlay_listening')}  {self._overlay_lang()}")
+            self.tray.set_recording(True)
         elif kind == "transcribing":
             self._set_status("status_transcribing", "busy", busy=True)
             if self.config.overlay:
                 self.overlay.show("transcribing", self.t("overlay_transcribing"))
-            if self.tray:
-                self.tray.set_recording(False)
+            self.tray.set_recording(False)
         elif kind == "transcript":
-            text, seconds = payload
+            text, seconds, lang = payload
             self._set_ready()
             self.overlay.hide()
-            self._set_last(f"({seconds:.1f} s)  {text}" if text else ("nothing_heard", {}))
+            self._set_last(f"« {text} »  ({seconds:.1f} s)" if text else ("nothing_heard", {}))
+            if text and self.config.history_enabled:
+                self.history.append({"time": dt.datetime.now().isoformat(timespec="seconds"),
+                                     "text": text, "lang": lang, "secs": round(seconds, 2)})
+                self.history = self.history[-200:]
+                save_history(self.history)
+                self._refresh_history()
         elif kind == "idle":
             self._set_ready()
             self.overlay.hide()
-            if self.tray:
-                self.tray.set_recording(False)
+            self.tray.set_recording(False)
             if payload == "too_short":
                 self._set_last(("too_short", {}))
             elif payload:
                 self._set_last(str(payload))
         elif kind == "status" and payload == "no_model":
             self._set_last(("no_model", {}))
+        elif kind == "language_changed":
+            self._render_home_language()
+            self._refresh_languages()
+            self.tray.refresh()
+            if self.config.overlay:
+                self.overlay.flash(f"{self.t('lang_now')} {self.lang_name(payload)}")
 
-    # ---- window lifecycle -----------------------------------------------------------------
+    # ================================================================== window lifecycle
     def _show_window(self) -> None:
         self.root.deiconify()
         self.root.lift()
         self.root.focus_force()
 
     def _on_close(self) -> None:
-        if self.tray and self.tray.available:
+        self._stop_mic_test()
+        if self.tray.available:
             self.root.withdraw()
             if not self._hint_shown:
                 self._hint_shown = True
@@ -566,13 +1321,13 @@ class Window:
             self._quit()
 
     def _quit(self) -> None:
+        self._stop_mic_test()
         self.engine.stop()
-        if self.tray:
-            self.tray.stop()
+        self.tray.stop()
         self.root.destroy()
 
     def run(self, start_hidden: bool = False) -> None:
-        if start_hidden and self.tray and self.tray.available:
+        if start_hidden and self.tray.available:
             self.root.withdraw()
         self.engine.start()
         self.root.after(60, self._poll)

@@ -19,6 +19,7 @@ BG = "#202124"
 FG = "#f1f3f4"
 RED = "#ea4335"
 AMBER = "#fbbc04"
+BLUE = "#5b9cff"
 BARS = 14
 
 
@@ -65,9 +66,19 @@ class Overlay:
         except Exception:  # noqa: BLE001 — cosmetic only
             pass
 
+    def flash(self, label: str, ms: int = 1300) -> None:
+        """Briefly show an info message (e.g. the new language), unless dictation is in progress."""
+        if self.state not in ("hidden", "info"):
+            return
+        self.show("info", label)
+        self._flash_id = getattr(self, "_flash_id", 0) + 1
+        fid = self._flash_id
+        self.root.after(ms, lambda: self.hide() if self.state == "info" and self._flash_id == fid else None)
+
     def show(self, state: str, label: str) -> None:
         self.canvas.itemconfigure(self.text, text=label)
-        self.canvas.itemconfigure(self.dot, fill=RED if state == "recording" else AMBER)
+        color = {"recording": RED, "info": BLUE}.get(state, AMBER)
+        self.canvas.itemconfigure(self.dot, fill=color)
         for b in self.bars:
             self.canvas.itemconfigure(b, state="normal" if state == "recording" else "hidden")
         if self.state == "hidden":
@@ -96,7 +107,7 @@ class Overlay:
                 self.canvas.coords(b, x0 + i * 7, r - h, x0 + i * 7 + 4, r + h)
             pulse = RED if (self._tick // 8) % 2 == 0 else "#b3261e"
             self.canvas.itemconfigure(self.dot, fill=pulse)
-        else:
+        elif self.state == "transcribing":
             pulse = AMBER if (self._tick // 5) % 2 == 0 else "#c99400"
             self.canvas.itemconfigure(self.dot, fill=pulse)
         self.root.after(50, self._animate)

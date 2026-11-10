@@ -9,10 +9,10 @@ import sys
 import threading
 import time
 
-from voice_typer import models
+from voice_typer import dictionary, models
 from voice_typer.config import Config
 from voice_typer.hotkey import Hotkey
-from voice_typer.output import send_text
+from voice_typer.output import beep, send_text
 from voice_typer.recorder import Recorder
 from voice_typer.transcriber import Transcriber
 
@@ -28,6 +28,9 @@ class Engine:
         self.loading_source: str | None = None
         self.recorder = Recorder(config.sample_rate)
         self.hotkey = Hotkey(config.hotkey, self._on_down, self._on_up)
+        self.lang_hotkey: Hotkey | None = None
+        if config.language_hotkey:
+            self.lang_hotkey = Hotkey(config.language_hotkey, self.cycle_language, lambda: None)
         self._record_started = 0.0
 
     def _emit(self, kind: str, payload: object = None) -> None:
@@ -74,11 +77,40 @@ class Engine:
         self.config.hotkey = self.hotkey.combo
         self.config.save()
 
+    def set_language_hotkey(self, combo: str) -> None:
+        if self.lang_hotkey:
+            self.lang_hotkey.stop()
+            self.lang_hotkey = None
+        self.config.language_hotkey = combo
+        if combo:
+            self.lang_hotkey = Hotkey(combo, self.cycle_language, lambda: None)
+            self.config.language_hotkey = self.lang_hotkey.combo
+            self.lang_hotkey.start()
+        self.config.save()
+
     def pause_hotkey(self) -> None:
         self.hotkey.stop()
+        if self.lang_hotkey:
+            self.lang_hotkey.stop()
 
     def resume_hotkey(self) -> None:
         self.hotkey.start()
+        if self.lang_hotkey:
+            self.lang_hotkey.start()
+
+    # ---- language -----------------------------------------------------------------------
+    def set_language(self, code: str | None) -> None:
+        self.config.language = code
+        self.config.save()
+        self._emit("language_changed", code)
+
+    def cycle_language(self) -> None:
+        favs = [c for c in self.config.favorite_languages if c]
+        if not favs:
+            return
+        cur = self.config.language
+        nxt = favs[(favs.index(cur) + 1) % len(favs)] if cur in favs else favs[0]
+        self.set_language(nxt)
 
     def _on_down(self) -> None:
         if self.config.mode == "toggle" and self.recorder.is_recording:
@@ -96,7 +128,14 @@ class Engine:
             return
         if self.recorder.is_recording:
             return
-        self.recorder.start()
+        self.recorder.device_name = self.config.input_device
+        try:
+            self.recorder.start()
+        except Exception as exc:  # noqa: BLE001 — no microphone, device busy…
+            self._emit("idle", f"Micro : {exc}")
+            return
+        if self.config.sounds:
+            beep(True)
         self._record_started = time.monotonic()
         self._emit("recording")
         if self.config.mode == "toggle":
@@ -111,6 +150,8 @@ class Engine:
         if not self.recorder.is_recording:
             return
         audio = self.recorder.stop()
+        if self.config.sounds:
+            beep(False)
         if audio.size < MIN_SECONDS * self.config.sample_rate:
             self._emit("idle", "too_short")
             return
@@ -129,21 +170,23 @@ class Engine:
         self._emit("transcribing")
         try:
             started = time.perf_counter()
-            text = transcriber.transcribe(audio, self.config.language)
+            language = self.config.language
+            text = transcriber.transcribe(audio, language, dictionary.hotwords(self.config.vocabulary))
+            text = dictionary.apply_replacements(text, self.config.replacements)
             elapsed = time.perf_counter() - started
             self._wait_modifiers_released()
-            send_text(text, self.config.output)
-            self._emit("transcript", (text, elapsed))
+            send_text(text, self.config.output, self.config.trailing_space)
+            self._emit("transcript", (text, elapsed, language))
         except Exception as exc:  # noqa: BLE001
             self._emit("idle", f"Error: {exc}")
 
     # ---- lifecycle ----------------------------------------------------------------------
     def start(self) -> None:
-        self.hotkey.start()
+        self.resume_hotkey()
         self.load_model(self.config.model)
 
     def stop(self) -> None:
-        self.hotkey.stop()
+        self.pause_hotkey()
         if self.recorder.is_recording:
             self.recorder.stop()
 

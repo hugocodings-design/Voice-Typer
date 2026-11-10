@@ -10,7 +10,7 @@ except Exception:  # noqa: BLE001
     pystray = None
 
 
-def _icon_image(color: str = "#1a73e8") -> Image.Image:
+def _icon_image(color: str = "#2563eb") -> Image.Image:
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.ellipse((2, 2, 62, 62), fill=color)
@@ -22,15 +22,14 @@ def _icon_image(color: str = "#1a73e8") -> Image.Image:
 
 
 class Tray:
-    def __init__(self, labels: dict[str, str], on_open: Callable[[], None], on_quit: Callable[[], None]):
+    """`build_menu(pystray)` returns the menu; call refresh() when its content changes."""
+
+    def __init__(self, build_menu: Callable):
         self.icon = None
+        self._build_menu = build_menu
         if pystray is None:
             return
-        menu = pystray.Menu(
-            pystray.MenuItem(labels["open"], lambda: on_open(), default=True),
-            pystray.MenuItem(labels["quit"], lambda: on_quit()),
-        )
-        self.icon = pystray.Icon("VoiceTyper", _icon_image(), "Voice Typer", menu)
+        self.icon = pystray.Icon("VoiceTyper", _icon_image(), "Voice Typer", build_menu(pystray))
 
     @property
     def available(self) -> bool:
@@ -40,9 +39,17 @@ class Tray:
         if self.icon:
             self.icon.run_detached()
 
+    def refresh(self) -> None:
+        if self.icon:
+            self.icon.menu = self._build_menu(pystray)
+            try:
+                self.icon.update_menu()
+            except Exception:  # noqa: BLE001
+                pass
+
     def set_recording(self, recording: bool) -> None:
         if self.icon:
-            self.icon.icon = _icon_image("#d93025" if recording else "#1a73e8")
+            self.icon.icon = _icon_image("#d93025" if recording else "#2563eb")
 
     def notify(self, message: str) -> None:
         if self.icon:
@@ -53,4 +60,7 @@ class Tray:
 
     def stop(self) -> None:
         if self.icon:
-            self.icon.stop()
+            try:
+                self.icon.stop()
+            except Exception:  # noqa: BLE001
+                pass

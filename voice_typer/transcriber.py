@@ -27,7 +27,8 @@ class Transcriber:
         self.model = WhisperModel(path, device="cpu", compute_type=cpu_compute)
         self.device = "cpu"
 
-    def transcribe(self, audio: np.ndarray, language: str | None = None) -> str:
+    def transcribe(self, audio: np.ndarray, language: str | None = None,
+                   hotwords: str | None = None) -> str:
         if audio.size == 0:
             return ""
         segments, _info = self.model.transcribe(
@@ -35,5 +36,6 @@ class Transcriber:
             language=language,
             beam_size=5,
             vad_filter=True,
+            hotwords=hotwords,
         )
         return " ".join(seg.text.strip() for seg in segments).strip()

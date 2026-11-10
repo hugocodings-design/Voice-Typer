@@ -5,10 +5,43 @@ import threading
 import numpy as np
 import sounddevice as sd
 
+_DIRECTSOUND = "Windows DirectSound"
+
+
+def list_microphones() -> list[str]:
+    """Input devices with their full names (DirectSound; MME truncates names to 31 chars)."""
+    try:
+        apis = sd.query_hostapis()
+        ds = next((i for i, a in enumerate(apis) if a["name"] == _DIRECTSOUND), None)
+        names = []
+        for d in sd.query_devices():
+            if d["max_input_channels"] > 0 and (ds is None or d["hostapi"] == ds):
+                if d["name"] not in names and "Pilote de capture" not in d["name"] \
+                        and "Primary Sound Capture" not in d["name"]:
+                    names.append(d["name"])
+        return names
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _device_index(name: str | None) -> int | None:
+    if not name:
+        return None
+    try:
+        apis = sd.query_hostapis()
+        ds = next((i for i, a in enumerate(apis) if a["name"] == _DIRECTSOUND), None)
+        for i, d in enumerate(sd.query_devices()):
+            if d["name"] == name and d["max_input_channels"] > 0 and (ds is None or d["hostapi"] == ds):
+                return i
+    except Exception:  # noqa: BLE001
+        pass
+    return None  # unplugged → Windows default
+
 
 class Recorder:
     def __init__(self, sample_rate: int = 16_000):
         self.sample_rate = sample_rate
+        self.device_name: str | None = None
         self._chunks: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._stream: sd.InputStream | None = None
@@ -29,9 +62,13 @@ class Recorder:
             return
         with self._lock:
             self._chunks = []
-        self._stream = sd.InputStream(
-            samplerate=self.sample_rate, channels=1, dtype="float32", callback=self._callback
-        )
+        device = _device_index(self.device_name)
+        try:
+            self._stream = sd.InputStream(samplerate=self.sample_rate, channels=1, dtype="float32",
+                                          callback=self._callback, device=device)
+        except Exception:  # noqa: BLE001 — chosen mic failed: use the Windows default
+            self._stream = sd.InputStream(samplerate=self.sample_rate, channels=1, dtype="float32",
+                                          callback=self._callback)
         self._stream.start()
 
     def stop(self) -> np.ndarray:

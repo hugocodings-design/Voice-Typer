@@ -25,6 +25,11 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - `run.pyw` — console-less entry used by `Start Voice Typer.bat` and autostart (`--minimized` starts in the tray)
 - Single instance enforced with a named mutex (two instances would type everything twice)
 - `voice_typer/gpu.py` — adds `site-packages/nvidia/*/bin` (cuBLAS 12 from `nvidia-cublas-cu12`) to the DLL search path; must run before CTranslate2 uses CUDA (done at `transcriber.py` import). `Transcriber` tries CUDA float16 with a warm-up, falls back to CPU int8 and reports `gpu_error`
+- `voice_typer/gui.py` — sidebar + pages (home, dictionary, languages, models, settings); `_build()` rebuilds everything (theme/UI-language change). `ui_theme.py` = sv-ttk + palettes + Segoe Fluent icon glyphs
+- `voice_typer/dictionary.py` — vocabulary → faster-whisper `hotwords`; replacements = case-insensitive whole-phrase regex after transcription
+- `voice_typer/languages.py` — all Whisper languages (FR/EN names); favorites in `config.favorite_languages`, cycled by `config.language_hotkey`
+- History lives in `%APPDATA%\VoiceTyper\history.json` (separate from settings)
+- Microphones are listed/opened through the DirectSound host API (MME truncates names)
 - Dev machine: RTX 2080 Super 8 GB — GPU makes large models ~20× faster than CPU
 - `voice_typer/recorder.py`, `transcriber.py`, `output.py`, `hotkey.py` — one concern each
 

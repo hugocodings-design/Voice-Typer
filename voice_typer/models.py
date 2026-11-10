@@ -53,31 +53,6 @@ CATALOG: list[ModelInfo] = [
     ModelInfo("distil-large-v3.5", "English Distil Large v3.5", "en", "1.5 GB", "★★★☆☆", "★★★★★"),
 ]
 
-# Most-used languages first; Whisper supports ~100 in total.
-LANGUAGES: list[tuple[str | None, str]] = [
-    (None, "Auto"),  # label replaced by the UI language
-    ("fr", "Français"),
-    ("en", "English"),
-    ("es", "Español"),
-    ("de", "Deutsch"),
-    ("it", "Italiano"),
-    ("pt", "Português"),
-    ("nl", "Nederlands"),
-    ("ar", "العربية (Arabic)"),
-    ("zh", "中文 (Chinese)"),
-    ("ja", "日本語 (Japanese)"),
-    ("ko", "한국어 (Korean)"),
-    ("ru", "Русский (Russian)"),
-    ("pl", "Polski"),
-    ("tr", "Türkçe"),
-    ("hi", "हिन्दी (Hindi)"),
-    ("uk", "Українська (Ukrainian)"),
-    ("sv", "Svenska"),
-    ("vi", "Tiếng Việt"),
-    ("he", "עברית (Hebrew)"),
-]
-
-
 def all_models(custom: list[dict]) -> list[ModelInfo]:
     extra = [ModelInfo(c["source"], c["label"], "custom", custom=True) for c in custom]
     return CATALOG + extra
@@ -117,6 +92,62 @@ def hf_source_for(repo: str) -> str | None:
         if f.endswith("/model.bin") and f.count("/") == 1:
             return f"{repo}#{f.split('/')[0]}"
     return None
+
+
+def repo_of(source: str) -> str | None:
+    """Hugging Face repo id behind a source (None for local folders)."""
+    if is_local_folder(source):
+        return None
+    if "#" in source:
+        return source.split("#", 1)[0]
+    if "/" in source:
+        return source
+    from faster_whisper.utils import _MODELS
+
+    return _MODELS.get(source)
+
+
+def hf_url(source: str) -> str | None:
+    repo = repo_of(source)
+    return f"https://huggingface.co/{repo}" if repo else None
+
+
+def _cache_dir(source: str) -> Path | None:
+    repo = repo_of(source)
+    if not repo:
+        return None
+    from huggingface_hub import constants
+
+    return Path(constants.HF_HUB_CACHE) / ("models--" + repo.replace("/", "--"))
+
+
+def disk_size(source: str) -> int:
+    """Bytes used on disk by a downloaded model (0 if not downloaded)."""
+    folder = Path(source) if is_local_folder(source) else _cache_dir(source)
+    if not folder or not folder.exists():
+        return 0
+    # The HF cache stores real files in blobs/ (snapshots/ only holds links).
+    target = folder / "blobs" if (folder / "blobs").exists() else folder
+    return sum(f.stat().st_size for f in target.rglob("*") if f.is_file())
+
+
+def delete_files(source: str) -> bool:
+    """Delete a downloaded model from the Hugging Face cache. Never deletes a user's own folder."""
+    import shutil
+
+    folder = _cache_dir(source)
+    if folder is None or not folder.exists():
+        return False
+    shutil.rmtree(folder)
+    return True
+
+
+def human_size(n: int) -> str:
+    if n >= 1e9:
+        return f"{n / 1e9:.1f} GB"
+    if n >= 1e6:
+        return f"{n / 1e6:.0f} MB"
+    return f"{n / 1e3:.0f} KB" if n else "0"
 
 
 def missing_model_files(folder: str) -> str | None:
