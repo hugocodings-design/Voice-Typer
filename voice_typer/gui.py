@@ -12,9 +12,10 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 import keyboard
 
-from voice_typer import __version__, autostart, gpu, languages, models, ui_theme
+from voice_typer import __version__, autostart, gpu, languages, models, ui_theme, writer
 from voice_typer.app import Engine
 from voice_typer.config import SETTINGS_DIR, load_history, save_history
+from voice_typer.hotkey import normalize as normalize_hotkey
 from voice_typer.hotkey import validate as validate_hotkey
 from voice_typer.i18n import GROUP_LABELS, MODEL_NOTES, pretty_hotkey, tr
 from voice_typer.overlay import Overlay
@@ -26,7 +27,8 @@ THEMES = ["system", "light", "dark"]
 PRESETS = ["f9", "right ctrl", "ctrl+windows", "ctrl+alt+space"]
 LANG_PRESETS = ["f8", "ctrl+alt+l", "ctrl+shift+l"]
 PAGES = [("home", "home"), ("dictionary", "dictionary"), ("languages", "language"),
-         ("models", "models"), ("settings", "settings")]
+         ("models", "models"), ("writing", "writing"), ("settings", "settings")]
+WRITING_PRESET_KEYS = ["f2", "f3", "f4", "f6", "f7", "ctrl+alt+e"]
 
 
 class ScrollFrame(ttk.Frame):
@@ -294,6 +296,12 @@ class Window:
         for value, key in (("hold", "mode_hold"), ("toggle", "mode_toggle")):
             ttk.Radiobutton(sc, text=self.t(key), value=value, variable=self.mode_var,
                             command=self._on_mode).pack(anchor="w", pady=(8 if value == "hold" else 2, 0))
+        self.home_presets_var = tk.StringVar()
+        presets_lbl = ttk.Label(sc, textvariable=self.home_presets_var, style="Muted.TLabel", wraplength=330,
+                                justify="left", cursor="hand2")
+        presets_lbl.pack(anchor="w", pady=(8, 0))
+        presets_lbl.bind("<Button-1>", lambda _e: self._show_page("writing"))
+        self._render_home_presets()
 
         hist = self._card(page, self.t("history_title"), fill="both", expand=True)
         wrap = ttk.Frame(hist)
@@ -349,8 +357,11 @@ class Window:
                 when = dt.datetime.fromisoformat(item["time"]).strftime("%d/%m %H:%M")
             except (KeyError, ValueError):
                 when = ""
+            text = item.get("text", "").replace("\n", "  ")
+            if item.get("preset"):
+                text = f"✎ {item['preset']} — {text}"
             self.hist_tree.insert("", "end", iid=str(idx),
-                                  values=(when, languages.short(item.get("lang")), item.get("text", "")))
+                                  values=(when, languages.short(item.get("lang")), text))
         if not self.history:
             self.hist_empty.configure(text=self.t("history_empty") if self.config.history_enabled
                                       else self.t("history_off"))
@@ -398,6 +409,10 @@ class Window:
             return
         m = self._menu()
         m.add_command(label=self.t("copy"), command=self._history_copy)
+        raw = (self._history_selected() or {}).get("raw")
+        if raw:
+            m.add_command(label=self.t("hist_copy_raw"),
+                          command=lambda: (self.root.clipboard_clear(), self.root.clipboard_append(raw)))
         m.add_command(label=self.t("hist_to_dict"), command=self._history_add_to_dict)
         m.add_separator()
         m.add_command(label=self.t("delete"), command=self._history_delete)
@@ -1081,6 +1096,318 @@ class Window:
         Path(constants.HF_HUB_CACHE).mkdir(parents=True, exist_ok=True)
         os.startfile(constants.HF_HUB_CACHE)  # noqa: S606
 
+    # ================================================================== page: AI writing
+    def _text_box(self, parent, height: int, text: str = "") -> tk.Text:
+        pal = self.pal
+        box = tk.Text(parent, height=height, wrap="word", font=self.fonts.body, bg=pal["key_bg"], fg=pal["text"],
+                      insertbackground=pal["text"], relief="flat", padx=10, pady=8, highlightthickness=1,
+                      highlightbackground=pal["key_border"], highlightcolor=pal["accent"], undo=True)
+        box.insert("1.0", text)
+        return box
+
+    def _page_writing(self, page: ttk.Frame) -> None:
+        self._page_header(page, "writing")
+        scroll = ScrollFrame(page, self.pal["bg"])
+        scroll.pack(fill="both", expand=True)
+        body = scroll.inner
+        pad = {"padx": (0, 14)}
+
+        # --- model
+        c = self._card(body, self.t("wr_model_title"), self.t("wr_model_sub"), **pad)
+        row = ttk.Frame(c)
+        row.pack(fill="x")
+        ui = self.config.ui_language
+        self._llms = list(writer.LLM_CATALOG)
+        if self.config.writing_model not in [m.source for m in self._llms]:
+            self._llms.append(writer.LlmInfo(self.config.writing_model, self.config.writing_model, "?", "", ""))
+        self.llm_combo = ttk.Combobox(row, state="readonly", width=50, values=[
+            f"{m.label}  ·  {m.size}  ·  {m.note_fr if ui == 'fr' else m.note_en}" for m in self._llms])
+        self.llm_combo.current([m.source for m in self._llms].index(self.config.writing_model))
+        self.llm_combo.bind("<<ComboboxSelected>>", self._on_llm_selected)
+        self.llm_combo.pack(side="left")
+        self.llm_btn = ttk.Button(row, text=self.t("wr_load"), style="Accent.TButton", command=self._llm_load)
+        self.llm_btn.pack(side="left", padx=(10, 0))
+        ttk.Button(row, text=self.t("wr_unload"), command=self.engine.unload_writer).pack(side="left", padx=(6, 0))
+        self.llm_status = tk.StringVar()
+        ttk.Label(c, textvariable=self.llm_status, style="Muted.TLabel").pack(anchor="w", pady=(8, 0))
+        self.preload_var = tk.BooleanVar(value=self.config.writer_preload)
+        ttk.Checkbutton(c, text=self.t("wr_keep_loaded"), style="Switch.TCheckbutton", variable=self.preload_var,
+                        command=self._on_preload).pack(anchor="w", pady=(8, 0))
+        self._render_llm_status()
+
+        # --- presets: list + editor
+        c = self._card(body, self.t("wr_presets_title"), self.t("wr_presets_sub"), **pad)
+        split = ttk.Frame(c)
+        split.pack(fill="x")
+        left = ttk.Frame(split)
+        left.pack(side="left", fill="y")
+        self.preset_tree = ttk.Treeview(left, columns=("name", "key"), show="headings", height=7,
+                                        selectmode="browse")
+        self.preset_tree.heading("name", text=self.t("wr_col_name"), anchor="w")
+        self.preset_tree.heading("key", text=self.t("wr_col_key"), anchor="w")
+        self.preset_tree.column("name", width=190, anchor="w")
+        self.preset_tree.column("key", width=110, anchor="w")
+        self.preset_tree.pack(fill="y", expand=True)
+        self.preset_tree.bind("<<TreeviewSelect>>", self._on_preset_select)
+        self.preset_tree.bind("<Button-3>", self._preset_menu)
+        btns = ttk.Frame(left)
+        btns.pack(fill="x", pady=(8, 0))
+        ttk.Button(btns, text=self.t("wr_new"), command=self._preset_new).pack(side="left")
+        ttk.Button(btns, text=self.t("wr_duplicate"), command=self._preset_duplicate).pack(side="left", padx=6)
+        ttk.Button(btns, text=self.t("delete"), command=self._preset_delete).pack(side="left")
+
+        ed = ttk.Frame(split)
+        ed.pack(side="left", fill="both", expand=True, padx=(18, 0))
+        ttk.Label(ed, text=self.t("wr_name")).pack(anchor="w")
+        self.preset_name = ttk.Entry(ed)
+        self.preset_name.pack(fill="x", pady=(2, 10))
+        ttk.Label(ed, text=self.t("wr_hotkey")).pack(anchor="w")
+        self.preset_key_row = ttk.Frame(ed)
+        self.preset_key_row.pack(fill="x", pady=(4, 10))
+        ttk.Label(ed, text=self.t("wr_instructions")).pack(anchor="w")
+        ttk.Label(ed, text=self.t("wr_instructions_hint"), style="Muted.TLabel", wraplength=380,
+                  justify="left").pack(anchor="w")
+        self.preset_text = self._text_box(ed, 9)
+        self.preset_text.pack(fill="both", expand=True, pady=(4, 8))
+        bar = ttk.Frame(ed)
+        bar.pack(fill="x")
+        ttk.Button(bar, text=self.t("wr_save"), style="Accent.TButton", command=self._preset_save).pack(side="left")
+        self.preset_saved = ttk.Label(bar, text="", style="Muted.TLabel")
+        self.preset_saved.pack(side="left", padx=10)
+        ttk.Button(bar, text=self.t("wr_reset"), command=self._presets_reset).pack(side="right")
+        ttk.Label(c, text=self.t("wr_key_note"), style="Muted.TLabel", wraplength=760,
+                  justify="left").pack(anchor="w", pady=(12, 0))
+        self._editing_preset: str | None = None
+        self._refresh_presets()
+
+        # --- signature
+        c = self._card(body, self.t("wr_signature_title"), self.t("wr_signature_sub"), **pad)
+        self.signature_box = self._text_box(c, 4, self.config.signature)
+        self.signature_box.pack(fill="x")
+        self.signature_box.bind("<FocusOut>", lambda _e: self._save_signature())
+
+        # --- test
+        c = self._card(body, self.t("wr_test_title"), self.t("wr_test_sub"), **pad)
+        self.test_in = self._text_box(c, 4, self.t("wr_test_sample"))
+        self.test_in.pack(fill="x")
+        row = ttk.Frame(c)
+        row.pack(fill="x", pady=8)
+        self.test_btn = ttk.Button(row, text=self.t("wr_test_btn"), style="Accent.TButton", command=self._preset_test)
+        self.test_btn.pack(side="left")
+        self.test_info = ttk.Label(row, text="", style="Muted.TLabel")
+        self.test_info.pack(side="left", padx=10)
+        self.test_out = self._text_box(c, 9)
+        self.test_out.pack(fill="x")
+
+    # ---- writing model
+    def _llm_info(self) -> writer.LlmInfo:
+        return next((m for m in self._llms if m.source == self.config.writing_model), self._llms[0])
+
+    def _render_llm_status(self) -> None:
+        if not hasattr(self, "llm_status"):
+            return
+        eng = self.engine
+        info = self._llm_info()
+        if eng.writer_loading:
+            downloaded = writer.is_downloaded(info.source)
+            text = self.t("wr_st_loading") if downloaded else self.t("wr_st_downloading", name=info.label,
+                                                                      size=info.size)
+        elif eng.writer is not None and eng.writer.source == info.source:
+            text = self.t("wr_st_gpu" if eng.writer.device == "cuda" else "wr_st_cpu")
+        elif writer.is_downloaded(info.source):
+            text = self.t("wr_st_disk")
+        else:
+            text = self.t("wr_st_missing", size=info.size)
+        self.llm_status.set(text)
+        self.llm_btn.configure(state="disabled" if eng.writer_loading else "normal")
+
+    def _on_llm_selected(self, _e=None) -> None:
+        self.config.writing_model = self._llms[self.llm_combo.current()].source
+        self.config.save()
+        if self.engine.writer is not None and writer.is_downloaded(self.config.writing_model):
+            self.engine.load_writer()
+        self._render_llm_status()
+
+    def _llm_load(self) -> None:
+        info = self._llm_info()
+        if not writer.is_downloaded(info.source) and not messagebox.askyesno(
+                self.t("wr_dl_title"), self.t("wr_dl_confirm", name=info.label, size=info.size), parent=self.root):
+            return
+        self.engine.load_writer(force=True)
+        self._render_llm_status()
+
+    def _on_preload(self) -> None:
+        self.config.writer_preload = self.preload_var.get()
+        self.config.save()
+        if not self.config.writer_preload:
+            self.engine.unload_writer()
+
+    def _save_signature(self) -> None:
+        if hasattr(self, "signature_box"):
+            self.config.signature = self.signature_box.get("1.0", "end").strip()
+            self.config.save()
+
+    # ---- presets
+    def _refresh_presets(self, select: str | None = None) -> None:
+        tree = self.preset_tree
+        keep = select or self._editing_preset
+        tree.delete(*tree.get_children())
+        for p in self.config.presets or []:
+            tree.insert("", "end", iid=p["id"], values=(p["name"], self._hotkey_label(p["hotkey"])
+                                                        if p.get("hotkey") else "—"))
+        ids = [p["id"] for p in self.config.presets or []]
+        target = keep if keep in ids else (ids[0] if ids else None)
+        if target:
+            tree.selection_set(target)
+            tree.focus(target)
+        else:
+            self._editing_preset = None
+        self._load_preset_editor()
+
+    def _on_preset_select(self, _e=None) -> None:
+        sel = self.preset_tree.selection()
+        if sel and sel[0] == self._editing_preset:
+            return
+        self._store_editor()  # keep unsaved edits of the preset we're leaving (saved with the next Save)
+        self._load_preset_editor()
+
+    def _load_preset_editor(self) -> None:
+        sel = self.preset_tree.selection()
+        p = self.engine.preset(sel[0]) if sel else None
+        self._editing_preset = p["id"] if p else None
+        self.preset_name.delete(0, "end")
+        self.preset_text.delete("1.0", "end")
+        for w in self.preset_key_row.winfo_children():
+            w.destroy()
+        self.preset_saved.configure(text="")
+        if not p:
+            return
+        self.preset_name.insert(0, p["name"])
+        self.preset_text.insert("1.0", p.get("instructions", ""))
+        self.preset_text.edit_reset()
+        self._keycaps(self.preset_key_row, p.get("hotkey", "")).pack(side="left")
+        ttk.Button(self.preset_key_row, text=self.t("change"),
+                   command=lambda: self._record_hotkey(f"preset:{p['id']}")).pack(side="left", padx=(12, 0))
+        if p.get("hotkey"):
+            ttk.Button(self.preset_key_row, text=self.t("wr_remove_key"),
+                       command=lambda: self._set_preset_hotkey(p["id"], "")).pack(side="left", padx=6)
+
+    def _store_editor(self) -> None:
+        """Copy the editor's name/instructions into the preset being edited (no save)."""
+        p = self.engine.preset(self._editing_preset)
+        if p:
+            p["name"] = self.preset_name.get().strip() or p["name"]
+            p["instructions"] = self.preset_text.get("1.0", "end").strip()
+
+    def _preset_save(self) -> None:
+        self._store_editor()
+        self._save_signature()
+        self.engine.apply_presets()
+        self._refresh_presets()
+        self._render_home_presets()
+        self.preset_saved.configure(text=self.t("wr_saved"))
+
+    def _set_preset_hotkey(self, pid: str, combo: str) -> None:
+        p = self.engine.preset(pid)
+        if not p:
+            return
+        self._store_editor()
+        p["hotkey"] = "+".join(normalize_hotkey(combo))
+        self.engine.apply_presets()
+        self._build()
+
+    def _preset_new(self) -> None:
+        self._store_editor()
+        p = {"id": writer.new_preset_id(), "name": self.t("wr_new_name"), "hotkey": "", "instructions": ""}
+        self.config.presets.append(p)
+        self.engine.apply_presets()
+        self._refresh_presets(select=p["id"])
+        self.preset_name.focus_set()
+        self.preset_name.select_range(0, "end")
+
+    def _preset_duplicate(self) -> None:
+        self._store_editor()
+        src = self.engine.preset(self._editing_preset)
+        if not src:
+            return
+        p = {**src, "id": writer.new_preset_id(), "name": f"{src['name']} {self.t('wr_copy_suffix')}", "hotkey": ""}
+        self.config.presets.append(p)
+        self.engine.apply_presets()
+        self._refresh_presets(select=p["id"])
+
+    def _preset_delete(self) -> None:
+        p = self.engine.preset(self._editing_preset)
+        if p and messagebox.askyesno(self.t("delete"), self.t("wr_delete_confirm", name=p["name"]), parent=self.root):
+            self.config.presets.remove(p)
+            self._editing_preset = None
+            self.engine.apply_presets()
+            self._refresh_presets()
+            self._render_home_presets()
+
+    def _presets_reset(self) -> None:
+        if messagebox.askyesno(self.t("wr_reset"), self.t("wr_reset_confirm"), parent=self.root):
+            self.config.presets = None
+            self.config.ensure_presets()
+            self._editing_preset = None
+            self.engine.apply_presets()
+            self._build()
+
+    def _preset_menu(self, event) -> None:
+        if not self._tree_row_at(self.preset_tree, event):
+            return
+        pid = self.preset_tree.selection()[0]
+        m = self._menu()
+        m.add_command(label=self.t("wr_hotkey") + "…", command=lambda: self._record_hotkey(f"preset:{pid}"))
+        if (self.engine.preset(pid) or {}).get("hotkey"):
+            m.add_command(label=self.t("wr_remove_key"), command=lambda: self._set_preset_hotkey(pid, ""))
+        m.add_command(label=self.t("wr_duplicate"), command=self._preset_duplicate)
+        m.add_separator()
+        m.add_command(label=self.t("delete"), command=self._preset_delete)
+        self._popup(m, event)
+
+    def _preset_test(self) -> None:
+        self._store_editor()
+        self._save_signature()
+        p = self.engine.preset(self._editing_preset)
+        text = self.test_in.get("1.0", "end").strip()
+        if not p or not text:
+            return
+        if not writer.is_downloaded(self.config.writing_model):
+            info = self._llm_info()
+            if not messagebox.askyesno(self.t("wr_dl_title"), self.t("wr_dl_confirm", name=info.label, size=info.size),
+                                       parent=self.root):
+                return
+        self.test_btn.configure(state="disabled")
+        self.test_info.configure(text=self.t("wr_test_running"))
+        preset = dict(p)
+
+        def work():
+            import time
+
+            started = time.perf_counter()
+            try:
+                out, info = self.engine.rewrite(text, preset), f"{time.perf_counter() - started:.1f} s"
+            except Exception as exc:  # noqa: BLE001
+                out, info = "", str(exc)[:200]
+            self.call_soon(lambda: self._show_test_result(out, info))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_test_result(self, out: str, info: str) -> None:
+        if not hasattr(self, "test_out") or not self.test_out.winfo_exists():
+            return
+        self.test_btn.configure(state="normal")
+        self.test_info.configure(text=info)
+        self.test_out.delete("1.0", "end")
+        self.test_out.insert("1.0", out)
+        self._render_llm_status()
+
+    def _render_home_presets(self) -> None:
+        if not hasattr(self, "home_presets_var"):
+            return
+        parts = [f"{self._hotkey_label(p['hotkey'])} {p['name']}" for p in self.config.presets or [] if p.get("hotkey")]
+        self.home_presets_var.set(f"{self.t('home_presets')}  " + "   ·   ".join(parts) if parts else "")
+
     # ================================================================== status
     def _set_status(self, key: str, color: str, busy: bool = False, **kw) -> None:
         self._status = (key, color, busy, kw)
@@ -1141,7 +1468,9 @@ class Window:
         ttk.Label(box, text=self.t("rec_presets"), style="Muted.TLabel").pack(pady=(12, 6))
         row = ttk.Frame(box)
         row.pack(pady=(0, 10))
-        for combo in (PRESETS if target == "main" else LANG_PRESETS):
+        choices = PRESETS if target == "main" else LANG_PRESETS if target == "lang" else WRITING_PRESET_KEYS
+        taken = self._taken_hotkeys(target)
+        for combo in [c for c in choices if c not in taken]:
             ttk.Button(row, text=pretty_hotkey(self.config.ui_language, combo),
                        command=lambda c=combo: self._apply_hotkey(c)).pack(side="left", padx=4)
         ttk.Button(box, text=self.t("cancel"), command=self._close_recorder).pack(pady=(6, 0))
@@ -1174,14 +1503,15 @@ class Window:
             self._close_recorder()
             return
         error = validate_hotkey(combo)
-        other = self.config.language_hotkey if self._rec_target == "main" else self.config.hotkey
-        if not error and other and combo.strip().lower() == other:
-            error = "same"
-        if error:
-            key = {"unknown": "rec_err_unknown", "same": "rec_err_same"}.get(error, "rec_err_single")
-            messagebox.showerror(self.t("rec_err_title"),
-                                 self.t(key, combo=pretty_hotkey(self.config.ui_language, combo)),
-                                 parent=self._rec_dialog)
+        pretty = pretty_hotkey(self.config.ui_language, combo)
+        owner = self._taken_hotkeys(self._rec_target).get("+".join(normalize_hotkey(combo)))
+        if error or owner:
+            if error:
+                key = {"unknown": "rec_err_unknown"}.get(error, "rec_err_single")
+                msg = self.t(key, combo=pretty)
+            else:
+                msg = self.t("rec_err_taken", combo=pretty, what=owner)
+            messagebox.showerror(self.t("rec_err_title"), msg, parent=self._rec_dialog)
             self._listen_for_hotkey()
             return
         self._apply_hotkey(combo)
@@ -1191,9 +1521,27 @@ class Window:
         self._close_recorder()
         if target == "main":
             self.engine.set_hotkey(combo)
-        else:
+        elif target == "lang":
             self.engine.set_language_hotkey(combo)
+        elif target.startswith("preset:"):
+            self._set_preset_hotkey(target.split(":", 1)[1], combo)
+            return
         self._build()
+
+    def _taken_hotkeys(self, target: str) -> dict[str, str]:
+        """Shortcuts already used by something other than `target` → who uses them."""
+        def norm(c: str) -> str:
+            return "+".join(normalize_hotkey(c))
+
+        taken = {}
+        if target != "main" and self.config.hotkey:
+            taken[norm(self.config.hotkey)] = self.t("rec_target_main")
+        if target != "lang" and self.config.language_hotkey:
+            taken[norm(self.config.language_hotkey)] = self.t("rec_target_lang")
+        for p in self.config.presets or []:
+            if p.get("hotkey") and target != f"preset:{p['id']}":
+                taken[norm(p["hotkey"])] = f"« {p['name']} »"
+        return taken
 
     def _close_recorder(self) -> None:
         self._rec_token += 1
@@ -1269,21 +1617,37 @@ class Window:
             key = "status_recording_toggle" if self.config.mode == "toggle" else "status_recording_hold"
             self._set_status(key, "rec")
             if self.config.overlay:
-                self.overlay.show("recording", f"{self.t('overlay_listening')}  {self._overlay_lang()}")
+                extra = f"  ·  {payload['name']}" if payload else ""
+                self.overlay.show("recording", f"{self.t('overlay_listening')}  {self._overlay_lang()}{extra}")
             self.tray.set_recording(True)
+        elif kind == "rewriting":
+            self._set_status("status_rewriting", "busy", busy=True, name=payload["name"])
+            if self.config.overlay:
+                self.overlay.show("transcribing", self.t("overlay_rewriting", name=payload["name"]))
+        elif kind in ("writer_loading", "writer_loaded", "writer_unloaded"):
+            self._render_llm_status()
+        elif kind == "writer_error":
+            self._render_llm_status()
+            self._set_last(self.t("wr_error", err=str(payload)[:300]))
+            if self._page == "writing":
+                messagebox.showerror(self.t("wr_load_error_title"), str(payload)[:500], parent=self.root)
         elif kind == "transcribing":
             self._set_status("status_transcribing", "busy", busy=True)
             if self.config.overlay:
                 self.overlay.show("transcribing", self.t("overlay_transcribing"))
             self.tray.set_recording(False)
         elif kind == "transcript":
-            text, seconds, lang = payload
+            text, seconds, lang, preset_name, raw = payload
             self._set_ready()
             self.overlay.hide()
-            self._set_last(f"« {text} »  ({seconds:.1f} s)" if text else ("nothing_heard", {}))
+            tag = f"✎ {preset_name} — " if preset_name else ""
+            self._set_last(f"{tag}« {text} »  ({seconds:.1f} s)" if text else ("nothing_heard", {}))
             if text and self.config.history_enabled:
-                self.history.append({"time": dt.datetime.now().isoformat(timespec="seconds"),
-                                     "text": text, "lang": lang, "secs": round(seconds, 2)})
+                item = {"time": dt.datetime.now().isoformat(timespec="seconds"),
+                        "text": text, "lang": lang, "secs": round(seconds, 2)}
+                if preset_name:
+                    item.update(preset=preset_name, raw=raw)
+                self.history.append(item)
                 self.history = self.history[-200:]
                 save_history(self.history)
                 self._refresh_history()

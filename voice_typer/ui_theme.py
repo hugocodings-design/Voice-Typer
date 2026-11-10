@@ -23,6 +23,7 @@ PALETTES = {
 }
 
 ICONS = {  # Segoe Fluent Icons / Segoe MDL2 Assets code points
+    "writing": "",
     "home": "", "dictionary": "", "language": "", "models": "",
     "settings": "", "mic": "", "keyboard": "", "star": "",
     "star_filled": "", "gpu": "", "check": "", "add": "", "delete": "",

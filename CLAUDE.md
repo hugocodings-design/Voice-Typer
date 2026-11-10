@@ -32,6 +32,8 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - Microphones are listed/opened through the DirectSound host API (MME truncates names)
 - Dev machine: RTX 2080 Super 8 GB — GPU makes large models ~20× faster than CPU
 - `voice_typer/recorder.py`, `transcriber.py`, `output.py`, `hotkey.py` — one concern each
+- `voice_typer/writer.py` — AI writing presets: embedded LLM (CTranslate2 `Generator` + `tokenizers`, Qwen 2.5 Instruct int8, manual ChatML prompt with one few-shot example). **No Ollama / server software** — the user installs this on a work PC too. `Engine` keeps one `Hotkey` per preset (`config.presets`: id/name/hotkey/instructions, `None` = defaults), records with `_active_preset`, then `rewrite()`; on failure the raw text is typed. `writer_preload` keeps the LLM in memory
+- Hotkey conflicts (dictation / language / presets) are checked in `gui._taken_hotkeys`
 
 ## Commands (PowerShell)
 ```powershell

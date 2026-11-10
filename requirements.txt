@@ -8,3 +8,4 @@ pillow>=10.0
 sv-ttk>=2.6
 # NVIDIA GPU acceleration (CTranslate2 bundles cuDNN but needs cuBLAS 12). Harmless without a GPU.
 nvidia-cublas-cu12>=12.4,<13; sys_platform == "win32"
+tokenizers>=0.15

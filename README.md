@@ -29,8 +29,10 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Right-click menus: models (use, download, delete from disk, open folder, Hugging Face page), languages, history, dictionary
 - [x] Dictation history (local, last 200), microphone choice + level test, start/stop sounds, optional trailing space
 - [x] NVIDIA GPU acceleration, automatic with CPU fallback (RTX 2080 Super: ~0.25 s instead of ~5.5 s per sentence with large models)
-- [ ] Packaged `.exe`
-- [ ] Packaged `.exe` (PyInstaller) and start with Windows
+- [x] **AI writing presets** — a local LLM rewrites the dictation before typing it (email with greeting,
+      short paragraphs and signature; quick message; bullet notes; fix only; or your own), each preset with
+      its own shortcut (F2, F3, F4…). Embedded in the app: no Ollama / LM Studio to install
+- [ ] Packaged `.exe` (PyInstaller)
 
 ## Requirements
 
@@ -85,6 +87,34 @@ CTranslate2 files live in a `ctranslate2/` subfolder, written `repo#ctranslate2`
   (folder containing `model.bin` + `config.json`, as published in `faster-whisper-…` repos).
 - **Add from Hugging Face…:** add any CTranslate2 Whisper repo by id, e.g. `Systran/faster-whisper-large-v3`.
 - **Remove:** removes an imported model from the list (files on disk are kept).
+
+## AI writing (Écriture IA)
+
+Hold a **preset shortcut** instead of the dictation shortcut: Whisper transcribes, then a small local
+LLM rewrites the text following the preset's instructions, and the result is typed.
+
+| Preset (default) | Shortcut | Result |
+|---|---|---|
+| Courriel / Email | F2 | "Bonjour Monsieur X," + 1–2 sentence paragraphs + closing + your signature |
+| Message rapide / Quick message | F3 | Short, friendly chat message |
+| Notes en points / Bullet notes | F4 | Bulleted list, one idea per line |
+| Correction seule / Fix only | — | Grammar and punctuation only |
+
+Edit, add, duplicate or delete presets (name, shortcut, free-text instructions; `{signature}` is
+replaced by your signature) and try them without a microphone on the **Écriture IA** page.
+Shortcuts of the same key can't be assigned twice; an assigned key (e.g. F2) is reserved for Voice Typer.
+
+The LLM runs **inside** the app with CTranslate2 (the engine faster-whisper already uses): nothing else
+to install, which is why it also works on locked-down work PCs. Models (downloaded once, then offline):
+
+| Model | Size | Notes |
+|---|---|---|
+| `jncraton/Qwen2.5-1.5B-Instruct-ct2-int8` | 1.5 GB | Fast, fine for fixing / formatting (Apache 2.0) |
+| **`jncraton/Qwen2.5-3B-Instruct-ct2-int8`** | 3.1 GB | Recommended — ~1 s per email on an RTX 2080 Super (Qwen research licence) |
+| `jncraton/Qwen2.5-7B-Instruct-ct2-int8` | 7.6 GB | Smartest, needs a strong PC (Apache 2.0) |
+
+On CPU only, expect several seconds per rewrite (1.5B is the best choice there).
+If the rewrite fails, the raw transcript is typed so nothing is lost; the history keeps both versions.
 
 ## Advanced settings
 

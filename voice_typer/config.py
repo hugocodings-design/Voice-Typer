@@ -22,6 +22,11 @@ class Config:
     # Dictionary
     vocabulary: list[str] = field(default_factory=list)       # terms to bias recognition towards
     replacements: list[dict] = field(default_factory=list)    # [{"from": "...", "to": "..."}]
+    # AI writing (post-processing presets)
+    writing_model: str = "jncraton/Qwen2.5-3B-Instruct-ct2-int8"
+    presets: list[dict] | None = None   # [{"id","name","hotkey","instructions"}], None = defaults
+    signature: str = ""
+    writer_preload: bool = True         # keep the writing AI loaded (instant presets)
     # Shortcuts
     hotkey: str = "ctrl+alt+space"
     mode: str = "hold"              # "hold" (push-to-talk) | "toggle" (press to start, press to stop)
@@ -53,7 +58,20 @@ class Config:
             if known.get("device") == "cpu":
                 known["device"] = "auto"
             known["settings_version"] = 2
-        return cls(**known)
+        cfg = cls(**known)
+        cfg.ensure_presets()
+        return cfg
+
+    def ensure_presets(self) -> None:
+        if self.presets is None:
+            from voice_typer.writer import default_presets
+
+            self.presets = default_presets(self.ui_language)
+            # Don't steal a key the user already uses for dictation / language switching.
+            taken = {self.hotkey, self.language_hotkey}
+            for p in self.presets:
+                if p["hotkey"] in taken:
+                    p["hotkey"] = ""
 
     def save(self) -> None:
         SETTINGS_DIR.mkdir(parents=True, exist_ok=True)

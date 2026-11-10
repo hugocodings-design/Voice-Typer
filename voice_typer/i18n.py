@@ -300,6 +300,104 @@ KEY_NAMES = {
 }
 
 
+# AI writing (post-processing presets)
+STRINGS["fr"].update({
+    "nav_writing": "Écriture IA",
+    "title_writing": "Écriture IA",
+    "sub_writing": "Dictez avec un raccourci de préréglage : une IA locale met le texte en forme avant de l'écrire.",
+    "wr_model_title": "IA d'écriture (100 % locale)",
+    "wr_model_sub": "Fonctionne dans Voice Typer, sans Ollama ni autre logiciel à installer. "
+                    "Téléchargée une seule fois, puis tout reste hors ligne.",
+    "wr_load": "Télécharger et charger", "wr_unload": "Libérer la mémoire",
+    "wr_keep_loaded": "Garder l'IA chargée en mémoire (mise en forme instantanée)",
+    "wr_st_loading": "Chargement de l'IA d'écriture…",
+    "wr_st_downloading": "Téléchargement de {name} ({size})… (une seule fois)",
+    "wr_st_gpu": "✓ Prête — carte graphique (GPU)", "wr_st_cpu": "✓ Prête — processeur (CPU, plus lent)",
+    "wr_st_disk": "Téléchargée — se charge à la première utilisation",
+    "wr_st_missing": "Pas encore téléchargée ({size})",
+    "wr_dl_title": "Télécharger l'IA d'écriture",
+    "wr_dl_confirm": "Télécharger {name} ({size}) ? C'est fait une seule fois ; ensuite tout fonctionne hors ligne.",
+    "wr_presets_title": "Préréglages",
+    "wr_presets_sub": "Maintenez le raccourci d'un préréglage pour dicter : le texte est réécrit selon ses consignes, "
+                      "puis écrit dans l'application active.",
+    "wr_col_name": "Préréglage", "wr_col_key": "Raccourci",
+    "wr_new": "Nouveau", "wr_duplicate": "Dupliquer", "wr_new_name": "Nouveau préréglage",
+    "wr_copy_suffix": "(copie)",
+    "wr_name": "Nom", "wr_hotkey": "Raccourci", "wr_remove_key": "Retirer",
+    "wr_instructions": "Consignes pour l'IA",
+    "wr_instructions_hint": "Décrivez le résultat voulu. {signature} sera remplacé par votre signature.",
+    "wr_save": "Enregistrer", "wr_saved": "✓ Enregistré",
+    "wr_delete_confirm": "Supprimer le préréglage « {name} » ?",
+    "wr_reset": "Rétablir les préréglages d'origine",
+    "wr_reset_confirm": "Remplacer tous vos préréglages par ceux d'origine ?",
+    "wr_signature_title": "Signature",
+    "wr_signature_sub": "Ajoutée à la fin des préréglages qui contiennent {signature} (par ex. Courriel).",
+    "wr_test_title": "Essayer sans micro",
+    "wr_test_sub": "Tapez une dictée brute et voyez le résultat avec les consignes du préréglage sélectionné.",
+    "wr_test_btn": "Tester la mise en forme", "wr_test_running": "Mise en forme…",
+    "wr_test_sample": "euh donc courriel à monsieur Tremblay pour lui dire que la livraison des pièces est "
+                      "retardée à jeudi prochain à cause du fournisseur et aussi demander si la réunion de lundi "
+                      "tient toujours sinon on pourrait la déplacer à mardi matin",
+    "wr_error": "Mise en forme impossible ({err}). Le texte brut a été écrit.",
+    "wr_load_error_title": "IA d'écriture",
+    "wr_key_note": "Astuce : une touche comme F2 est réservée à Voice Typer tant qu'elle est assignée "
+                   "(F2 ne renommera plus dans l'Explorateur ou Excel).",
+    "overlay_rewriting": "Mise en forme : {name}…",
+    "status_rewriting": "Mise en forme « {name} »…",
+    "home_presets": "Préréglages IA :",
+    "hist_copy_raw": "Copier le texte brut (avant IA)",
+    "rec_err_taken": "« {combo} » est déjà utilisé par : {what}.",
+    "rec_target_main": "la dictée", "rec_target_lang": "le changement de langue",
+})
+STRINGS["en"].update({
+    "nav_writing": "AI writing",
+    "title_writing": "AI writing",
+    "sub_writing": "Dictate with a preset shortcut: a local AI formats the text before typing it.",
+    "wr_model_title": "Writing AI (100% local)",
+    "wr_model_sub": "Runs inside Voice Typer — no Ollama or other software to install. "
+                    "Downloaded once, then everything stays offline.",
+    "wr_load": "Download and load", "wr_unload": "Free memory",
+    "wr_keep_loaded": "Keep the AI loaded in memory (instant formatting)",
+    "wr_st_loading": "Loading the writing AI…",
+    "wr_st_downloading": "Downloading {name} ({size})… (only once)",
+    "wr_st_gpu": "✓ Ready — graphics card (GPU)", "wr_st_cpu": "✓ Ready — processor (CPU, slower)",
+    "wr_st_disk": "Downloaded — loads on first use",
+    "wr_st_missing": "Not downloaded yet ({size})",
+    "wr_dl_title": "Download the writing AI",
+    "wr_dl_confirm": "Download {name} ({size})? This happens once; afterwards everything works offline.",
+    "wr_presets_title": "Presets",
+    "wr_presets_sub": "Hold a preset's shortcut to dictate: the text is rewritten following its instructions, "
+                      "then typed into the active app.",
+    "wr_col_name": "Preset", "wr_col_key": "Shortcut",
+    "wr_new": "New", "wr_duplicate": "Duplicate", "wr_new_name": "New preset", "wr_copy_suffix": "(copy)",
+    "wr_name": "Name", "wr_hotkey": "Shortcut", "wr_remove_key": "Remove",
+    "wr_instructions": "Instructions for the AI",
+    "wr_instructions_hint": "Describe the result you want. {signature} is replaced by your signature.",
+    "wr_save": "Save", "wr_saved": "✓ Saved",
+    "wr_delete_confirm": "Delete the preset \"{name}\"?",
+    "wr_reset": "Restore default presets",
+    "wr_reset_confirm": "Replace all your presets with the default ones?",
+    "wr_signature_title": "Signature",
+    "wr_signature_sub": "Added at the end of presets containing {signature} (e.g. Email).",
+    "wr_test_title": "Try it without a microphone",
+    "wr_test_sub": "Type a raw dictation and see the result with the selected preset's instructions.",
+    "wr_test_btn": "Test formatting", "wr_test_running": "Formatting…",
+    "wr_test_sample": "um so email to mister Smith to tell him the parts delivery is delayed to next thursday "
+                      "because of the supplier and also ask if monday's meeting is still on otherwise we could "
+                      "move it to tuesday morning",
+    "wr_error": "Formatting failed ({err}). The raw text was typed.",
+    "wr_load_error_title": "Writing AI",
+    "wr_key_note": "Tip: a key like F2 is reserved for Voice Typer while assigned "
+                   "(F2 will no longer rename in Explorer or Excel).",
+    "overlay_rewriting": "Formatting: {name}…",
+    "status_rewriting": "Formatting \"{name}\"…",
+    "home_presets": "AI presets:",
+    "hist_copy_raw": "Copy raw text (before AI)",
+    "rec_err_taken": "\"{combo}\" is already used by: {what}.",
+    "rec_target_main": "dictation", "rec_target_lang": "language switching",
+})
+
+
 def tr(lang: str, key: str, **kwargs) -> str:
     text = STRINGS.get(lang, STRINGS["en"]).get(key) or STRINGS["en"].get(key, key)
     return text.format(**kwargs) if kwargs else text
