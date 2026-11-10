@@ -31,7 +31,7 @@ CATALOG: list[ModelInfo] = [
 
 # Most-used languages first; Whisper supports ~100 in total.
 LANGUAGES: list[tuple[str | None, str]] = [
-    (None, "Auto-detect"),
+    (None, "Auto"),  # label replaced by the UI language
     ("fr", "Français"),
     ("en", "English"),
     ("es", "Español"),
@@ -82,14 +82,8 @@ def download(source: str) -> str:
     return download_model(source)
 
 
-def validate_folder(folder: str) -> str | None:
-    """Return an error message if the folder isn't a faster-whisper (CTranslate2) model, else None."""
+def missing_model_files(folder: str) -> str | None:
+    """Return the missing files if the folder isn't a faster-whisper (CTranslate2) model, else None."""
     p = Path(folder)
     missing = [f for f in ("model.bin", "config.json") if not (p / f).exists()]
-    if missing:
-        return (
-            f"This folder is missing {', '.join(missing)}.\n\n"
-            "Voice Typer needs a Whisper model converted to CTranslate2 format "
-            "(the kind published as 'faster-whisper-…' on Hugging Face)."
-        )
-    return None
+    return ", ".join(missing) if missing else None

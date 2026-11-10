@@ -19,6 +19,11 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - `voice_typer/gui.py` — tkinter window polling `engine.events`; never call tkinter from worker threads
 - `voice_typer/models.py` — model catalog (speed/accuracy), language list, download/import helpers
 - `voice_typer/config.py` — settings dataclass saved to `%APPDATA%\VoiceTyper\settings.json`
+- `voice_typer/hotkey.py` — suppressing low-level hook: the trigger key is swallowed while the combo is held; a mask key (VK 0xE8) stops Alt/Win from opening menus. Callbacks run on a worker thread (hooks must return fast)
+- `voice_typer/overlay.py` — click-through, non-activating pill; shown/hidden via opacity (re-showing a window can steal focus)
+- `voice_typer/tray.py`, `autostart.py`, `i18n.py` — tray icon, HKCU Run autostart, FR/EN strings (every UI text goes through `tr()`)
+- `run.pyw` — console-less entry used by `Start Voice Typer.bat` and autostart (`--minimized` starts in the tray)
+- Single instance enforced with a named mutex (two instances would type everything twice)
 - `voice_typer/recorder.py`, `transcriber.py`, `output.py`, `hotkey.py` — one concern each
 
 ## Commands (PowerShell)
@@ -32,4 +37,5 @@ Always run Python tools as `python -m <tool>` — `.exe` stubs (e.g. `uvicorn.ex
 - Never commit model files (`*.bin`, `*.gguf`, `models/`…) — see `.gitignore`.
 - Model switching loads the new model in the background and swaps only on success (old model keeps working).
 - Imported models must be CTranslate2 format (`model.bin` + `config.json`) or a HF repo id.
-- Roadmap: tray icon, hotkey/GPU choice in the UI, PyInstaller `.exe`, autostart (see README).
+- The user speaks French: default UI language is `fr`.
+- Roadmap: GPU choice in the UI, PyInstaller `.exe` (see README).

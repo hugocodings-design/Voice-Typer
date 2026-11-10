@@ -3,3 +3,5 @@ sounddevice>=0.5
 numpy>=1.26
 keyboard>=0.13.5
 pyperclip>=1.9
+pystray>=0.19
+pillow>=10.0

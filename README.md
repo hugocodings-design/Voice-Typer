@@ -18,8 +18,13 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Import your own models: a local faster-whisper folder or a Hugging Face repo id
 - [x] Settings saved between launches (`%APPDATA%\VoiceTyper\settings.json`)
 - [x] Voice-activity detection to trim silences
-- [ ] System-tray icon
-- [ ] Hotkey and GPU (CUDA) choice in the window
+- [x] Custom shortcut (record any combo, or pick F9 / Right Ctrl / Ctrl+Win…); its keys are swallowed so nothing leaks into the app
+- [x] Two modes: hold to talk, or press once to start / once to stop
+- [x] Floating indicator with a live mic level while dictating (never steals focus)
+- [x] Icon next to the clock: closing the window keeps it running; option to start with Windows
+- [x] Interface in French or English
+- [ ] GPU (CUDA) choice in the window
+- [ ] Packaged `.exe`
 - [ ] Packaged `.exe` (PyInstaller) and start with Windows
 
 ## Requirements
@@ -42,12 +47,16 @@ python -m voice_typer
 A window opens. The first run downloads the default model (`small`, ~480 MB) into the Hugging Face cache;
 after that, everything works offline.
 
-Hold `ctrl+alt+space`, talk, release. Close the window to quit.
+Hold `ctrl+alt+space` (or your own shortcut), talk, release. Closing the window keeps Voice Typer
+running next to the clock; quit from the tray icon's menu or **Réglages → Quitter**.
 
 Once the venv is set up, you can simply double-click **`Start Voice Typer.bat`** (no console window).
 
 ## Using the window
 
+- **Shortcut:** *Changer le raccourci…* records any combination (Esc cancels) or offers presets.
+  Plain letters / Space alone are refused because they'd block normal typing.
+- **Mode:** hold the keys while speaking, or press once to start and once to stop (auto-stops after 5 min).
 - **Language you speak:** pick your language (faster and more accurate than Auto-detect). Takes effect immediately.
 - **AI model:** select a model and click **Use this model** (or double-click). If it isn't on the PC yet,
   it asks before downloading. The current model keeps working until the new one is ready.
@@ -68,9 +77,9 @@ Once the venv is set up, you can simply double-click **`Start Voice Typer.bat`**
 
 ## Advanced settings
 
-`%APPDATA%\VoiceTyper\settings.json` also holds `hotkey` (default `ctrl+alt+space`),
-`output` (`paste` or `type`), `device` (`cpu` or `cuda`) and `compute_type` (`int8`, `float16`…).
-Edit it while the app is closed.
+`%APPDATA%\VoiceTyper\settings.json` also holds `device` (`cpu` or `cuda`) and
+`compute_type` (`int8`, `float16`…). Edit it while the app is closed.
+"Start with Windows" writes a `VoiceTyper` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
 
 ## Project layout
 
@@ -79,7 +88,11 @@ VOICE TYPER/
 ├── voice_typer/
 │   ├── __main__.py     # entry point: python -m voice_typer
 │   ├── app.py          # engine: hotkey → recorder → transcriber → output, events to the UI
-│   ├── gui.py          # tkinter window: status, language picker, model manager
+│   ├── gui.py          # tkinter window: Accueil / Modèles IA / Réglages tabs
+│   ├── overlay.py      # floating "listening" pill (click-through, no focus)
+│   ├── tray.py         # icon next to the clock (pystray)
+│   ├── autostart.py    # start with Windows (HKCU Run key)
+│   ├── i18n.py         # French / English interface texts
 │   ├── models.py       # model catalog, download / import helpers, language list
 │   ├── config.py       # settings saved as JSON in %APPDATA%\VoiceTyper
 │   ├── recorder.py     # microphone capture (sounddevice)

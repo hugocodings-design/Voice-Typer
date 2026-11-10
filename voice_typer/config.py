@@ -16,7 +16,10 @@ class Config:
     device: str = "cpu"             # "cpu" or "cuda"
     compute_type: str = "int8"
     hotkey: str = "ctrl+alt+space"
+    mode: str = "hold"              # "hold" (push-to-talk) | "toggle" (press to start, press to stop)
     output: str = "paste"           # "paste" | "type"
+    overlay: bool = True            # floating indicator while dictating
+    ui_language: str = "fr"         # "fr" | "en"
     custom_models: list[dict] = field(default_factory=list)  # [{"label": ..., "source": ...}]
     sample_rate: int = 16_000
 
