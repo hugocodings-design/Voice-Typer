@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Build / packaging
+build/
+dist/
+*.spec
+
+# Local AI models (never commit)
+models/
+*.bin
+*.gguf
+*.ggml
+*.onnx
+*.pt
+*.safetensors
+*.ct2
+
+# Audio recordings / debug output
+*.wav
+*.mp3
+recordings/
+
+# Secrets & local settings
+.env
+*.local.*
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store
