@@ -23,7 +23,7 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Floating indicator with a live mic level while dictating (never steals focus)
 - [x] Icon next to the clock: closing the window keeps it running; option to start with Windows
 - [x] Interface in French or English
-- [ ] GPU (CUDA) choice in the window
+- [x] NVIDIA GPU acceleration, automatic with CPU fallback (RTX 2080 Super: ~0.25 s instead of ~5.5 s per sentence with large models)
 - [ ] Packaged `.exe`
 - [ ] Packaged `.exe` (PyInstaller) and start with Windows
 
@@ -32,7 +32,8 @@ No cloud API, no account, nothing leaves your PC.
 - Windows 11
 - Python **3.12** recommended (faster-whisper's native dependencies may not ship wheels for the newest Python yet)
 - A microphone
-- Optional: NVIDIA GPU + CUDA 12 / cuDNN 9 for faster transcription
+- Optional: an NVIDIA GPU (recent driver). No CUDA install needed: CTranslate2 bundles cuDNN and
+  `requirements.txt` installs cuBLAS 12 inside the venv.
 
 ## Run it
 
@@ -82,8 +83,9 @@ CTranslate2 files live in a `ctranslate2/` subfolder, written `repo#ctranslate2`
 
 ## Advanced settings
 
-`%APPDATA%\VoiceTyper\settings.json` also holds `device` (`cpu` or `cuda`) and
-`compute_type` (`int8`, `float16`…). Edit it while the app is closed.
+**Réglages → Accélération** chooses Automatic (GPU if available), always GPU, or CPU only.
+`%APPDATA%\VoiceTyper\settings.json` also holds `compute_type` (CPU, default `int8`) and
+`gpu_compute_type` (GPU, default `float16`). Edit it while the app is closed.
 "Start with Windows" writes a `VoiceTyper` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
 
 ## Project layout

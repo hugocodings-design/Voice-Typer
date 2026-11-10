@@ -13,8 +13,10 @@ SETTINGS_FILE = SETTINGS_DIR / "settings.json"
 class Config:
     model: str = "small"            # catalog name, Hugging Face repo id, or local folder path
     language: str | None = None     # None = auto-detect, else an ISO code like "fr"
-    device: str = "cpu"             # "cpu" or "cuda"
-    compute_type: str = "int8"
+    device: str = "auto"            # "auto" (GPU if available) | "cuda" | "cpu"
+    compute_type: str = "int8"      # used on CPU
+    gpu_compute_type: str = "float16"  # used on an NVIDIA GPU
+    settings_version: int = 2
     hotkey: str = "ctrl+alt+space"
     mode: str = "hold"              # "hold" (push-to-talk) | "toggle" (press to start, press to stop)
     output: str = "paste"           # "paste" | "type"
@@ -30,6 +32,11 @@ class Config:
         except (OSError, ValueError):
             return cls()
         known = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+        if known.get("settings_version", 1) < 2:
+            # v1 always saved device="cpu" (it was the only option): switch to auto-detect.
+            if known.get("device") == "cpu":
+                known["device"] = "auto"
+            known["settings_version"] = 2
         return cls(**known)
 
     def save(self) -> None:

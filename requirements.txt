@@ -5,3 +5,5 @@ keyboard>=0.13.5
 pyperclip>=1.9
 pystray>=0.19
 pillow>=10.0
+# NVIDIA GPU acceleration (CTranslate2 bundles cuDNN but needs cuBLAS 12). Harmless without a GPU.
+nvidia-cublas-cu12>=12.4,<13; sys_platform == "win32"

@@ -34,6 +34,11 @@ class Engine:
         self.events.put((kind, payload))
 
     # ---- model --------------------------------------------------------------------------
+    def reload_model(self) -> None:
+        """Reload the current model (e.g. after switching between GPU and CPU)."""
+        source = self.transcriber.source if self.transcriber else self.config.model
+        self.load_model(source)
+
     def load_model(self, source: str) -> None:
         """Download (if needed) and load a model in the background.
 
@@ -48,11 +53,14 @@ class Engine:
             try:
                 started = time.perf_counter()
                 path = models.resolve(source)  # downloads on first use
-                new = Transcriber(source, path, self.config.device, self.config.compute_type)
+                new = Transcriber(source, path, self.config.device,
+                                  self.config.compute_type, self.config.gpu_compute_type)
                 self.transcriber = new
                 self.config.model = source
                 self.config.save()
                 self._emit("model_loaded", (source, time.perf_counter() - started))
+                if new.gpu_error:
+                    self._emit("gpu_fallback", new.gpu_error)
             except Exception as exc:  # noqa: BLE001
                 self._emit("model_error", (source, str(exc)))
             finally:

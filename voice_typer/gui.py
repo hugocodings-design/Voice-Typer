@@ -9,7 +9,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 
 import keyboard
 
-from voice_typer import autostart, models
+from voice_typer import autostart, gpu, models
 from voice_typer.app import Engine
 from voice_typer.hotkey import validate as validate_hotkey
 from voice_typer.i18n import GROUP_LABELS, MODEL_NOTES, pretty_hotkey, tr
@@ -46,6 +46,8 @@ class Window:
         style.configure("Hint.TLabel", foreground="#666")
         style.configure("Status.TLabel", font=("Segoe UI", 12, "bold"))
 
+        self._cuda = gpu.cuda_available()
+        self._gpu_name = gpu.gpu_name() if self._cuda else None
         self.overlay = Overlay(self.root, lambda: self.engine.recorder.level)
         self.tray: Tray | None = None
         self._make_tray()
@@ -171,6 +173,16 @@ class Window:
         self.overlay_var = tk.BooleanVar(value=self.config.overlay)
         ttk.Checkbutton(gen, text=self.t("set_overlay"), variable=self.overlay_var,
                         command=self._on_overlay).pack(anchor="w", padx=10, pady=(4, 10))
+
+        acc = ttk.LabelFrame(tab, text=self.t("set_accel"))
+        acc.pack(fill="x", **pad)
+        self.device_var = tk.StringVar(value=self.config.device)
+        for value, key in (("auto", "accel_auto"), ("cuda", "accel_cuda"), ("cpu", "accel_cpu")):
+            ttk.Radiobutton(acc, text=self.t(key), value=value, variable=self.device_var,
+                            command=self._on_device).pack(anchor="w", padx=10, pady=(6 if value == "auto" else 2, 2))
+        self.accel_var = tk.StringVar()
+        ttk.Label(acc, textvariable=self.accel_var, style="Hint.TLabel").pack(anchor="w", padx=10, pady=(4, 10))
+        self._render_accel()
 
         out = ttk.LabelFrame(tab, text=self.t("set_output"))
         out.pack(fill="x", **pad)
@@ -360,6 +372,23 @@ class Window:
         if not self.config.overlay:
             self.overlay.hide()
 
+    def _render_accel(self) -> None:
+        tr_ = self.engine.transcriber
+        if tr_ is not None and tr_.device == "cuda":
+            self.accel_var.set(self.t("accel_now_gpu", name=self._gpu_name or "NVIDIA"))
+        elif tr_ is not None:
+            no_gpu = self.config.device != "cpu" and not self._cuda
+            self.accel_var.set(self.t("accel_now_cpu") + ("  —  " + self.t("accel_no_gpu") if no_gpu else ""))
+        else:
+            self.accel_var.set("")
+
+    def _on_device(self) -> None:
+        if self.device_var.get() == self.config.device:
+            return
+        self.config.device = self.device_var.get()
+        self.config.save()
+        self.engine.reload_model()
+
     def _on_output(self) -> None:
         self.config.output = self.output_var.get()
         self.config.save()
@@ -471,8 +500,16 @@ class Window:
         elif kind == "model_loaded":
             source, seconds = payload
             self._set_ready()
-            self._set_last(("model_ready", {"name": self._label_for(source), "s": seconds}))
+            on_gpu = self.engine.transcriber is not None and self.engine.transcriber.device == "cuda"
+            self._set_last(("model_ready", {"name": self._label_for(source), "s": seconds,
+                                            "where": self.t("where_gpu" if on_gpu else "where_cpu")}))
             self._refresh_models()
+            self._render_accel()
+        elif kind == "gpu_fallback":
+            self._render_accel()
+            if self.config.device == "cuda" or self._cuda:
+                messagebox.showwarning(self.t("gpu_fallback_title"),
+                                       self.t("gpu_fallback_msg", err=str(payload)[:400]), parent=self.root)
         elif kind == "model_error":
             source, err = payload
             self._refresh_models()

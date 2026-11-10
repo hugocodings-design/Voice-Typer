@@ -24,6 +24,8 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - `voice_typer/tray.py`, `autostart.py`, `i18n.py` — tray icon, HKCU Run autostart, FR/EN strings (every UI text goes through `tr()`)
 - `run.pyw` — console-less entry used by `Start Voice Typer.bat` and autostart (`--minimized` starts in the tray)
 - Single instance enforced with a named mutex (two instances would type everything twice)
+- `voice_typer/gpu.py` — adds `site-packages/nvidia/*/bin` (cuBLAS 12 from `nvidia-cublas-cu12`) to the DLL search path; must run before CTranslate2 uses CUDA (done at `transcriber.py` import). `Transcriber` tries CUDA float16 with a warm-up, falls back to CPU int8 and reports `gpu_error`
+- Dev machine: RTX 2080 Super 8 GB — GPU makes large models ~20× faster than CPU
 - `voice_typer/recorder.py`, `transcriber.py`, `output.py`, `hotkey.py` — one concern each
 
 ## Commands (PowerShell)
@@ -38,4 +40,4 @@ Always run Python tools as `python -m <tool>` — `.exe` stubs (e.g. `uvicorn.ex
 - Model switching loads the new model in the background and swaps only on success (old model keeps working).
 - Imported models must be CTranslate2 format (`model.bin` + `config.json`) or a HF repo id.
 - The user speaks French: default UI language is `fr`.
-- Roadmap: GPU choice in the UI, PyInstaller `.exe` (see README).
+- Roadmap: PyInstaller `.exe` (see README).
