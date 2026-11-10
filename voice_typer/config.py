@@ -1,20 +1,34 @@
-"""Settings, overridable with VT_* environment variables."""
+"""User settings, saved as JSON in %APPDATA%\\VoiceTyper\\settings.json."""
 
+import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+
+SETTINGS_DIR = Path(os.environ.get("APPDATA", Path.home())) / "VoiceTyper"
+SETTINGS_FILE = SETTINGS_DIR / "settings.json"
 
 
-def _env(name: str, default: str | None) -> str | None:
-    value = os.environ.get(name)
-    return value if value else default
-
-
-@dataclass(frozen=True)
+@dataclass
 class Config:
-    model: str = field(default_factory=lambda: _env("VT_MODEL", "small"))
-    language: str | None = field(default_factory=lambda: _env("VT_LANGUAGE", None))
-    device: str = field(default_factory=lambda: _env("VT_DEVICE", "cpu"))
-    compute_type: str = field(default_factory=lambda: _env("VT_COMPUTE_TYPE", "int8"))
-    hotkey: str = field(default_factory=lambda: _env("VT_HOTKEY", "ctrl+alt+space"))
-    output: str = field(default_factory=lambda: _env("VT_OUTPUT", "paste"))  # "paste" | "type"
+    model: str = "small"            # catalog name, Hugging Face repo id, or local folder path
+    language: str | None = None     # None = auto-detect, else an ISO code like "fr"
+    device: str = "cpu"             # "cpu" or "cuda"
+    compute_type: str = "int8"
+    hotkey: str = "ctrl+alt+space"
+    output: str = "paste"           # "paste" | "type"
+    custom_models: list[dict] = field(default_factory=list)  # [{"label": ..., "source": ...}]
     sample_rate: int = 16_000
+
+    @classmethod
+    def load(cls) -> "Config":
+        try:
+            data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return cls()
+        known = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+        return cls(**known)
+
+    def save(self) -> None:
+        SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+        SETTINGS_FILE.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")

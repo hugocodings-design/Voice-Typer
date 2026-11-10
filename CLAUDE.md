@@ -12,9 +12,13 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - keyboard for the global push-to-talk hotkey
 - pyperclip + keyboard for output (clipboard paste or simulated typing)
 
+- tkinter (stdlib) for the desktop window — no extra UI dependency
+
 ## Layout
-- `voice_typer/app.py` — orchestration: hotkey down → start recording; up → stop, transcribe in a worker thread, output text
-- `voice_typer/config.py` — dataclass of settings, overridable with `VT_*` env vars
+- `voice_typer/app.py` — `Engine`: hotkey down → record; up → transcribe in a worker thread, output text. Reports to the UI only via `engine.events` (a queue)
+- `voice_typer/gui.py` — tkinter window polling `engine.events`; never call tkinter from worker threads
+- `voice_typer/models.py` — model catalog (speed/accuracy), language list, download/import helpers
+- `voice_typer/config.py` — settings dataclass saved to `%APPDATA%\VoiceTyper\settings.json`
 - `voice_typer/recorder.py`, `transcriber.py`, `output.py`, `hotkey.py` — one concern each
 
 ## Commands (PowerShell)
@@ -26,5 +30,6 @@ Always run Python tools as `python -m <tool>` — `.exe` stubs (e.g. `uvicorn.ex
 
 ## Conventions
 - Never commit model files (`*.bin`, `*.gguf`, `models/`…) — see `.gitignore`.
-- Keep the model loaded once at startup; transcription runs off the hotkey thread.
-- Roadmap: tray icon, settings UI, VAD, PyInstaller `.exe`, autostart (see README).
+- Model switching loads the new model in the background and swaps only on success (old model keeps working).
+- Imported models must be CTranslate2 format (`model.bin` + `config.json`) or a HF repo id.
+- Roadmap: tray icon, hotkey/GPU choice in the UI, PyInstaller `.exe`, autostart (see README).
