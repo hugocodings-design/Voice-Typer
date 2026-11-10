@@ -8,6 +8,7 @@ import queue
 import sys
 import threading
 import time
+import traceback
 
 from voice_typer import dictionary, models
 from voice_typer.config import Config
@@ -32,6 +33,13 @@ class Engine:
         self.lang_hotkey: Hotkey | None = None
         if config.language_hotkey:
             self.lang_hotkey = Hotkey(config.language_hotkey, self.cycle_language, lambda: None)
+        self.last_text = ""                # last transcription sent (re-typed by paste_last_hotkey)
+        self.paste_hotkey: Hotkey | None = None
+        if config.paste_last_hotkey:
+            try:
+                self.paste_hotkey = Hotkey(config.paste_last_hotkey, self.paste_last, lambda: None)
+            except Exception:  # noqa: BLE001
+                self.paste_hotkey = None
         # AI writing presets: one global shortcut per preset (dictate, then rewrite)
         self.preset_hotkeys: dict[str, Hotkey] = {}
         self._hotkeys_running = False
@@ -135,7 +143,8 @@ class Engine:
                         self.writer = self._make_writer()
                 self._emit("writer_loaded", (source, self.writer.device, time.perf_counter() - started))
             except Exception as exc:  # noqa: BLE001
-                self._emit("writer_error", str(exc))
+                traceback.print_exc()
+                self._emit("writer_error", f"{type(exc).__name__}: {exc}")
             finally:
                 self.writer_loading = False
 
@@ -178,20 +187,43 @@ class Engine:
             self.lang_hotkey.start()
         self.config.save()
 
+    def set_paste_last_hotkey(self, combo: str) -> None:
+        if self.paste_hotkey:
+            self.paste_hotkey.stop()
+            self.paste_hotkey = None
+        self.config.paste_last_hotkey = combo
+        if combo:
+            self.paste_hotkey = Hotkey(combo, self.paste_last, lambda: None)
+            self.config.paste_last_hotkey = self.paste_hotkey.combo
+            if self._hotkeys_running:
+                self.paste_hotkey.start()
+        self.config.save()
+
+    def paste_last(self) -> None:
+        """Type the last transcription again (e.g. after it went into the wrong window)."""
+        if not self.last_text or self.recorder.is_recording:
+            return
+
+        def work():
+            self._wait_modifiers_released()
+            send_text(self.last_text, self.config.output, False, self.config.keep_in_clipboard)
+            self._emit("pasted_last", self.last_text)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _all_hotkeys(self) -> list[Hotkey]:
+        keys = [self.hotkey, *self.preset_hotkeys.values()]
+        keys += [k for k in (self.lang_hotkey, self.paste_hotkey) if k]
+        return keys
+
     def pause_hotkey(self) -> None:
         self._hotkeys_running = False
-        self.hotkey.stop()
-        if self.lang_hotkey:
-            self.lang_hotkey.stop()
-        for hk in self.preset_hotkeys.values():
+        for hk in self._all_hotkeys():
             hk.stop()
 
     def resume_hotkey(self) -> None:
         self._hotkeys_running = True
-        self.hotkey.start()
-        if self.lang_hotkey:
-            self.lang_hotkey.start()
-        for hk in self.preset_hotkeys.values():
+        for hk in self._all_hotkeys():
             hk.start()
 
     # ---- language -----------------------------------------------------------------------
@@ -260,7 +292,7 @@ class Engine:
     def _wait_modifiers_released(self, timeout: float = 3.0) -> None:
         # Pasting with Ctrl/Alt still physically held would send e.g. Ctrl+Alt+V instead of Ctrl+V.
         deadline = time.monotonic() + timeout
-        keys = [self.hotkey, *self.preset_hotkeys.values()]
+        keys = self._all_hotkeys()
         while any(k.modifiers_held() for k in keys) and time.monotonic() < deadline:
             time.sleep(0.03)
 
@@ -282,13 +314,18 @@ class Engine:
                     text = self.rewrite(text, preset)
                     text = dictionary.apply_replacements(text, self.config.replacements)
                 except Exception as exc:  # noqa: BLE001 — never lose the dictation
-                    self._emit("writer_error", str(exc))
+                    traceback.print_exc()
+                    self._emit("writer_error", f"{type(exc).__name__}: {exc}")
                     text = raw
             elapsed = time.perf_counter() - started
             self._wait_modifiers_released()
-            send_text(text, self.config.output, self.config.trailing_space and preset is None)
+            if text:
+                self.last_text = text
+            send_text(text, self.config.output, self.config.trailing_space and preset is None,
+                      self.config.keep_in_clipboard)
             self._emit("transcript", (text, elapsed, language, preset["name"] if preset else None, raw))
         except Exception as exc:  # noqa: BLE001
+            traceback.print_exc()
             self._emit("idle", f"Error: {exc}")
 
     # ---- lifecycle ----------------------------------------------------------------------

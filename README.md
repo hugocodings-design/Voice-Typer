@@ -32,6 +32,8 @@ No cloud API, no account, nothing leaves your PC.
 - [x] **AI writing presets** — a local LLM rewrites the dictation before typing it (email with greeting,
       short paragraphs and signature; quick message; bullet notes; fix only; or your own), each preset with
       its own shortcut (F2, F3, F4…). Embedded in the app: no Ollama / LM Studio to install
+- [x] Last dictation stays on the clipboard (Ctrl+V pastes it again) + optional shortcut to re-type it
+      after a stray click (Home → "Recoller la dernière dictée")
 - [ ] Packaged `.exe` (PyInstaller)
 
 ## Requirements

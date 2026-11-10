@@ -22,6 +22,7 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - `voice_typer/hotkey.py` — suppressing low-level hook: the trigger key is swallowed while the combo is held; a mask key (VK 0xE8) stops Alt/Win from opening menus. Callbacks run on a worker thread (hooks must return fast)
 - `voice_typer/overlay.py` — click-through, non-activating pill; shown/hidden via opacity (re-showing a window can steal focus)
 - `voice_typer/tray.py`, `autostart.py`, `i18n.py` — tray icon, HKCU Run autostart, FR/EN strings (every UI text goes through `tr()`)
+- `run.pyw` — under pythonw `sys.stdout/stderr` are None: it redirects them to `%APPDATA%\VoiceTyper\voice_typer.log` (tracebacks land there) and disables HF progress bars, which otherwise crash downloads/loads (`'NoneType' object has no attribute 'write'`). Test console-less behaviour with pythonw, not python
 - `run.pyw` — console-less entry used by `Start Voice Typer.bat` and autostart (`--minimized` starts in the tray)
 - Single instance enforced with a named mutex (two instances would type everything twice)
 - `voice_typer/gpu.py` — adds `site-packages/nvidia/*/bin` (cuBLAS 12 from `nvidia-cublas-cu12`) to the DLL search path; must run before CTranslate2 uses CUDA (done at `transcriber.py` import). `Transcriber` tries CUDA float16 with a warm-up, falls back to CPU int8 and reports `gpu_error`

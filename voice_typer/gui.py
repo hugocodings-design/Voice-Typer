@@ -28,7 +28,8 @@ PRESETS = ["f9", "right ctrl", "ctrl+windows", "ctrl+alt+space"]
 LANG_PRESETS = ["f8", "ctrl+alt+l", "ctrl+shift+l"]
 PAGES = [("home", "home"), ("dictionary", "dictionary"), ("languages", "language"),
          ("models", "models"), ("writing", "writing"), ("settings", "settings")]
-WRITING_PRESET_KEYS = ["f2", "f3", "f4", "f6", "f7", "ctrl+alt+e"]
+PASTE_PRESETS = ["f9", "f10", "ctrl+shift+v", "insert"]
+WRITING_PRESET_KEYS =["f2", "f3", "f4", "f6", "f7", "ctrl+alt+e"]
 
 
 class ScrollFrame(ttk.Frame):
@@ -71,6 +72,8 @@ class Window:
         self._rec_token = 0
         self._page = "home"
         self.history: list[dict] = load_history()
+        if self.history and not engine.last_text:
+            engine.last_text = self.history[-1].get("text", "")
         self._cuda = gpu.cuda_available()
         self._gpu_name = gpu.gpu_name() if self._cuda else None
         self._mic_test: Recorder | None = None
@@ -296,6 +299,14 @@ class Window:
         for value, key in (("hold", "mode_hold"), ("toggle", "mode_toggle")):
             ttk.Radiobutton(sc, text=self.t(key), value=value, variable=self.mode_var,
                             command=self._on_mode).pack(anchor="w", pady=(8 if value == "hold" else 2, 0))
+        ttk.Label(sc, text=self.t("paste_last_title"), wraplength=330, justify="left").pack(anchor="w", pady=(12, 4))
+        prow = ttk.Frame(sc)
+        prow.pack(fill="x")
+        self._keycaps(prow, self.config.paste_last_hotkey).pack(side="left")
+        if self.config.paste_last_hotkey:
+            ttk.Button(prow, text=self.t("wr_remove_key"),
+                       command=lambda: self._set_paste_hotkey("")).pack(side="right", padx=(6, 0))
+        ttk.Button(prow, text=self.t("change"), command=lambda: self._record_hotkey("paste")).pack(side="right")
         self.home_presets_var = tk.StringVar()
         presets_lbl = ttk.Label(sc, textvariable=self.home_presets_var, style="Muted.TLabel", wraplength=330,
                                 justify="left", cursor="hand2")
@@ -951,6 +962,9 @@ class Window:
         self.space_var = tk.BooleanVar(value=self.config.trailing_space)
         ttk.Checkbutton(c, text=self.t("set_trailing_space"), style="Switch.TCheckbutton", variable=self.space_var,
                         command=self._on_space).pack(anchor="w", pady=(10, 0))
+        self.keepclip_var = tk.BooleanVar(value=self.config.keep_in_clipboard)
+        ttk.Checkbutton(c, text=self.t("set_keep_clipboard"), style="Switch.TCheckbutton",
+                        variable=self.keepclip_var, command=self._on_keepclip).pack(anchor="w", pady=(8, 0))
 
         # Acceleration
         c = self._card(body, self.t("set_accel"), **inner_pad)
@@ -1059,6 +1073,10 @@ class Window:
 
     def _on_output(self) -> None:
         self.config.output = self.output_var.get()
+        self.config.save()
+
+    def _on_keepclip(self) -> None:
+        self.config.keep_in_clipboard = self.keepclip_var.get()
         self.config.save()
 
     def _on_space(self) -> None:
@@ -1468,7 +1486,7 @@ class Window:
         ttk.Label(box, text=self.t("rec_presets"), style="Muted.TLabel").pack(pady=(12, 6))
         row = ttk.Frame(box)
         row.pack(pady=(0, 10))
-        choices = PRESETS if target == "main" else LANG_PRESETS if target == "lang" else WRITING_PRESET_KEYS
+        choices = {"main": PRESETS, "lang": LANG_PRESETS, "paste": PASTE_PRESETS}.get(target, WRITING_PRESET_KEYS)
         taken = self._taken_hotkeys(target)
         for combo in [c for c in choices if c not in taken]:
             ttk.Button(row, text=pretty_hotkey(self.config.ui_language, combo),
@@ -1523,9 +1541,15 @@ class Window:
             self.engine.set_hotkey(combo)
         elif target == "lang":
             self.engine.set_language_hotkey(combo)
+        elif target == "paste":
+            self.engine.set_paste_last_hotkey(combo)
         elif target.startswith("preset:"):
             self._set_preset_hotkey(target.split(":", 1)[1], combo)
             return
+        self._build()
+
+    def _set_paste_hotkey(self, combo: str) -> None:
+        self.engine.set_paste_last_hotkey(combo)
         self._build()
 
     def _taken_hotkeys(self, target: str) -> dict[str, str]:
@@ -1538,6 +1562,8 @@ class Window:
             taken[norm(self.config.hotkey)] = self.t("rec_target_main")
         if target != "lang" and self.config.language_hotkey:
             taken[norm(self.config.language_hotkey)] = self.t("rec_target_lang")
+        if target != "paste" and self.config.paste_last_hotkey:
+            taken[norm(self.config.paste_last_hotkey)] = self.t("rec_target_paste")
         for p in self.config.presets or []:
             if p.get("hotkey") and target != f"preset:{p['id']}":
                 taken[norm(p["hotkey"])] = f"« {p['name']} »"
@@ -1659,6 +1685,9 @@ class Window:
                 self._set_last(("too_short", {}))
             elif payload:
                 self._set_last(str(payload))
+        elif kind == "pasted_last":
+            if self.config.overlay:
+                self.overlay.flash(self.t("overlay_pasted"))
         elif kind == "status" and payload == "no_model":
             self._set_last(("no_model", {}))
         elif kind == "language_changed":

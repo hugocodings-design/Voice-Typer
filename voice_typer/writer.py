@@ -5,6 +5,8 @@ faster-whisper — so there is nothing else to install (no Ollama / LM Studio se
 Models are CTranslate2 int8 conversions of Qwen 2.5 Instruct (strong in French and English).
 """
 
+import re
+import sys
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -54,9 +56,10 @@ SYSTEM_FR = (
 EXAMPLE_IN = ("euh courriel à madame Gagnon pour lui dire que j'ai bien reçu sa soumission et que je "
               "la regarde cette semaine et euh aussi lui demander si le prix inclut la livraison")
 EXAMPLE_RULES = ("Salutation « Bonjour Madame X, », petits paragraphes de 1 à 2 phrases séparés par une "
-                 "ligne vide, formule de politesse puis la signature : Paul")
+                 "ligne vide, formule de politesse puis la signature : {sig}")
 EXAMPLE_OUT = ("Bonjour Madame Gagnon,\n\nJ'ai bien reçu votre soumission, merci. Je la regarde cette "
-               "semaine.\n\nPourriez-vous me confirmer si le prix inclut la livraison ?\n\nMerci,\n\nPaul")
+               "semaine.\n\nPourriez-vous me confirmer si le prix inclut la livraison ?\n\nMerci,{sig_out}")
+NO_SIGNATURE = "(aucune signature : n'en écris pas)"
 
 
 def is_downloaded(source: str) -> bool:
@@ -68,6 +71,10 @@ def is_downloaded(source: str) -> bool:
 
 
 def download(source: str) -> str:
+    if sys.stderr is None:  # no console (pythonw): progress bars would crash writing to it
+        from huggingface_hub.utils import disable_progress_bars
+
+        disable_progress_bars()
     return snapshot_download(source, allow_patterns=_PATTERNS)
 
 
@@ -80,8 +87,9 @@ def default_presets(ui: str) -> list[dict]:
         return [
             {"id": "email", "name": "Email", "hotkey": "f2", "instructions": (
                 "Format this dictation as a professional email.\n"
-                "- Start with a greeting: \"Hello Mr. X,\" or \"Hello Ms. X,\" (title + last name only) if "
-                "the recipient is named in the dictation; if no name is dictated, just write \"Hello,\".\n"
+                "- Start with a greeting: if the recipient is named in the dictation, \"Hello Mr.\" or "
+                "\"Hello Ms.\" followed by their last name and a comma; if no name is dictated, just write "
+                "\"Hello,\".\n"
                 "- Split each main idea into short paragraphs of 1 to 2 sentences, with a blank line between them.\n"
                 "- Fix grammar and punctuation and remove hesitations (um, so, like…) without changing the meaning.\n"
                 "- No subject line.\n"
@@ -101,9 +109,9 @@ def default_presets(ui: str) -> list[dict]:
     return [
         {"id": "email", "name": "Courriel", "hotkey": "f2", "instructions": (
             "Mets cette dictée en forme de courriel professionnel.\n"
-            "- Commence par une salutation : « Bonjour Monsieur X, » ou « Bonjour Madame X, » (civilité + "
-            "nom de famille seulement) si le destinataire est nommé dans la dictée ; si aucun nom n'est "
-            "dicté, écris simplement « Bonjour, ».\n"
+            "- Commence par une salutation : si le destinataire est nommé dans la dictée, « Bonjour "
+            "Monsieur » ou « Bonjour Madame » suivi de son nom de famille et d'une virgule ; si aucun nom "
+            "n'est dicté, écris seulement « Bonjour, ».\n"
             "- Sépare chaque idée principale en petits paragraphes de 1 à 2 phrases, avec une ligne vide "
             "entre les paragraphes.\n"
             "- Corrige la grammaire et la ponctuation et retire les hésitations (euh, donc, genre…) sans "
@@ -161,11 +169,33 @@ class Writer:
     def rewrite(self, text: str, instructions: str, signature: str = "") -> str:
         if not text.strip():
             return text
-        rules = instructions.replace("{signature}", signature.strip() or "(pas de signature)")
+        signature = signature.strip()
+        rules = instructions.replace("{signature}", signature or NO_SIGNATURE)
+        # The example mirrors whether a signature exists, so the model never copies the example's one.
+        ex_rules = EXAMPLE_RULES.format(sig="Paul" if signature else NO_SIGNATURE)
+        ex_out = EXAMPLE_OUT.format(sig_out="\n\nPaul" if signature else "")
 
         def ask(r: str, t: str) -> str:
             return f"Consignes :\n{r}\n\nTranscription brute à réécrire :\n{t}"
 
         out = self._generate(ask(rules, text), SYSTEM_FR, max_tokens=max(256, len(text) // 2 + 400),
-                             shots=[(ask(EXAMPLE_RULES, EXAMPLE_IN), EXAMPLE_OUT)])
-        return out.strip().strip("«»\"").strip() or text
+                             shots=[(ask(ex_rules, EXAMPLE_IN), ex_out)])
+        out = out.strip().strip("«»\"").strip()
+        return _fix_invented_greeting(out, text) or text
+
+
+_GREETING = re.compile(r"^(Bonjour|Bonsoir|Salut|Hello|Hi|Dear)\s+(?:Monsieur|Madame|M\.|Mme|Mr\.?|Mrs\.?|Ms\.?)?"
+                       r"\s*([^\s,]+(?:\s+[^\s,]+)?)\s*,", re.IGNORECASE)
+
+
+def _fix_invented_greeting(out: str, source: str) -> str:
+    """Small models sometimes greet a made-up person ("Bonjour Monsieur Y,"): keep a plain greeting."""
+    out = re.sub(r"^(Bonjour|Bonsoir|Salut|Hello|Hi), ([A-ZÀ-Ý][^,\n]{0,40}),", r"\1 \2,", out)  # "Bonjour, Julie,"
+    first, _, rest = out.partition("\n")
+    m = _GREETING.match(first)
+    if not m:
+        return out
+    words = [w for w in re.split(r"\s+", m.group(2)) if w]
+    if any(w.lower().strip(".") in source.lower() for w in words if len(w.strip(".")) > 1):
+        return out
+    return f"{m.group(1)},{first[m.end():]}" + (f"\n{rest}" if rest else "")

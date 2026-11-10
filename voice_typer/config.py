@@ -31,12 +31,14 @@ class Config:
     hotkey: str = "ctrl+alt+space"
     mode: str = "hold"              # "hold" (push-to-talk) | "toggle" (press to start, press to stop)
     language_hotkey: str = ""       # cycles through favorite languages ("" = off)
+    paste_last_hotkey: str = ""     # types the last transcription again ("" = off)
     # Audio
     input_device: str | None = None  # microphone name, None = Windows default
     sounds: bool = True             # short beep on start / stop
     # Output
     output: str = "paste"           # "paste" | "type"
     trailing_space: bool = True
+    keep_in_clipboard: bool = True  # leave the last transcription on the clipboard (Ctrl+V works again)
     # Interface
     overlay: bool = True            # floating indicator while dictating
     ui_language: str = "fr"         # "fr" | "en"
@@ -44,7 +46,7 @@ class Config:
     history_enabled: bool = True
     custom_models: list[dict] = field(default_factory=list)  # [{"label": ..., "source": ...}]
     sample_rate: int = 16_000
-    settings_version: int = 2
+    settings_version: int = 3
 
     @classmethod
     def load(cls) -> "Config":
@@ -59,6 +61,16 @@ class Config:
                 known["device"] = "auto"
             known["settings_version"] = 2
         cfg = cls(**known)
+        if known.get("settings_version", 1) < 3 and cfg.presets:
+            # v2 (first AI-writing build) saved early default instructions: refresh the built-in
+            # presets to the improved ones, keeping the user's names and shortcuts.
+            from voice_typer.writer import default_presets
+
+            defaults = {p["id"]: p for p in default_presets(cfg.ui_language)}
+            for p in cfg.presets:
+                if p.get("id") in defaults:
+                    p["instructions"] = defaults[p["id"]]["instructions"]
+        cfg.settings_version = 3
         cfg.ensure_presets()
         return cfg
 

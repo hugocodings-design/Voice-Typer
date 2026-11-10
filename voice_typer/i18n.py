@@ -348,6 +348,10 @@ STRINGS["fr"].update({
     "hist_copy_raw": "Copier le texte brut (avant IA)",
     "rec_err_taken": "« {combo} » est déjà utilisé par : {what}.",
     "rec_target_main": "la dictée", "rec_target_lang": "le changement de langue",
+    "rec_target_paste": "recoller la dernière dictée",
+    "paste_last_title": "Recoller la dernière dictée",
+    "set_keep_clipboard": "Laisser la dernière dictée dans le presse-papiers (Ctrl+V la recolle)",
+    "overlay_pasted": "Dernière dictée recollée",
 })
 STRINGS["en"].update({
     "nav_writing": "AI writing",
@@ -395,6 +399,10 @@ STRINGS["en"].update({
     "hist_copy_raw": "Copy raw text (before AI)",
     "rec_err_taken": "\"{combo}\" is already used by: {what}.",
     "rec_target_main": "dictation", "rec_target_lang": "language switching",
+    "rec_target_paste": "paste last dictation",
+    "paste_last_title": "Paste last dictation again",
+    "set_keep_clipboard": "Leave the last dictation on the clipboard (Ctrl+V pastes it again)",
+    "overlay_pasted": "Last dictation pasted",
 })
 
 

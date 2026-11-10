@@ -7,25 +7,39 @@ import keyboard
 import pyperclip
 
 
-def send_text(text: str, mode: str = "paste", trailing_space: bool = True) -> None:
+def send_text(text: str, mode: str = "paste", trailing_space: bool = True, keep_in_clipboard: bool = False) -> None:
+    """Type/paste text into the focused app.
+
+    keep_in_clipboard=True leaves the text on the clipboard afterwards (so a stray click can be
+    fixed with Ctrl+V); otherwise the previous clipboard content is restored.
+    """
     if not text:
         return
     if trailing_space:
         text += " "
     if mode == "type":
         keyboard.write(text)
+        if keep_in_clipboard:
+            _copy(text)
         return
-    # Paste mode: put text on the clipboard, press ctrl+v, then restore the previous clipboard.
     previous = None
-    try:
-        previous = pyperclip.paste()
-    except pyperclip.PyperclipException:
-        pass
-    pyperclip.copy(text)
+    if not keep_in_clipboard:
+        try:
+            previous = pyperclip.paste()
+        except pyperclip.PyperclipException:
+            pass
+    _copy(text)
     keyboard.send("ctrl+v")
     time.sleep(0.15)  # let the target app read the clipboard before restoring it
     if previous is not None:
-        pyperclip.copy(previous)
+        _copy(previous)
+
+
+def _copy(text: str) -> None:
+    try:
+        pyperclip.copy(text)
+    except pyperclip.PyperclipException:
+        pass
 
 
 def beep(start: bool) -> None:
