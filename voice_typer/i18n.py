@@ -28,7 +28,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "overlay_listening": "Écoute…", "overlay_transcribing": "Transcription…", "lang_now": "Langue :",
         # home
         "home_lang_title": "Langue active",
-        "home_lang_sub": "Cliquez pour changer. Ajoutez des langues dans vos favoris depuis la page Langues.",
+        "home_lang_sub": "Français, anglais, ou détection automatique si vous passez de l'un à l'autre.",
         "manage_languages": "Gérer les langues →",
         "shortcut_title": "Raccourci pour dicter",
         "mode_hold": "Maintenir pendant que je parle",
@@ -55,7 +55,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "dict_tip": "Astuce : clic droit ou double-clic pour modifier, touche Suppr pour effacer. Exemple de remplacement : « chat GPT » → « ChatGPT ».",
         # languages
         "lang_hotkey_title": "Raccourci pour changer de langue",
-        "lang_hotkey_sub": "Passe à la langue favorite suivante, depuis n'importe quelle application. Un petit message confirme la langue.",
+        "lang_hotkey_sub": "Bascule entre français et anglais depuis n'importe quelle application. Un petit message confirme la langue.",
         "all_languages": "Toutes les langues",
         "all_languages_sub": "★ = favorite. Double-clic pour ajouter ou retirer des favoris, clic droit pour plus d'options.",
         "col_fav": "Favori", "col_language": "Langue", "col_code": "Code", "col_active": "État",
@@ -149,7 +149,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "side_ok": "Ready", "side_rec": "Listening", "side_busy": "Busy…", "side_off": "Stopped",
         "overlay_listening": "Listening…", "overlay_transcribing": "Transcribing…", "lang_now": "Language:",
         "home_lang_title": "Active language",
-        "home_lang_sub": "Click to switch. Add favorite languages from the Languages page.",
+        "home_lang_sub": "French, English, or auto-detect if you switch between the two.",
         "manage_languages": "Manage languages →",
         "shortcut_title": "Dictation shortcut",
         "mode_hold": "Hold while I speak", "mode_toggle": "Press to start, press to finish",
@@ -173,7 +173,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "repl_from": "Heard text", "repl_to": "Write instead",
         "dict_tip": "Tip: right-click or double-click to edit, Delete key to remove. Replacement example: 'chat GPT' → 'ChatGPT'.",
         "lang_hotkey_title": "Shortcut to switch language",
-        "lang_hotkey_sub": "Moves to the next favorite language from any app. A small message confirms the language.",
+        "lang_hotkey_sub": "Switches between French and English from any app. A small message confirms the language.",
         "all_languages": "All languages",
         "all_languages_sub": "★ = favorite. Double-click to add/remove favorites, right-click for more.",
         "col_fav": "Favorite", "col_language": "Language", "col_code": "Code", "col_active": "Status",
@@ -420,7 +420,7 @@ STRINGS["fr"].update({
                           "d'exclamation » → « Bonjour Julie, ⏎ Merci pour ton message ! ». Les expressions "
                           "ambiguës (comme « deux points ») ne sont volontairement pas des commandes.",
     "help_keys_title": "Raccourcis clavier",
-    "help_keys_sub": "Vos raccourcis actuels. Modifiez-les sur l'Accueil, la page Langues ou la page Écriture IA.",
+    "help_keys_sub": "Vos raccourcis actuels. Modifiez-les sur l'Accueil ou la page Écriture IA.",
     "help_key_dictate": "Dicter (texte tel quel)", "help_key_esc": "Annuler la dictée en cours",
     "help_key_preset": "Dicter avec le préréglage « {name} »",
     "help_key_rewrite": "Réécrire le texte sélectionné avec l'IA",
@@ -454,7 +454,7 @@ STRINGS["en"].update({
                           "“Hi Julie, ⏎ Thanks for your message!”. Ambiguous phrases (like “period”) "
                           "are deliberately not commands.",
     "help_keys_title": "Keyboard shortcuts",
-    "help_keys_sub": "Your current shortcuts. Change them on Home, the Languages page or the AI writing page.",
+    "help_keys_sub": "Your current shortcuts. Change them on Home or the AI writing page.",
     "help_key_dictate": "Dictate (text as is)", "help_key_esc": "Cancel the dictation in progress",
     "help_key_preset": "Dictate with the \"{name}\" preset",
     "help_key_rewrite": "Rewrite the selected text with AI",

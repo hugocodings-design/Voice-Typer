@@ -34,8 +34,17 @@ class HomePage:
         lang = self._card(row, self.t("home_lang_title"), self.t("home_lang_sub"), col=0, wrap=330)
         self.lang_buttons = ttk.Frame(lang)
         self.lang_buttons.pack(anchor="w", fill="x")
-        ttk.Button(lang, text=self.t("manage_languages"), style="TButton",
-                   command=lambda: self._show_page("languages")).pack(anchor="w", pady=(10, 0))
+        ttk.Label(lang, text=self.t("lang_hotkey_title"), wraplength=330, justify="left").pack(
+            anchor="w", pady=(14, 4))
+        lrow = ttk.Frame(lang)
+        lrow.pack(fill="x")
+        self._keycaps(lrow, self.config.language_hotkey).pack(side="left")
+        if self.config.language_hotkey:
+            ttk.Button(lrow, text=self.t("wr_remove_key"),
+                       command=lambda: self._set_lang_hotkey("")).pack(side="right", padx=(6, 0))
+        ttk.Button(lrow, text=self.t("change"), command=lambda: self._record_hotkey("lang")).pack(side="right")
+        ttk.Label(lang, text=self.t("lang_hotkey_sub"), style="Muted.TLabel", wraplength=330,
+                  justify="left").pack(anchor="w", pady=(6, 0))
 
         sc = self._card(row, self.t("shortcut_title"), col=1)
         caps_row = ttk.Frame(sc)
@@ -84,7 +93,7 @@ class HomePage:
             return
         for w in self.lang_buttons.winfo_children():
             w.destroy()
-        options = [None] + [c for c in self.config.favorite_languages]
+        options = [None, *languages.SUPPORTED]
         for code in options:
             selected = code == self.config.language
             ttk.Button(self.lang_buttons, text=("✓ " if selected else "") + self.lang_name(code),

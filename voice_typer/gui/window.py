@@ -15,7 +15,6 @@ from voice_typer.gui.common import PAGES
 from voice_typer.gui.pages.dictionary import DictionaryPage
 from voice_typer.gui.pages.help import HelpPage
 from voice_typer.gui.pages.home import HomePage
-from voice_typer.gui.pages.languages import LanguagesPage
 from voice_typer.gui.pages.models_page import ModelsPage
 from voice_typer.gui.pages.remote_page import RemotePage
 from voice_typer.gui.pages.settings import SettingsPage
@@ -29,7 +28,7 @@ from voice_typer.recorder import Recorder
 from voice_typer.tray import Tray
 
 
-class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, WritingPage,
+class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
              RemotePage, HelpPage, ShortcutRecorder, WelcomeWizard, UpdatesMixin):
     def __init__(self, engine: Engine):
         self.engine = engine
@@ -291,7 +290,7 @@ class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, 
                 lambda: self.call_soon(lambda: self.engine.set_language(code)),
                 checked=lambda _item: self.config.language == code, radio=True)
 
-        lang_items = [lang_item(None)] + [lang_item(c) for c in self.config.favorite_languages]
+        lang_items = [lang_item(None)] + [lang_item(c) for c in languages.SUPPORTED]
         upd = []
         if self._update:
             upd = [pystray.MenuItem(self.t("upd_tray_item", version=self._update["version"]),
@@ -421,7 +420,6 @@ class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, 
             self._set_last(("no_model", {}))
         elif kind == "language_changed":
             self._render_home_language()
-            self._refresh_languages()
             self.tray.refresh()
             if self.config.overlay:
                 self.overlay.flash(f"{self.t('lang_now')} {self.lang_name(payload)}")

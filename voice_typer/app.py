@@ -392,11 +392,10 @@ class Engine:
         self._emit("language_changed", code)
 
     def cycle_language(self) -> None:
-        favs = [c for c in self.config.favorite_languages if c]
-        if not favs:
-            return
+        from voice_typer.languages import SUPPORTED
+
         cur = self.config.language
-        nxt = favs[(favs.index(cur) + 1) % len(favs)] if cur in favs else favs[0]
+        nxt = SUPPORTED[(SUPPORTED.index(cur) + 1) % len(SUPPORTED)] if cur in SUPPORTED else SUPPORTED[0]
         self.set_language(nxt)
 
     def _on_down(self, preset_id: str | None) -> None:

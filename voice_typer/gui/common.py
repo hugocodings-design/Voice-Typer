@@ -7,7 +7,7 @@ UI_LANGUAGES = [("fr", "Français"), ("en", "English")]
 THEMES = ["system", "light", "dark"]
 PRESETS = ["f9", "right ctrl", "ctrl+windows", "ctrl+alt+space"]
 LANG_PRESETS = ["f8", "ctrl+alt+l", "ctrl+shift+l"]
-PAGES = [("home", "home"), ("dictionary", "dictionary"), ("languages", "language"),
+PAGES = [("home", "home"), ("dictionary", "dictionary"),
          ("models", "models"), ("writing", "writing"), ("remote", "remote"), ("help", "help"),
          ("settings", "settings")]
 PASTE_PRESETS = ["f9", "f10", "ctrl+shift+v", "insert"]

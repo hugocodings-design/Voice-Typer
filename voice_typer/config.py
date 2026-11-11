@@ -91,6 +91,10 @@ class Config:
                 if p.get("id") in defaults:
                     p["instructions"] = defaults[p["id"]]["instructions"]
         cfg.settings_version = 3
+        # French and English only (models are multilingual or French / English specialists).
+        cfg.favorite_languages = ["fr", "en"]
+        if cfg.language not in (None, "fr", "en"):
+            cfg.language = None
         cfg.ensure_presets()
         return cfg
 

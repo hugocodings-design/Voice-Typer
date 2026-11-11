@@ -1,4 +1,7 @@
-"""Every language Whisper understands, with French and English names."""
+"""Language names. Voice Typer is made for French and English (SUPPORTED); the full list only
+serves to name the language of old history entries."""
+
+SUPPORTED: tuple[str, ...] = ("fr", "en")
 
 # (code, French name, English name)
 LANGUAGES: list[tuple[str, str, str]] = [

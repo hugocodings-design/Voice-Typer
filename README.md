@@ -13,7 +13,7 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Local transcription with faster-whisper (CPU int8 by default, CUDA optional)
 - [x] Types the text into the focused window (or pastes it via the clipboard)
 - [x] Desktop window with live status (ready / recording / transcribing)
-- [x] Language picker (Auto-detect, Français, English, Español… ~20 languages)
+- [x] French and English (plus auto-detect when you mix both)
 - [x] Model manager: pick a model by speed vs. accuracy, download it in one click, switch without restarting
 - [x] Import your own models: a local faster-whisper folder or a Hugging Face repo id
 - [x] Settings saved between launches (`%APPDATA%\VoiceTyper\settings.json`)
@@ -25,8 +25,8 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Interface in French or English
 - [x] Windows 11 look in bright green and gray (recoloured sv-ttk), light / dark / follow Windows, sidebar navigation, themed pop-ups
 - [x] Personal dictionary: words passed to Whisper as `hotwords` + automatic replacements ("chat GPT" → "ChatGPT")
-- [x] All ~100 Whisper languages, favorites, one-click switch on Home, in the tray menu and with a shortcut
-- [x] Right-click menus: models (use, download, delete from disk, open folder), languages, history, dictionary
+- [x] One-click French / English / auto switch on Home, in the tray menu and with a shortcut
+- [x] Right-click menus: models (use, download, delete from disk, open folder), history, dictionary
 - [x] Dictation history (local, last 200), microphone choice + level test, start/stop sounds, optional trailing space
 - [x] NVIDIA GPU acceleration, automatic with CPU fallback (RTX 2080 Super: ~0.25 s instead of ~5.5 s per sentence with large models)
 - [x] **AI writing presets** — a local LLM rewrites the dictation before typing it (email with greeting,
@@ -210,8 +210,8 @@ VOICE TYPER/
 ├── voice_typer/
 │   ├── __main__.py     # entry point: python -m voice_typer
 │   ├── app.py          # engine: hotkey → recorder → transcriber → output, events to the UI
-│   ├── gui/            # tkinter window: window.py + pages/ (home, dictionary, languages, models,
-│   │                   #   writing, help, settings), wizard.py (first run), shortcuts.py
+│   ├── gui/            # tkinter window: window.py + pages/ (home, dictionary, models, writing,
+│   │                   #   remote, help, settings), wizard.py (first run), shortcuts.py
 │   ├── writer.py       # embedded LLM for AI-writing presets
 │   ├── commands.py     # voice commands ("à la ligne", "virgule"…)
 │   ├── clipboard.py    # Win32 clipboard with privacy flags (no history / cloud)
