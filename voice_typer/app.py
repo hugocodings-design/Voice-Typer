@@ -495,7 +495,7 @@ class Engine:
             keyboard.send("backspace")
             time.sleep(0.002)
 
-    def _live_type(self, text: str, started: float) -> None:
+    def _live_type(self, text: str, started: float, from_start: bool = True) -> None:
         """Type the newly confirmed words (skipped while Ctrl/Alt/… of the shortcut are held:
         Ctrl + letters would trigger the app's shortcuts; they are typed once released)."""
         import keyboard
@@ -506,7 +506,7 @@ class Engine:
                 return
             if any(k.modifiers_held() for k in self._all_hotkeys()):
                 return
-            new = typer.update(text)
+            new = typer.update(text, from_start)
             if new:
                 keyboard.write(new)
 
@@ -525,8 +525,16 @@ class Engine:
         time.sleep(0.8)
         while self.recorder.is_recording and self._record_started == started and preview:
             t0 = time.perf_counter()
+            audio = self.recorder.snapshot()
+            from_start = True
+            if self._live_typer is not None:  # fixed window: each pass stays fast on long dictations
+                from voice_typer.streaming import WINDOW_S
+
+                limit = WINDOW_S * self.config.sample_rate
+                from_start = audio.size <= limit
+                audio = audio[-limit:]
             try:
-                text = preview(self.recorder.snapshot(), self.config.language)
+                text = preview(audio, self.config.language)
             except Exception:  # noqa: BLE001 — preview is best effort
                 traceback.print_exc()
                 return
@@ -535,7 +543,7 @@ class Engine:
                 if show:
                     self._emit("live", text)
             if text and self._live_typer is not None:
-                self._live_type(text, started)
+                self._live_type(text, started, from_start)
             # never use more than ~half the time transcribing (keeps a CPU-only PC responsive)
             time.sleep(max(interval, time.perf_counter() - t0))
 
