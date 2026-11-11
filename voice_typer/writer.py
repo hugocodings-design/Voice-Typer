@@ -149,6 +149,8 @@ class Writer:
                 self._generate("ok", "Réponds ok.", max_tokens=2)  # warm-up: fails here if CUDA is broken
                 return
             except Exception as exc:  # noqa: BLE001
+                if "Unable to open" in str(exc):  # file still locked: retried by the caller, not a GPU problem
+                    raise
                 self.gpu_error = str(exc)
         self.generator = ctranslate2.Generator(path, device="cpu", compute_type=cpu_compute)
         self.device = "cpu"

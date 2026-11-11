@@ -26,7 +26,7 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Windows 11 look (sv-ttk), light / dark / follow Windows, sidebar navigation
 - [x] Personal dictionary: words passed to Whisper as `hotwords` + automatic replacements ("chat GPT" → "ChatGPT")
 - [x] All ~100 Whisper languages, favorites, one-click switch on Home, in the tray menu and with a shortcut
-- [x] Right-click menus: models (use, download, delete from disk, open folder, Hugging Face page), languages, history, dictionary
+- [x] Right-click menus: models (use, download, delete from disk, open folder), languages, history, dictionary
 - [x] Dictation history (local, last 200), microphone choice + level test, start/stop sounds, optional trailing space
 - [x] NVIDIA GPU acceleration, automatic with CPU fallback (RTX 2080 Super: ~0.25 s instead of ~5.5 s per sentence with large models)
 - [x] **AI writing presets** — a local LLM rewrites the dictation before typing it (email with greeting,

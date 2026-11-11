@@ -113,3 +113,28 @@ def test_fr_and_en_have_same_keys():
 def test_language_names():
     assert languages.name(None, "fr") == "Détection automatique"
     assert languages.name("fr", "en") == "French"
+
+
+def test_retry_while_locked(monkeypatch):
+    import time
+
+    from voice_typer import models
+
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    calls = []
+
+    def load():
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError("Unable to open file 'model.bin' in model 'x'")
+        return "ok"
+
+    assert models.retry_while_locked(load) == "ok" and len(calls) == 3
+
+    def broken():
+        raise RuntimeError("CUDA failed")
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="CUDA"):
+        models.retry_while_locked(broken)

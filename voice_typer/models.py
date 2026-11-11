@@ -15,6 +15,23 @@ from faster_whisper.utils import download_model
 from huggingface_hub import HfApi, snapshot_download
 
 
+def retry_while_locked(load, attempts: int = 8, delay: float = 2.0):
+    """Call `load()`, retrying while the model file can't be opened yet.
+
+    Right after a download, Windows (usually the antivirus scanning the new, very large file)
+    can hold model.bin for a few seconds: CTranslate2 then fails with "Unable to open file".
+    """
+    import time
+
+    for attempt in range(attempts):
+        try:
+            return load()
+        except Exception as exc:  # noqa: BLE001
+            if "Unable to open" not in str(exc) or attempt == attempts - 1:
+                raise
+            time.sleep(delay)
+
+
 @dataclass(frozen=True)
 class ModelInfo:
     source: str
@@ -105,11 +122,6 @@ def repo_of(source: str) -> str | None:
     from faster_whisper.utils import _MODELS
 
     return _MODELS.get(source)
-
-
-def hf_url(source: str) -> str | None:
-    repo = repo_of(source)
-    return f"https://huggingface.co/{repo}" if repo else None
 
 
 def _cache_dir(source: str) -> Path | None:

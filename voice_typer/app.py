@@ -79,8 +79,9 @@ class Engine:
             try:
                 started = time.perf_counter()
                 path = models.resolve(source)  # downloads on first use
-                new = Transcriber(source, path, self.config.device,
-                                  self.config.compute_type, self.config.gpu_compute_type)
+                new = models.retry_while_locked(lambda: Transcriber(
+                    source, path, self.config.device,
+                    self.config.compute_type, self.config.gpu_compute_type))
                 self.transcriber = new
                 self.config.model = source
                 self.config.save()
@@ -127,7 +128,8 @@ class Engine:
     def _make_writer(self):
         from voice_typer.writer import Writer
 
-        return Writer(self.config.writing_model, self.config.device, "int8", "int8_float16")
+        return models.retry_while_locked(
+            lambda: Writer(self.config.writing_model, self.config.device, "int8", "int8_float16"))
 
     def load_writer(self, force: bool = False) -> None:
         """Download (if needed) and load the writing AI in the background."""

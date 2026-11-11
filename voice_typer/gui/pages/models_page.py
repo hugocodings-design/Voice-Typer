@@ -3,7 +3,6 @@
 import os
 import threading
 import tkinter as tk
-import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
@@ -176,14 +175,9 @@ class ModelsPage:
                          state="disabled" if m.source == active or busy else "normal")
         if not downloaded:
             menu.add_command(label=self.t("download_only"), command=lambda: self._download_only(m))
-        menu.add_separator()
         if downloaded:
+            menu.add_separator()
             menu.add_command(label=self.t("open_folder"), command=lambda: self._open_model_folder(m))
-        url = models.hf_url(m.source)
-        if url:
-            menu.add_command(label=self.t("open_hf"), command=lambda: webbrowser.open(url))
-        menu.add_command(label=self.t("copy_id"), command=lambda: (self.root.clipboard_clear(),
-                                                                  self.root.clipboard_append(m.source)))
         if (downloaded and not models.is_local_folder(m.source)) or m.custom:
             menu.add_separator()
         if downloaded and not models.is_local_folder(m.source):

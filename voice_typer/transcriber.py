@@ -23,6 +23,8 @@ class Transcriber:
                 self.device = "cuda"
                 return
             except Exception as exc:  # noqa: BLE001 — fall back to CPU
+                if "Unable to open" in str(exc):  # file still locked: retried by the caller, not a GPU problem
+                    raise
                 self.gpu_error = str(exc)
         self.model = WhisperModel(path, device="cpu", compute_type=cpu_compute)
         self.device = "cpu"
