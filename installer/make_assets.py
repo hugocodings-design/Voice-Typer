@@ -10,10 +10,11 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from voice_typer.tray import _icon_image  # noqa: E402
+from voice_typer.tray import BRAND, _icon_image  # noqa: E402
 
 OUT = Path(__file__).resolve().parent / "build_assets"
-TOP, BOTTOM = (30, 64, 175), (59, 130, 246)  # deep blue -> app accent blue
+TOP, BOTTOM = (42, 47, 44), (22, 25, 23)  # charcoal gray gradient (app grays)
+GREEN = (74, 222, 128)  # bright green (app accent, dark mode)
 FONTS = Path("C:/Windows/Fonts")
 
 
@@ -37,20 +38,13 @@ def side_image(scale: float) -> Image.Image:
     """Left panel of the welcome / finish pages (164x314 at 100 %)."""
     w, h = round(164 * scale), round(314 * scale)
     img = gradient(w, h)
-    # soft decorative circles
+    # soft green glows
     deco = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     dd = ImageDraw.Draw(deco)
-    dd.ellipse((-0.45 * w, 0.62 * h, 0.75 * w, 1.25 * h), fill=(255, 255, 255, 18))
-    dd.ellipse((0.45 * w, -0.18 * h, 1.4 * w, 0.32 * h), fill=(255, 255, 255, 14))
+    dd.ellipse((-0.45 * w, 0.62 * h, 0.75 * w, 1.25 * h), fill=GREEN + (16,))
+    dd.ellipse((0.45 * w, -0.18 * h, 1.4 * w, 0.32 * h), fill=GREEN + (12,))
     img.paste(deco, (0, 0), deco)
-    badge = _icon_image("#ffffff", round(76 * scale))
-    # invert the badge: white disc with a blue microphone
-    blue = Image.new("RGBA", badge.size, TOP + (255,))
-    disc = badge.split()[3]
-    mic = _icon_image("#000000", badge.size[0]).convert("L")
-    mic = mic.point(lambda v: 255 if v > 128 else 0)
-    badge = Image.composite(blue, Image.new("RGBA", badge.size, (255, 255, 255, 255)), mic)
-    badge.putalpha(disc)
+    badge = _icon_image(BRAND, round(76 * scale))  # the app icon: green disc, white microphone
     bx = (w - badge.size[0]) // 2
     by = round(82 * scale)
     img.paste(badge, (bx, by), badge)
@@ -58,9 +52,9 @@ def side_image(scale: float) -> Image.Image:
     title = font("segoeuib.ttf", round(19 * scale))
     sub = font("segoeui.ttf", round(10.5 * scale))
     y = by + badge.size[1] + round(18 * scale)
-    for text, f, col, gap in (("Voice Typer", title, (255, 255, 255), 8),
-                              ("Dictée vocale", sub, (219, 234, 254), 2),
-                              ("100 % locale et privée", sub, (219, 234, 254), 0)):
+    for text, f, col, gap in (("Voice Typer", title, (238, 241, 239), 8),
+                              ("Dictée vocale", sub, GREEN, 2),
+                              ("100 % locale et privée", sub, (157, 165, 160), 0)):
         tw = d.textlength(text, font=f)
         d.text(((w - tw) / 2, y), text, font=f, fill=col)
         y += f.size + round(gap * scale) + round(4 * scale)
@@ -70,7 +64,7 @@ def side_image(scale: float) -> Image.Image:
 def small_image(size: int) -> Image.Image:
     """Top-right corner of the inner pages (transparent, so it suits light and dark mode)."""
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    badge = _icon_image("#2563eb", round(size * 0.86))
+    badge = _icon_image(BRAND, round(size * 0.86))
     o = (size - badge.size[0]) // 2
     img.paste(badge, (o, o), badge)
     return img

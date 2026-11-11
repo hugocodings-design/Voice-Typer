@@ -505,13 +505,16 @@ def main() -> None:
     config = Config.load()
     if _already_running():
         import tkinter as tk
-        from tkinter import messagebox
 
+        from voice_typer import ui_theme
+        from voice_typer.gui import dialogs
         from voice_typer.i18n import tr
 
         root = tk.Tk()
         root.withdraw()
-        messagebox.showinfo("Voice Typer", tr(config.ui_language, "already_running"))
+        mode, pal = ui_theme.apply(root, config.theme)
+        dialogs.configure(mode, pal, ui_theme.Fonts(root), config.ui_language)
+        dialogs.showinfo("Voice Typer", tr(config.ui_language, "already_running"), parent=root)
         root.destroy()
         return
 

@@ -3,24 +3,41 @@
 import ctypes
 import tkinter as tk
 import tkinter.font as tkfont
+from pathlib import Path
 from tkinter import ttk
 
 import sv_ttk
 
+# Bright green accent on soft, slightly green-tinted grays.
 PALETTES = {
     "light": {
-        "bg": "#fafafa", "sidebar": "#f0f0f3", "card": "#ffffff", "text": "#1b1b1f",
-        "muted": "#5f6368", "accent": "#2563eb", "accent_fg": "#ffffff", "accent_soft": "#e3ecfd",
-        "hover": "#e4e4e9", "border": "#dcdce0", "key_bg": "#ffffff", "key_border": "#c8c8cf",
-        "group_bg": "#eef2fb", "ok": "#1e8e3e", "rec": "#d93025", "busy": "#e37400", "off": "#9aa0a6",
+        "bg": "#fafafa", "sidebar": "#e8ebe9", "card": "#ffffff", "text": "#1a1d1b",
+        "muted": "#5c6460", "accent": "#16a34a", "accent_fg": "#ffffff", "accent_soft": "#d9f5e1",
+        "hover": "#dde2de", "border": "#d5dad6", "key_bg": "#ffffff", "key_border": "#c3cac5",
+        "group_bg": "#e6f4ea", "ok": "#16a34a", "rec": "#dc2626", "busy": "#d97706", "off": "#9aa19c",
+        "bright": "#22c55e",
     },
     "dark": {
-        "bg": "#1c1c1c", "sidebar": "#202024", "card": "#2b2b2b", "text": "#f2f2f2",
-        "muted": "#a8a8b0", "accent": "#5b9cff", "accent_fg": "#0b1220", "accent_soft": "#22324d",
-        "hover": "#2d2d33", "border": "#3a3a40", "key_bg": "#323238", "key_border": "#4a4a52",
-        "group_bg": "#26324a", "ok": "#5bd17b", "rec": "#ff6b5e", "busy": "#ffb347", "off": "#7a7a80",
+        "bg": "#1c1c1c", "sidebar": "#141615", "card": "#242725", "text": "#eef1ef",
+        "muted": "#9da5a0", "accent": "#4ade80", "accent_fg": "#052e16", "accent_soft": "#1d3526",
+        "hover": "#232725", "border": "#343935", "key_bg": "#2a2e2b", "key_border": "#454b47",
+        "group_bg": "#1f2e24", "ok": "#4ade80", "rec": "#f87171", "busy": "#fbbf24", "off": "#6f7672",
+        "bright": "#4ade80",
     },
 }
+
+THEME_DIR = Path(__file__).resolve().parent / "theme"  # green Sun Valley (tools/make_theme.py)
+
+
+def _load_theme(root: tk.Tk) -> None:
+    if getattr(root, "_vt_theme_loaded", False):
+        return
+    if (THEME_DIR / "sv.tcl").exists():
+        root.tk.call("source", str(THEME_DIR / "sv.tcl"))
+    else:  # fallback: the original (blue) theme
+        sv_ttk._load_theme(ttk.Style(root))
+    root._vt_theme_loaded = True
+
 
 ICONS = {  # Segoe Fluent Icons / Segoe MDL2 Assets code points
     "writing": "", "help": "",
@@ -79,7 +96,8 @@ class Fonts:
 
 def apply(root: tk.Tk, setting: str) -> tuple[str, dict]:
     mode = resolve_mode(setting)
-    sv_ttk.set_theme(mode, root)
+    _load_theme(root)
+    ttk.Style(root).theme_use(f"sun-valley-{mode}")
     pal = dict(PALETTES[mode])
     style = ttk.Style(root)
     # ttk widgets inside cards use the theme background: match plain tk widgets to it.

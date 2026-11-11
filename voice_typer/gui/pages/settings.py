@@ -3,7 +3,9 @@
 import os
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, ttk
+
+from voice_typer.gui import dialogs as messagebox
 
 from voice_typer import __version__, autostart
 from voice_typer.config import SETTINGS_DIR

@@ -10,7 +10,10 @@ except Exception:  # noqa: BLE001
     pystray = None
 
 
-def _icon_image(color: str = "#2563eb", size: int = 64) -> Image.Image:
+BRAND = "#22c55e"  # bright green (see ui_theme.PALETTES)
+
+
+def _icon_image(color: str = BRAND, size: int = 64) -> Image.Image:
     """Round microphone badge, drawn 4x larger then scaled down for smooth edges."""
     k = size * 4 / 64
     img = Image.new("RGBA", (size * 4, size * 4), (0, 0, 0, 0))
@@ -55,7 +58,7 @@ class Tray:
 
     def set_recording(self, recording: bool) -> None:
         if self.icon:
-            self.icon.icon = _icon_image("#d93025" if recording else "#2563eb")
+            self.icon.icon = _icon_image("#dc2626" if recording else BRAND)
 
     def notify(self, message: str) -> None:
         if self.icon:

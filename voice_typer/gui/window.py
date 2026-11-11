@@ -4,7 +4,9 @@ import datetime as dt
 import queue
 import tkinter as tk
 from collections.abc import Callable
-from tkinter import messagebox, ttk
+from tkinter import ttk
+
+from voice_typer.gui import dialogs as messagebox
 
 from voice_typer import gpu, languages, models, ui_theme
 from voice_typer.app import Engine
@@ -147,6 +149,7 @@ class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, 
                 child.destroy()
         self.mode, self.pal = ui_theme.apply(self.root, self.config.theme)
         pal = self.pal
+        messagebox.configure(self.mode, pal, self.fonts, self.config.ui_language)  # themed pop-ups
         self.root.configure(bg=pal["bg"])
 
         side = tk.Frame(self.root, bg=pal["sidebar"], width=230)

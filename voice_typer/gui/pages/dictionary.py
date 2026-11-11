@@ -1,6 +1,8 @@
 """Page Dictionnaire: vocabulary + replacements."""
 
-from tkinter import simpledialog, ttk
+from tkinter import ttk
+
+from voice_typer.gui import dialogs as simpledialog
 
 
 class DictionaryPage:

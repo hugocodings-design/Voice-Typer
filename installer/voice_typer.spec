@@ -9,6 +9,7 @@ ROOT = Path(SPECPATH).parent
 ASSETS = Path(SPECPATH) / "build_assets"
 
 datas, binaries, hiddenimports = [], [], collect_submodules("voice_typer")
+datas.append((str(ROOT / "voice_typer" / "theme"), "voice_typer/theme"))  # green ttk theme
 for pkg in ("ctranslate2", "faster_whisper", "tokenizers", "onnxruntime", "sv_ttk",
             "sounddevice", "_sounddevice_data", "av", "huggingface_hub", "pystray"):
     try:

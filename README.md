@@ -23,7 +23,7 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Floating indicator with a live mic level while dictating (never steals focus)
 - [x] Icon next to the clock: closing the window keeps it running; option to start with Windows
 - [x] Interface in French or English
-- [x] Windows 11 look (sv-ttk), light / dark / follow Windows, sidebar navigation
+- [x] Windows 11 look in bright green and gray (recoloured sv-ttk), light / dark / follow Windows, sidebar navigation, themed pop-ups
 - [x] Personal dictionary: words passed to Whisper as `hotwords` + automatic replacements ("chat GPT" → "ChatGPT")
 - [x] All ~100 Whisper languages, favorites, one-click switch on Home, in the tray menu and with a shortcut
 - [x] Right-click menus: models (use, download, delete from disk, open folder), languages, history, dictionary

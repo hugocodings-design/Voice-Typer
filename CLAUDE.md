@@ -38,6 +38,7 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - Esc cancels a recording (`keyboard.on_press_key("esc", suppress=True)` armed only while recording)
 - Live preview (`config.live_preview`): `recorder.snapshot()` → `transcriber.preview()` (greedy, no VAD) every 0.6 s GPU / 1.5 s CPU → overlay caption
 - `rewrite_hotkey` copies the selection (sentinel + Ctrl+C), rewrites it with `rewrite_preset`, pastes; `app_presets` map an exe (`winapp.foreground_exe()`) to a preset for the main hotkey
+- Look: bright green + gray. `voice_typer/theme/` = Sun Valley ttk theme (sv-ttk, MIT) recoloured by `tools/make_theme.py` (sprite sheets hue-shifted, Tcl colours edited); `ui_theme.PALETTES` holds the matching tk colours. Never use `tkinter.messagebox`/`simpledialog`: `gui/dialogs.py` gives themed pop-ups with the same API (`from voice_typer.gui import dialogs as messagebox`)
 - Settings migrations live in `Config.load()` (`settings_version`)
 - Tests: `python -m pytest` (+ `python -m pyflakes voice_typer tests`); CI on GitHub Actions installs from `requirements.lock` with `--require-hashes`
 - Installer: `installer/build.ps1` → PyInstaller onedir (`voice_typer.spec`) → `Voice Typer.exe --selftest` → Inno Setup (`VoiceTyper.iss`, per-user, no admin). In the frozen app `gpu.py` looks in `sys._MEIPASS/nvidia/*/bin` and `autostart.py` registers the exe itself. The mutex `VoiceTyper.SingleInstance` is also the installer's `AppMutex`

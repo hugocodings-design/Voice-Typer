@@ -2,7 +2,9 @@
 
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
+
+from voice_typer.gui import dialogs as messagebox
 
 import keyboard
 

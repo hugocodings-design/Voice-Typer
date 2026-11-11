@@ -2,7 +2,9 @@
 
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
+
+from voice_typer.gui import dialogs as messagebox
 
 from voice_typer import ui_theme, winapp, writer
 from voice_typer.gui.common import ScrollFrame
