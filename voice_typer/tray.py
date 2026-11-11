@@ -10,15 +10,21 @@ except Exception:  # noqa: BLE001
     pystray = None
 
 
-def _icon_image(color: str = "#2563eb") -> Image.Image:
-    img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+def _icon_image(color: str = "#2563eb", size: int = 64) -> Image.Image:
+    """Round microphone badge, drawn 4x larger then scaled down for smooth edges."""
+    k = size * 4 / 64
+    img = Image.new("RGBA", (size * 4, size * 4), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse((2, 2, 62, 62), fill=color)
-    d.rounded_rectangle((24, 12, 40, 38), radius=8, fill="white")      # mic head
-    d.arc((17, 22, 47, 46), start=0, end=180, fill="white", width=4)   # mic cradle
-    d.line((32, 46, 32, 53), fill="white", width=4)
-    d.line((24, 53, 40, 53), fill="white", width=4)
-    return img
+
+    def r(*xy):
+        return tuple(round(v * k) for v in xy)
+
+    d.ellipse(r(2, 2, 62, 62), fill=color)
+    d.rounded_rectangle(r(24, 12, 40, 38), radius=round(8 * k), fill="white")      # mic head
+    d.arc(r(17, 22, 47, 46), start=0, end=180, fill="white", width=round(4 * k))   # mic cradle
+    d.line(r(32, 46, 32, 53), fill="white", width=round(4 * k))
+    d.line(r(24, 53, 40, 53), fill="white", width=round(4 * k))
+    return img.resize((size, size), Image.LANCZOS)
 
 
 class Tray:

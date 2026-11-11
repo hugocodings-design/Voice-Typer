@@ -71,6 +71,14 @@ class Recorder:
                                           callback=self._callback)
         self._stream.start()
 
+    def snapshot(self, max_seconds: float = 30.0) -> np.ndarray:
+        """Audio captured so far (last max_seconds), without stopping — for the live preview."""
+        with self._lock:
+            if not self._chunks:
+                return np.zeros(0, dtype=np.float32)
+            audio = np.concatenate(self._chunks)
+        return audio[-int(max_seconds * self.sample_rate):]
+
     def stop(self) -> np.ndarray:
         """Stop recording and return the captured audio (mono float32, sample_rate Hz)."""
         if self._stream is None:

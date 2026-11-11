@@ -34,7 +34,16 @@ No cloud API, no account, nothing leaves your PC.
       its own shortcut (F2, F3, F4…). Embedded in the app: no Ollama / LM Studio to install
 - [x] Last dictation stays on the clipboard (Ctrl+V pastes it again) + optional shortcut to re-type it
       after a stray click (Home → "Recoller la dernière dictée")
-- [ ] Packaged `.exe` (PyInstaller)
+- [x] **Esc cancels** a recording (nothing is typed), in both modes
+- [x] **Voice commands** ("à la ligne", "nouveau paragraphe", "virgule", "ouvrir les guillemets"…),
+      can be turned off; full list on the **Aide & commandes** page
+- [x] Optional **live transcription** under the indicator while you speak (Réglages)
+- [x] **Rewrite the selected text** with a preset via a shortcut, and **per-app presets**
+      (e.g. Outlook → Courriel automatically)
+- [x] Clipboard privacy: dictations are kept out of Windows clipboard history (Win+V) and cloud sync
+- [x] Welcome assistant on first launch (language, model suited to the PC, mic test, shortcut)
+- [x] Diagnostic export (zip without your personal texts) for troubleshooting
+- [x] **Windows installer** (`VoiceTyperSetup-x.y.z.exe`, no admin rights) — see *Build the installer*
 
 ## Requirements
 
@@ -61,6 +70,37 @@ Hold `ctrl+alt+space` (or your own shortcut), talk, release. Closing the window 
 running next to the clock; quit from the tray icon's menu or **Réglages → Quitter**.
 
 Once the venv is set up, you can simply double-click **`Start Voice Typer.bat`** (no console window).
+
+## Install (for colleagues)
+
+Run `VoiceTyperSetup-x.y.z.exe`: no administrator rights, no Python, nothing else to install.
+It installs into `%LOCALAPPDATA%\Programs\Voice Typer`, adds a Start-menu entry (optional desktop
+shortcut and "start with Windows"), and the welcome assistant downloads the right models on first launch.
+Uninstall from Windows Settings → Apps; it asks whether to also delete settings and downloaded models.
+Windows SmartScreen may warn the first time ("unknown publisher", the installer isn't code-signed):
+*More info → Run anyway*.
+
+## Build the installer
+
+One command, ~2–4 minutes (tests → PyInstaller → self-test of the built app → Inno Setup):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\build.ps1          # add -SkipTests to go faster
+```
+
+Output: `dist\VoiceTyperSetup-<version>.exe` (version from `voice_typer/__init__.py`).
+One-time setup: `venv\Scripts\python.exe -m pip install pyinstaller` and
+`winget install --id JRSoftware.InnoSetup -e --scope user`.
+Models are not bundled (the installer stays ~0.5 GB, mostly NVIDIA cuBLAS for GPU acceleration).
+
+## Reproducible install (pinned + hashed packages)
+
+`requirements.lock` pins the exact version of every package (34) with its SHA-256 hashes: pip refuses
+any file that differs from the one tested here (protects against a tampered or swapped package).
+
+```powershell
+python -m pip install --require-hashes --no-deps -r requirements.lock
+```
 
 ## Using the window
 
@@ -132,7 +172,13 @@ VOICE TYPER/
 ├── voice_typer/
 │   ├── __main__.py     # entry point: python -m voice_typer
 │   ├── app.py          # engine: hotkey → recorder → transcriber → output, events to the UI
-│   ├── gui.py          # tkinter window: Accueil / Modèles IA / Réglages tabs
+│   ├── gui/            # tkinter window: window.py + pages/ (home, dictionary, languages, models,
+│   │                   #   writing, help, settings), wizard.py (first run), shortcuts.py
+│   ├── writer.py       # embedded LLM for AI-writing presets
+│   ├── commands.py     # voice commands ("à la ligne", "virgule"…)
+│   ├── clipboard.py    # Win32 clipboard with privacy flags (no history / cloud)
+│   ├── winapp.py       # foreground app detection (per-app presets)
+│   ├── diagnostic.py   # diagnostic zip export
 │   ├── overlay.py      # floating "listening" pill (click-through, no focus)
 │   ├── tray.py         # icon next to the clock (pystray)
 │   ├── autostart.py    # start with Windows (HKCU Run key)
@@ -143,6 +189,8 @@ VOICE TYPER/
 │   ├── transcriber.py  # faster-whisper wrapper
 │   ├── output.py       # types / pastes text into the focused app
 │   └── hotkey.py       # global push-to-talk hotkey
-├── requirements.txt
+├── installer/          # build.ps1, voice_typer.spec (PyInstaller), VoiceTyper.iss (Inno Setup), make_assets.py
+├── tests/              # pytest (python -m pytest)
+├── requirements.txt / requirements.lock
 └── CLAUDE.md
 ```

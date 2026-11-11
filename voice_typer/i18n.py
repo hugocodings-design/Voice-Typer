@@ -18,8 +18,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "status_starting": "Démarrage…",
         "status_ready_hold": "Prêt — maintenez {hotkey} et parlez",
         "status_ready_toggle": "Prêt — appuyez sur {hotkey} pour parler",
-        "status_recording_hold": "Écoute… relâchez pour écrire",
-        "status_recording_toggle": "Écoute… appuyez de nouveau sur {hotkey} pour écrire",
+        "status_recording_hold": "Écoute… relâchez pour écrire (Échap annule)",
+        "status_recording_toggle": "Écoute… appuyez de nouveau sur {hotkey} pour écrire (Échap annule)",
         "status_transcribing": "Transcription…",
         "status_loading": "Chargement de {name}…",
         "status_downloading": "Téléchargement de {name}…",
@@ -141,8 +141,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "status_starting": "Starting…",
         "status_ready_hold": "Ready — hold {hotkey} and speak",
         "status_ready_toggle": "Ready — press {hotkey} to speak",
-        "status_recording_hold": "Listening… release to type",
-        "status_recording_toggle": "Listening… press {hotkey} again to type",
+        "status_recording_hold": "Listening… release to type (Esc cancels)",
+        "status_recording_toggle": "Listening… press {hotkey} again to type (Esc cancels)",
         "status_transcribing": "Transcribing…",
         "status_loading": "Loading {name}…", "status_downloading": "Downloading {name}…",
         "status_no_model": "No model loaded",
@@ -352,6 +352,7 @@ STRINGS["fr"].update({
     "paste_last_title": "Recoller la dernière dictée",
     "set_keep_clipboard": "Laisser la dernière dictée dans le presse-papiers (Ctrl+V la recolle)",
     "overlay_pasted": "Dernière dictée recollée",
+    "overlay_cancelled": "Dictée annulée", "cancelled": "Dictée annulée (Échap) — rien n'a été écrit.",
 })
 STRINGS["en"].update({
     "nav_writing": "AI writing",
@@ -403,6 +404,167 @@ STRINGS["en"].update({
     "paste_last_title": "Paste last dictation again",
     "set_keep_clipboard": "Leave the last dictation on the clipboard (Ctrl+V pastes it again)",
     "overlay_pasted": "Last dictation pasted",
+    "overlay_cancelled": "Dictation cancelled", "cancelled": "Dictation cancelled (Esc) — nothing was typed.",
+})
+
+
+# Help page, voice commands, live preview, rewrite selection, per-app presets, diagnostics
+STRINGS["fr"].update({
+    "nav_help": "Aide & commandes", "title_help": "Aide & commandes",
+    "sub_help": "Toutes les commandes vocales et tous les raccourcis, au même endroit.",
+    "help_voice_title": "Commandes vocales",
+    "help_voice_sub": "Dites ces mots pendant la dictée : ils sont remplacés par la mise en forme correspondante.",
+    "help_voice_enable": "Activer les commandes vocales",
+    "help_col_say": "Dites…", "help_col_get": "Vous obtenez",
+    "help_voice_example": "Exemple : « Bonjour Julie virgule à la ligne merci pour ton message point "
+                          "d'exclamation » → « Bonjour Julie, ⏎ Merci pour ton message ! ». Les expressions "
+                          "ambiguës (comme « deux points ») ne sont volontairement pas des commandes.",
+    "help_keys_title": "Raccourcis clavier",
+    "help_keys_sub": "Vos raccourcis actuels. Modifiez-les sur l'Accueil, la page Langues ou la page Écriture IA.",
+    "help_key_dictate": "Dicter (texte tel quel)", "help_key_esc": "Annuler la dictée en cours",
+    "help_key_preset": "Dicter avec le préréglage « {name} »",
+    "help_key_rewrite": "Réécrire le texte sélectionné avec l'IA",
+    "help_key_paste": "Recoller la dernière dictée", "help_key_lang": "Changer de langue",
+    "help_keys_note": "« Aucun » = pas encore assigné.",
+    "rw_title": "Réécrire le texte sélectionné",
+    "rw_sub": "Surlignez du texte déjà écrit dans n'importe quelle application, appuyez sur ce raccourci : "
+              "l'IA le remplace par la version réécrite selon le préréglage choisi. Ctrl+Z annule.",
+    "rw_with": "avec le préréglage", "rec_target_rewrite": "réécrire la sélection",
+    "rw_empty": "Aucun texte sélectionné : surlignez d'abord le texte à réécrire.",
+    "rw_empty_short": "Sélectionnez d'abord du texte",
+    "ap_title": "Préréglage automatique selon l'application",
+    "ap_sub": "Avec le raccourci de dictée normal, le préréglage associé à l'application active s'applique "
+              "tout seul (ex. Outlook → Courriel, Teams → Message rapide). Ailleurs, le texte reste tel quel.",
+    "ap_col_app": "Application", "ap_col_preset": "Préréglage",
+    "ap_add": "Associer une application…", "ap_dlg_app": "Application",
+    "ap_dlg_hint": "Choisissez dans la liste ou tapez le nom du programme (ex. « thunderbird.exe »). "
+                   "Le Gestionnaire des tâches → Détails affiche le nom de chaque programme.",
+    "set_live": "Afficher la transcription en temps réel pendant que je parle",
+    "set_live_note": "Le texte apparaît dans l'indicateur flottant. Plus fluide avec une carte graphique NVIDIA ; "
+                     "sur processeur seul, l'aperçu est plus lent et utilise plus le processeur.",
+})
+STRINGS["en"].update({
+    "nav_help": "Help & commands", "title_help": "Help & commands",
+    "sub_help": "Every voice command and shortcut in one place.",
+    "help_voice_title": "Voice commands",
+    "help_voice_sub": "Say these words while dictating: they are replaced by the matching formatting.",
+    "help_voice_enable": "Enable voice commands",
+    "help_col_say": "Say…", "help_col_get": "You get",
+    "help_voice_example": "Example: “Hi Julie comma new line thanks for your message exclamation mark” → "
+                          "“Hi Julie, ⏎ Thanks for your message!”. Ambiguous phrases (like “period”) "
+                          "are deliberately not commands.",
+    "help_keys_title": "Keyboard shortcuts",
+    "help_keys_sub": "Your current shortcuts. Change them on Home, the Languages page or the AI writing page.",
+    "help_key_dictate": "Dictate (text as is)", "help_key_esc": "Cancel the dictation in progress",
+    "help_key_preset": "Dictate with the \"{name}\" preset",
+    "help_key_rewrite": "Rewrite the selected text with AI",
+    "help_key_paste": "Paste the last dictation again", "help_key_lang": "Switch language",
+    "help_keys_note": "\"None\" = not assigned yet.",
+    "rw_title": "Rewrite the selected text",
+    "rw_sub": "Highlight text you already wrote in any app and press this shortcut: the AI replaces it with "
+              "the version rewritten by the chosen preset. Ctrl+Z undoes it.",
+    "rw_with": "with preset", "rec_target_rewrite": "rewrite selection",
+    "rw_empty": "No text selected: highlight the text to rewrite first.",
+    "rw_empty_short": "Select some text first",
+    "ap_title": "Automatic preset per application",
+    "ap_sub": "With the normal dictation shortcut, the preset linked to the active app applies by itself "
+              "(e.g. Outlook → Email, Teams → Quick message). Elsewhere, text stays as dictated.",
+    "ap_col_app": "Application", "ap_col_preset": "Preset",
+    "ap_add": "Link an application…", "ap_dlg_app": "Application",
+    "ap_dlg_hint": "Pick from the list or type the program name (e.g. \"thunderbird.exe\"). "
+                   "Task Manager → Details shows each program's name.",
+    "set_live": "Show the transcription in real time while I speak",
+    "set_live_note": "Text appears in the floating indicator. Smoothest with an NVIDIA graphics card; on a CPU "
+                     "only, the preview is slower and uses more processor.",
+})
+
+
+# Welcome assistant + diagnostics
+STRINGS["fr"].update({
+    "diag_export": "Exporter un diagnostic…",
+    "diag_done": "Diagnostic enregistré :\n{path}\n\nIl ne contient ni historique, ni audio, ni signature. "
+                 "Envoyez-le à la personne qui vous aide.",
+    "wizard_open": "Relancer l'assistant de bienvenue",
+    "wz_title": "Bienvenue dans Voice Typer", "wz_next": "Suivant", "wz_back": "Retour", "wz_finish": "Terminer",
+    "wz_skip": "Passer l'assistant", "wz_step": "Étape {n} sur {total}",
+    "wz_welcome_title": "Bienvenue !",
+    "wz_welcome_sub": "Voice Typer écrit ce que vous dites, dans n'importe quelle application. "
+                      "Quelques réglages rapides, et c'est parti.",
+    "wz_welcome_1": "Maintenez un raccourci, parlez, relâchez : le texte s'écrit là où se trouve votre curseur.",
+    "wz_welcome_2": "100 % sur votre ordinateur : rien n'est envoyé sur Internet.",
+    "wz_welcome_3": "Une IA locale peut mettre vos dictées en forme (courriels, messages, notes).",
+    "wz_welcome_4": "Tout se modifie ensuite dans la fenêtre (icône près de l'horloge).",
+    "wz_speak_title": "Dans quelle langue dictez-vous ?",
+    "wz_speak_sub": "Choisir votre langue rend la reconnaissance plus rapide et plus précise.",
+    "wz_speak_fr": "Surtout en français", "wz_speak_en": "Surtout en anglais",
+    "wz_speak_both": "Les deux (l'app détecte la langue automatiquement)",
+    "wz_models_title": "Les modèles d'IA",
+    "wz_hw_gpu": "Carte graphique détectée : {name}. Les modèles tourneront dessus, très rapidement.",
+    "wz_hw_cpu": "Pas de carte graphique NVIDIA : les modèles tourneront sur le processeur. "
+                 "Nous recommandons donc des modèles légers.",
+    "wz_speech_model": "Reconnaissance vocale",
+    "wz_tag_best": "le meilleur pour vous", "wz_tag_balanced": "équilibré", "wz_tag_fast": "le plus rapide",
+    "wz_tag_precise": "plus précis, plus lourd", "wz_recommended": "Recommandé", "wz_on_pc": "déjà sur le PC",
+    "wz_writing_title": "Écriture IA (optionnel)",
+    "wz_writing_check": "Installer l'IA d'écriture — {name} ({size})",
+    "wz_models_note": "Les modèles se téléchargent une seule fois, en arrière-plan, après l'assistant. "
+                      "Vous pourrez en changer à tout moment (pages Modèles IA et Écriture IA).",
+    "wz_mic_title": "Votre micro",
+    "wz_mic_sub": "Choisissez le micro à utiliser, puis parlez : la barre doit bouger.",
+    "wz_mic_speak": "Parlez pour tester…",
+    "wz_key_title": "Votre raccourci de dictée",
+    "wz_key_sub": "C'est la touche à maintenir pour parler. Choisissez-en une facile à atteindre "
+                  "et que vous n'utilisez pas déjà (ex. F1, F9, Ctrl droit).",
+    "wz_key_tips": "Astuces : Échap annule une dictée en cours. F2, F3 et F4 dictent avec mise en forme IA "
+                   "(courriel, message, notes). Toutes les commandes sont dans « Aide & commandes ».",
+    "wz_done_title": "Tout est prêt !",
+    "wz_done_sub": "Voici votre configuration. Les modèles se téléchargent maintenant en arrière-plan.",
+    "wz_sum_speech": "Reconnaissance vocale", "wz_sum_writing": "Écriture IA", "wz_sum_key": "Raccourci",
+    "wz_sum_presets": "Préréglages IA",
+    "wz_done_try": "Essayez : ouvrez un document ou un courriel, placez le curseur, maintenez {hotkey} "
+                   "et dites « Bonjour, ceci est mon premier essai ».",
+})
+STRINGS["en"].update({
+    "diag_export": "Export a diagnostic…",
+    "diag_done": "Diagnostic saved:\n{path}\n\nIt contains no history, audio or signature. "
+                 "Send it to whoever is helping you.",
+    "wizard_open": "Run the welcome assistant again",
+    "wz_title": "Welcome to Voice Typer", "wz_next": "Next", "wz_back": "Back", "wz_finish": "Finish",
+    "wz_skip": "Skip the assistant", "wz_step": "Step {n} of {total}",
+    "wz_welcome_title": "Welcome!",
+    "wz_welcome_sub": "Voice Typer types what you say, in any application. A few quick settings and you're set.",
+    "wz_welcome_1": "Hold a shortcut, speak, release: the text appears where your cursor is.",
+    "wz_welcome_2": "100% on your computer: nothing is sent over the Internet.",
+    "wz_welcome_3": "A local AI can format your dictations (emails, messages, notes).",
+    "wz_welcome_4": "Everything can be changed later in the window (icon next to the clock).",
+    "wz_speak_title": "Which language do you dictate in?",
+    "wz_speak_sub": "Choosing your language makes recognition faster and more accurate.",
+    "wz_speak_fr": "Mostly French", "wz_speak_en": "Mostly English",
+    "wz_speak_both": "Both (the app detects the language automatically)",
+    "wz_models_title": "AI models",
+    "wz_hw_gpu": "Graphics card detected: {name}. Models will run on it, very fast.",
+    "wz_hw_cpu": "No NVIDIA graphics card: models will run on the processor, so we recommend light models.",
+    "wz_speech_model": "Speech recognition",
+    "wz_tag_best": "best for you", "wz_tag_balanced": "balanced", "wz_tag_fast": "fastest",
+    "wz_tag_precise": "more accurate, heavier", "wz_recommended": "Recommended", "wz_on_pc": "already on this PC",
+    "wz_writing_title": "AI writing (optional)",
+    "wz_writing_check": "Install the writing AI — {name} ({size})",
+    "wz_models_note": "Models download once, in the background, after the assistant. "
+                      "You can change them anytime (AI models and AI writing pages).",
+    "wz_mic_title": "Your microphone",
+    "wz_mic_sub": "Pick the microphone to use, then speak: the bar should move.",
+    "wz_mic_speak": "Speak to test…",
+    "wz_key_title": "Your dictation shortcut",
+    "wz_key_sub": "This is the key you hold to speak. Pick one that's easy to reach and that you don't already "
+                  "use (e.g. F1, F9, Right Ctrl).",
+    "wz_key_tips": "Tips: Esc cancels a dictation in progress. F2, F3 and F4 dictate with AI formatting "
+                   "(email, message, notes). Every command is listed in \"Help & commands\".",
+    "wz_done_title": "All set!",
+    "wz_done_sub": "Here is your setup. The models are now downloading in the background.",
+    "wz_sum_speech": "Speech recognition", "wz_sum_writing": "AI writing", "wz_sum_key": "Shortcut",
+    "wz_sum_presets": "AI presets",
+    "wz_done_try": "Try it: open a document or an email, place the cursor, hold {hotkey} and say "
+                   "\"Hello, this is my first try\".",
 })
 
 

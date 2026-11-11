@@ -39,6 +39,12 @@ class Config:
     output: str = "paste"           # "paste" | "type"
     trailing_space: bool = True
     keep_in_clipboard: bool = True  # leave the last transcription on the clipboard (Ctrl+V works again)
+    voice_commands: bool = True     # "à la ligne", "virgule"… → formatting (see commands.py)
+    live_preview: bool = False      # show the transcription in real time while speaking
+    rewrite_hotkey: str = ""        # rewrite the selected text with a preset ("" = off)
+    rewrite_preset: str = "fix"     # preset id used by rewrite_hotkey
+    app_presets: list[dict] = field(default_factory=list)  # [{"app": "outlook.exe", "preset": "email"}]
+    first_run_done: bool = False    # welcome assistant shown
     # Interface
     overlay: bool = True            # floating indicator while dictating
     ui_language: str = "fr"         # "fr" | "en"
@@ -53,13 +59,17 @@ class Config:
         try:
             data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
         except (OSError, ValueError):
-            return cls()
+            cfg = cls()
+            cfg.ensure_presets()
+            return cfg
         known = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
         if known.get("settings_version", 1) < 2:
             # v1 always saved device="cpu" (it was the only option): switch to auto-detect.
             if known.get("device") == "cpu":
                 known["device"] = "auto"
             known["settings_version"] = 2
+        if "first_run_done" not in data:  # settings from before the assistant existed: not a new user
+            known["first_run_done"] = True
         cfg = cls(**known)
         if known.get("settings_version", 1) < 3 and cfg.presets:
             # v2 (first AI-writing build) saved early default instructions: refresh the built-in

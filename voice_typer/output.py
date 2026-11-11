@@ -4,14 +4,16 @@ import threading
 import time
 
 import keyboard
-import pyperclip
+
+from voice_typer import clipboard
 
 
 def send_text(text: str, mode: str = "paste", trailing_space: bool = True, keep_in_clipboard: bool = False) -> None:
     """Type/paste text into the focused app.
 
     keep_in_clipboard=True leaves the text on the clipboard afterwards (so a stray click can be
-    fixed with Ctrl+V); otherwise the previous clipboard content is restored.
+    fixed with Ctrl+V); otherwise the previous clipboard content is restored. Either way the
+    dictation is flagged private: never in the Win+V history, never synced to the cloud.
     """
     if not text:
         return
@@ -20,26 +22,32 @@ def send_text(text: str, mode: str = "paste", trailing_space: bool = True, keep_
     if mode == "type":
         keyboard.write(text)
         if keep_in_clipboard:
-            _copy(text)
+            clipboard.set_text(text)
         return
-    previous = None
-    if not keep_in_clipboard:
-        try:
-            previous = pyperclip.paste()
-        except pyperclip.PyperclipException:
-            pass
-    _copy(text)
+    previous = None if keep_in_clipboard else clipboard.get_text()
+    clipboard.set_text(text)
     keyboard.send("ctrl+v")
     time.sleep(0.15)  # let the target app read the clipboard before restoring it
     if previous is not None:
-        _copy(previous)
+        clipboard.set_text(previous)
 
 
-def _copy(text: str) -> None:
-    try:
-        pyperclip.copy(text)
-    except pyperclip.PyperclipException:
-        pass
+def copy_selection(timeout: float = 0.6) -> str:
+    """Copy the text selected in the focused app (Ctrl+C) and return it; restores the clipboard."""
+    previous = clipboard.get_text()
+    marker = f"⁣voice-typer-{time.monotonic()}"  # invisible sentinel: detects "nothing was copied"
+    clipboard.set_text(marker)
+    keyboard.send("ctrl+c")
+    deadline = time.monotonic() + timeout
+    text = marker
+    while time.monotonic() < deadline:
+        time.sleep(0.03)
+        text = clipboard.get_text() or ""
+        if text != marker:
+            break
+    if previous is not None:
+        clipboard.set_text(previous)
+    return "" if text == marker else text
 
 
 def beep(start: bool) -> None:

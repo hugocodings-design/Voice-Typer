@@ -10,6 +10,8 @@ RUN_SCRIPT = Path(__file__).resolve().parents[1] / "run.pyw"
 
 
 def _command() -> str:
+    if getattr(sys, "frozen", False):  # installed build: the app is its own .exe
+        return f'"{sys.executable}" --minimized'
     pythonw = Path(sys.executable).with_name("pythonw.exe")
     return f'"{pythonw}" "{RUN_SCRIPT}" --minimized'
 

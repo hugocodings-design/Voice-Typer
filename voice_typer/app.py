@@ -10,10 +10,10 @@ import threading
 import time
 import traceback
 
-from voice_typer import dictionary, models
+from voice_typer import commands, dictionary, models
 from voice_typer.config import Config
 from voice_typer.hotkey import Hotkey
-from voice_typer.output import beep, send_text
+from voice_typer.output import beep, copy_selection, send_text
 from voice_typer.recorder import Recorder
 from voice_typer.transcriber import Transcriber
 
@@ -40,6 +40,12 @@ class Engine:
                 self.paste_hotkey = Hotkey(config.paste_last_hotkey, self.paste_last, lambda: None)
             except Exception:  # noqa: BLE001
                 self.paste_hotkey = None
+        self.rewrite_hotkey: Hotkey | None = None
+        if config.rewrite_hotkey:
+            try:
+                self.rewrite_hotkey = Hotkey(config.rewrite_hotkey, self.rewrite_selection, lambda: None)
+            except Exception:  # noqa: BLE001
+                self.rewrite_hotkey = None
         # AI writing presets: one global shortcut per preset (dictate, then rewrite)
         self.preset_hotkeys: dict[str, Hotkey] = {}
         self._hotkeys_running = False
@@ -211,9 +217,61 @@ class Engine:
 
         threading.Thread(target=work, daemon=True).start()
 
+    def set_rewrite_hotkey(self, combo: str) -> None:
+        if self.rewrite_hotkey:
+            self.rewrite_hotkey.stop()
+            self.rewrite_hotkey = None
+        self.config.rewrite_hotkey = combo
+        if combo:
+            self.rewrite_hotkey = Hotkey(combo, self.rewrite_selection, lambda: None)
+            self.config.rewrite_hotkey = self.rewrite_hotkey.combo
+            if self._hotkeys_running:
+                self.rewrite_hotkey.start()
+        self.config.save()
+
+    def rewrite_selection(self) -> None:
+        """Rewrite the text selected in the focused app with the chosen preset, in place."""
+        preset = self.preset(self.config.rewrite_preset) or (self.config.presets or [None])[0]
+        if preset is None or self.recorder.is_recording:
+            return
+
+        def work():
+            self._wait_modifiers_released()
+            text = copy_selection()
+            if not text.strip():
+                self._emit("rewrite_empty")
+                return
+            self._emit("rewriting", preset)
+            started = time.perf_counter()
+            try:
+                out = self.rewrite(text, preset)
+            except Exception as exc:  # noqa: BLE001 — leave the selection untouched
+                traceback.print_exc()
+                self._emit("writer_error", f"{type(exc).__name__}: {exc}")
+                self._emit("idle", None)
+                return
+            self._wait_modifiers_released()
+            send_text(out, "paste", False, self.config.keep_in_clipboard)  # pasting replaces the selection
+            self.last_text = out
+            self._emit("transcript", (out, time.perf_counter() - started, None, preset["name"], text))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def preset_for_app(self) -> str | None:
+        """Preset mapped to the focused application (normal dictation key only), else None."""
+        if not self.config.app_presets:
+            return None
+        from voice_typer.winapp import foreground_exe
+
+        exe = foreground_exe()
+        for rule in self.config.app_presets:
+            if rule.get("app", "").lower() == exe and self.preset(rule.get("preset")):
+                return rule["preset"]
+        return None
+
     def _all_hotkeys(self) -> list[Hotkey]:
         keys = [self.hotkey, *self.preset_hotkeys.values()]
-        keys += [k for k in (self.lang_hotkey, self.paste_hotkey) if k]
+        keys += [k for k in (self.lang_hotkey, self.paste_hotkey, self.rewrite_hotkey) if k]
         return keys
 
     def pause_hotkey(self) -> None:
@@ -246,11 +304,17 @@ class Engine:
             return
         if self.recorder.is_recording:
             return
+        self._down_key = preset_id  # which key's release ends a hold (None = main dictation key)
+        if preset_id is None:
+            try:
+                preset_id = self.preset_for_app()
+            except Exception:  # noqa: BLE001 — never block dictation over this
+                preset_id = None
         self._active_preset = preset_id
         self._start_recording()
 
     def _on_up(self, preset_id: str | None) -> None:
-        if self.config.mode == "hold" and preset_id == self._active_preset:
+        if self.config.mode == "hold" and preset_id == getattr(self, "_down_key", None):
             self._finish_recording()
 
     def _start_recording(self) -> None:
@@ -268,9 +332,64 @@ class Engine:
         if self.config.sounds:
             beep(True)
         self._record_started = time.monotonic()
+        self._arm_escape()
         self._emit("recording", self.preset(self._active_preset))
+        if self.config.live_preview:
+            threading.Thread(target=self._live_loop, args=(self._record_started,), daemon=True).start()
         if self.config.mode == "toggle":
             threading.Thread(target=self._safety_stop, args=(self._record_started,), daemon=True).start()
+
+    # ---- Esc cancels the dictation in progress (swallowed so it doesn't also close a dialog)
+    def _arm_escape(self) -> None:
+        import keyboard
+
+        self._disarm_escape()
+        try:
+            self._esc_hook = keyboard.on_press_key(
+                "esc", lambda _e: threading.Thread(target=self.cancel_recording, daemon=True).start(),
+                suppress=True)
+        except Exception:  # noqa: BLE001
+            self._esc_hook = None
+
+    def _disarm_escape(self) -> None:
+        import keyboard
+
+        hook = getattr(self, "_esc_hook", None)
+        self._esc_hook = None
+        if hook is not None:
+            try:
+                keyboard.unhook(hook)
+            except (KeyError, ValueError):
+                pass
+
+    def cancel_recording(self) -> None:
+        self._disarm_escape()
+        if not self.recorder.is_recording:
+            return
+        self.recorder.stop()
+        if self.config.sounds:
+            beep(False)
+            beep(False)
+        self._emit("cancelled")
+
+    def _live_loop(self, started: float) -> None:
+        """While recording, re-transcribe the audio so far and show it (the final pass is redone at the end)."""
+        transcriber = self.transcriber
+        interval = 0.6 if transcriber and transcriber.device == "cuda" else 1.5
+        last = ""
+        time.sleep(0.8)
+        while self.recorder.is_recording and self._record_started == started and transcriber:
+            t0 = time.perf_counter()
+            try:
+                text = transcriber.preview(self.recorder.snapshot(), self.config.language)
+            except Exception:  # noqa: BLE001 — preview is best effort
+                traceback.print_exc()
+                return
+            if text and text != last and self.recorder.is_recording and self._record_started == started:
+                last = text
+                self._emit("live", text)
+            # never use more than ~half the time transcribing (keeps a CPU-only PC responsive)
+            time.sleep(max(interval, time.perf_counter() - t0))
 
     def _safety_stop(self, started: float) -> None:
         time.sleep(MAX_SECONDS)
@@ -278,6 +397,7 @@ class Engine:
             self._finish_recording()
 
     def _finish_recording(self) -> None:
+        self._disarm_escape()
         if not self.recorder.is_recording:
             return
         audio = self.recorder.stop()
@@ -306,6 +426,8 @@ class Engine:
             language = self.config.language
             text = transcriber.transcribe(audio, language, dictionary.hotwords(self.config.vocabulary))
             text = dictionary.apply_replacements(text, self.config.replacements)
+            if self.config.voice_commands:
+                text = commands.apply(text, language)
             raw = text
             preset = self.preset(preset_id)
             if preset and text.strip():
@@ -352,7 +474,32 @@ def _already_running() -> bool:
     return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
 
 
+def selftest() -> int:
+    """`--selftest`: checks a packaged build has everything it needs (run by installer/build.ps1)."""
+    try:
+        import importlib
+
+        import numpy as np
+
+        for name in ("keyboard", "pystray", "sounddevice", "sv_ttk", "tokenizers",
+                     "voice_typer.gui", "voice_typer.transcriber", "voice_typer.writer"):
+            importlib.import_module(name)
+        from faster_whisper.vad import get_speech_timestamps
+
+        get_speech_timestamps(np.zeros(16000, dtype=np.float32))  # VAD model (onnxruntime)
+        from voice_typer import gpu
+
+        print(f"SELFTEST OK cuda_devices={int(gpu.cuda_available())}", flush=True)
+        return 0
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+        print("SELFTEST FAILED", flush=True)
+        return 1
+
+
 def main() -> None:
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
     config = Config.load()
     if _already_running():
         import tkinter as tk

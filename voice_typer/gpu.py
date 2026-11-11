@@ -19,6 +19,8 @@ def setup_dll_paths() -> None:
         return
     _done = True
     roots = [Path(p) for p in site.getsitepackages()]
+    if getattr(sys, "frozen", False):  # installed build (PyInstaller): DLLs sit next to the app
+        roots.insert(0, Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)))
     if site.ENABLE_USER_SITE:
         roots.append(Path(site.getusersitepackages()))
     for root in roots:
