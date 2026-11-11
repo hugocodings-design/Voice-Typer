@@ -58,6 +58,9 @@ class Config:
     remote_url: str = ""            # host address, e.g. http://100.101.102.103:8765 (client side)
     remote_key: str = ""
     client_id: str = ""             # random id so the host can count devices
+    # Updates (updater.py)
+    auto_update: bool = True        # check the releases repository for a newer version
+    skipped_update: str = ""        # version the user chose to skip
     sample_rate: int = 16_000
     settings_version: int = 3
 

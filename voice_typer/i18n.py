@@ -688,6 +688,53 @@ STRINGS["en"].update({
 })
 
 
+# Automatic updates (updater.py, gui/updates.py)
+STRINGS["fr"].update({
+    "upd_card": "Mises à jour",
+    "upd_current": "Version installée : {version}",
+    "upd_auto": "Rechercher automatiquement les mises à jour",
+    "upd_check": "Rechercher maintenant",
+    "upd_checking": "Recherche…",
+    "upd_uptodate": "✓ Voice Typer est à jour ({version}).",
+    "upd_available": "Version {version} disponible.",
+    "upd_error": "Impossible de vérifier : {err}",
+    "upd_note": "La mise à jour se télécharge depuis le dépôt officiel de Voice Typer, est vérifiée (empreinte "
+                "SHA-256), puis s'installe en quelques secondes. Vos réglages, votre historique et vos modèles sont conservés.",
+    "upd_banner": "Nouvelle version disponible : Voice Typer {version}",
+    "upd_size": "Téléchargement : {mb} Mo.",
+    "upd_dev": "Version de développement : mettez-la à jour avec git.",
+    "upd_install": "Installer maintenant", "upd_later": "Plus tard", "upd_skip": "Ignorer cette version",
+    "upd_downloading": "Téléchargement de la mise à jour… {pct} %",
+    "upd_installing": "Installation… Voice Typer va redémarrer dans quelques secondes.",
+    "upd_failed": "La mise à jour n'a pas pu être installée :\n\n{err}\n\nRéessayez plus tard.",
+    "upd_tray": "Voice Typer {version} est disponible. Ouvrez Voice Typer pour l'installer.",
+    "upd_tray_item": "Installer la mise à jour {version}",
+    "upd_done": "Voice Typer a été mis à jour (version {version}).",
+})
+STRINGS["en"].update({
+    "upd_card": "Updates",
+    "upd_current": "Installed version: {version}",
+    "upd_auto": "Check for updates automatically",
+    "upd_check": "Check now",
+    "upd_checking": "Checking…",
+    "upd_uptodate": "✓ Voice Typer is up to date ({version}).",
+    "upd_available": "Version {version} available.",
+    "upd_error": "Could not check: {err}",
+    "upd_note": "Updates are downloaded from the official Voice Typer repository, verified (SHA-256), then "
+                "installed in a few seconds. Your settings, history and models are kept.",
+    "upd_banner": "New version available: Voice Typer {version}",
+    "upd_size": "Download: {mb} MB.",
+    "upd_dev": "Development copy: update it with git.",
+    "upd_install": "Install now", "upd_later": "Later", "upd_skip": "Skip this version",
+    "upd_downloading": "Downloading the update… {pct} %",
+    "upd_installing": "Installing… Voice Typer will restart in a few seconds.",
+    "upd_failed": "The update could not be installed:\n\n{err}\n\nPlease try again later.",
+    "upd_tray": "Voice Typer {version} is available. Open Voice Typer to install it.",
+    "upd_tray_item": "Install update {version}",
+    "upd_done": "Voice Typer was updated (version {version}).",
+})
+
+
 def tr(lang: str, key: str, **kwargs) -> str:
     text = STRINGS.get(lang, STRINGS["en"]).get(key) or STRINGS["en"].get(key, key)
     return text.format(**kwargs) if kwargs else text

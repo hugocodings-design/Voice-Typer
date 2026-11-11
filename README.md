@@ -93,6 +93,26 @@ One-time setup: `venv\Scripts\python.exe -m pip install pyinstaller` and
 `winget install --id JRSoftware.InnoSetup -e --scope user`.
 Models are not bundled (the installer stays ~0.5 GB, mostly NVIDIA cuBLAS for GPU acceleration).
 
+## Publishing an update
+
+Installed copies check `latest.json` on the public repository
+[Voice-Typer-Releases](https://github.com/hugocodings-design/Voice-Typer-Releases) (installers only, no
+source code) 20 s after start and every 6 h. When a newer version exists, a banner offers
+**Installer maintenant / Plus tard / Ignorer cette version**. The installer is downloaded, its SHA-256
+checked, then run silently with `/UPDATE=1`: settings, history and models are kept and the new version
+restarts by itself. **Réglages → Mises à jour** can turn the check off or run it by hand.
+
+To ship a change:
+
+```powershell
+# 1. bump __version__ in voice_typer/__init__.py
+powershell -ExecutionPolicy Bypass -File installeruild.ps1
+powershell -ExecutionPolicy Bypass -File installer\publish.ps1 -Notes "Ce qui change" -NotesEn "What changed"
+```
+
+`publish.ps1` needs the GitHub CLI logged in to the owner account. Protect that account with two-factor
+authentication: whoever controls it can ship code to every installed copy.
+
 ## Reproducible install (pinned + hashed packages)
 
 `requirements.lock` pins the exact version of every package (34) with its SHA-256 hashes: pip refuses
@@ -197,6 +217,7 @@ VOICE TYPER/
 │   ├── clipboard.py    # Win32 clipboard with privacy flags (no history / cloud)
 │   ├── winapp.py       # foreground app detection (per-app presets)
 │   ├── remote.py       # power sharing: home-PC HTTP server, client, device counting
+│   ├── updater.py      # automatic updates from the public releases repository
 │   ├── diagnostic.py   # diagnostic zip export
 │   ├── overlay.py      # floating "listening" pill (click-through, no focus)
 │   ├── tray.py         # icon next to the clock (pystray)

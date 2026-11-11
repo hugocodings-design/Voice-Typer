@@ -21,6 +21,7 @@ from voice_typer.gui.pages.remote_page import RemotePage
 from voice_typer.gui.pages.settings import SettingsPage
 from voice_typer.gui.pages.writing import WritingPage
 from voice_typer.gui.shortcuts import ShortcutRecorder
+from voice_typer.gui.updates import UpdatesMixin
 from voice_typer.gui.wizard import WelcomeWizard
 from voice_typer.i18n import pretty_hotkey, tr
 from voice_typer.overlay import Overlay
@@ -29,7 +30,7 @@ from voice_typer.tray import Tray
 
 
 class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, WritingPage,
-             RemotePage, HelpPage, ShortcutRecorder, WelcomeWizard):
+             RemotePage, HelpPage, ShortcutRecorder, WelcomeWizard, UpdatesMixin):
     def __init__(self, engine: Engine):
         self.engine = engine
         self.config = engine.config
@@ -184,6 +185,7 @@ class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, 
             self.pages[key] = frame
             getattr(self, f"_page_{key}")(frame)
         self._show_page(self._page)
+        self._upd_build_banner()
         self._render_status()
         self._render_last()
         self._render_home_language()
@@ -290,7 +292,12 @@ class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, 
                 checked=lambda _item: self.config.language == code, radio=True)
 
         lang_items = [lang_item(None)] + [lang_item(c) for c in self.config.favorite_languages]
+        upd = []
+        if self._update:
+            upd = [pystray.MenuItem(self.t("upd_tray_item", version=self._update["version"]),
+                                    lambda: self.call_soon(self._upd_install)), pystray.Menu.SEPARATOR]
         return pystray.Menu(
+            *upd,
             pystray.MenuItem(self.t("tray_open"), lambda: self.call_soon(self._show_window), default=True),
             pystray.MenuItem(self.t("tray_language"), pystray.Menu(*lang_items)),
             pystray.Menu.SEPARATOR,
@@ -441,8 +448,14 @@ class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, 
         self.tray.stop()
         self.root.destroy()
 
-    def run(self, start_hidden: bool = False) -> None:
+    def run(self, start_hidden: bool = False, updated: bool = False) -> None:
         self.root.after(60, self._poll)
+        self._upd_schedule()
+        if updated:  # restarted by the installer after an automatic update
+            from voice_typer import __version__, updater
+
+            updater.cleanup()
+            self.root.after(1500, lambda: self.tray.notify(self.t("upd_done", version=__version__)))
         if not self.config.first_run_done:
             # The assistant picks the models first; the engine starts when it closes.
             self.root.after(300, lambda: self._open_wizard(on_close=self.engine.start))

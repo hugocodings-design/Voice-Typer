@@ -634,4 +634,5 @@ def main() -> None:
     from voice_typer.gui import Window
 
     engine = Engine(config)
-    Window(engine).run(start_hidden="--minimized" in sys.argv)
+    updated = "--updated" in sys.argv
+    Window(engine).run(start_hidden="--minimized" in sys.argv or updated, updated=updated)

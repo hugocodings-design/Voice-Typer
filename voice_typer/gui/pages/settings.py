@@ -100,6 +100,9 @@ class SettingsPage:
                         command=self._on_history).pack(anchor="w", pady=(8, 2))
         ttk.Button(c, text=self.t("history_clear"), command=self._history_clear).pack(anchor="w", pady=(8, 0))
 
+        # Updates
+        self._upd_card(body, inner_pad)
+
         # Folders & about
         c = self._card(body, self.t("set_about"), **inner_pad)
         ttk.Label(c, text=self.t("about_text", version=__version__), style="Muted.TLabel").pack(anchor="w")
