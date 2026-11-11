@@ -26,6 +26,7 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Windows 11 look in bright green and gray (recoloured sv-ttk), light / dark / follow Windows, sidebar navigation, themed pop-ups
 - [x] Personal dictionary: words passed to Whisper as `hotwords` + automatic replacements ("chat GPT" → "ChatGPT")
 - [x] One-click French / English / auto switch on Home, in the tray menu and with a shortcut
+- [x] Optional live typing: words appear at the cursor while you speak, the end is corrected on release
 - [x] Right-click menus: models (use, download, delete from disk, open folder), history, dictionary
 - [x] Dictation history (local, last 200), microphone choice + level test, start/stop sounds, optional trailing space
 - [x] NVIDIA GPU acceleration, automatic with CPU fallback (RTX 2080 Super: ~0.25 s instead of ~5.5 s per sentence with large models)

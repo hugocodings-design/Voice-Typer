@@ -41,6 +41,7 @@ class Config:
     keep_in_clipboard: bool = True  # leave the last transcription on the clipboard (Ctrl+V works again)
     voice_commands: bool = True     # "à la ligne", "virgule"… → formatting (see commands.py)
     live_preview: bool = False      # show the transcription in real time while speaking
+    live_typing: bool = False       # type words into the app while speaking (streaming.py)
     rewrite_hotkey: str = ""        # rewrite the selected text with a preset ("" = off)
     rewrite_preset: str = "fix"     # preset id used by rewrite_hotkey
     app_presets: list[dict] = field(default_factory=list)  # [{"app": "outlook.exe", "preset": "email"}]

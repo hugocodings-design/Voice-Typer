@@ -735,6 +735,25 @@ STRINGS["en"].update({
 })
 
 
+# Live typing (streaming.py)
+STRINGS["fr"].update({
+    "set_live_typing": "Écrire au fur et à mesure que je parle (là où se trouve le curseur)",
+    "set_live_typing_note": "Les mots s'écrivent dès qu'ils sont sûrs ; quand vous relâchez, la fin est corrigée avec la "
+                            "transcription complète. Ne cliquez pas ailleurs pendant la dictée. Avec un raccourci qui contient "
+                            "Ctrl ou Alt, l'écriture attend que ces touches soient relâchées : une touche seule (F1, F9…) ou le "
+                            "mode « Appuyer pour commencer » est plus fluide. Les préréglages IA (F2…) écrivent toujours à la fin. "
+                            "Très fluide avec une carte graphique NVIDIA ou le partage de puissance.",
+})
+STRINGS["en"].update({
+    "set_live_typing": "Type as I speak (where the cursor is)",
+    "set_live_typing_note": "Words are typed as soon as they are certain; when you release, the end is corrected with the "
+                            "full transcription. Don't click elsewhere while dictating. With a shortcut containing Ctrl or "
+                            "Alt, typing waits until those keys are released: a single key (F1, F9…) or the \"press to "
+                            "start\" mode is smoother. AI presets (F2…) still type at the end. Smoothest with an NVIDIA "
+                            "graphics card or power sharing.",
+})
+
+
 def tr(lang: str, key: str, **kwargs) -> str:
     text = STRINGS.get(lang, STRINGS["en"]).get(key) or STRINGS["en"].get(key, key)
     return text.format(**kwargs) if kwargs else text

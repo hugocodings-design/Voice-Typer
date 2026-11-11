@@ -47,6 +47,11 @@ class SettingsPage:
                         command=self._on_live).pack(anchor="w", pady=(8, 0))
         ttk.Label(c, text=self.t("set_live_note"), style="Muted.TLabel", wraplength=680,
                   justify="left").pack(anchor="w", padx=(46, 0))
+        self.live_typing_var = tk.BooleanVar(value=self.config.live_typing)
+        ttk.Checkbutton(c, text=self.t("set_live_typing"), style="Switch.TCheckbutton",
+                        variable=self.live_typing_var, command=self._on_live_typing).pack(anchor="w", pady=(8, 0))
+        ttk.Label(c, text=self.t("set_live_typing_note"), style="Muted.TLabel", wraplength=680,
+                  justify="left").pack(anchor="w", padx=(46, 0))
 
         # Microphone
         c = self._card(body, self.t("set_mic"), self.t("set_mic_sub"), **inner_pad)
@@ -156,6 +161,10 @@ class SettingsPage:
             messagebox.showerror(self.t("diag_export"), str(exc), parent=self.root)
             return
         messagebox.showinfo(self.t("diag_export"), self.t("diag_done", path=path), parent=self.root)
+
+    def _on_live_typing(self) -> None:
+        self.config.live_typing = self.live_typing_var.get()
+        self.config.save()
 
     def _on_live(self) -> None:
         self.config.live_preview = self.live_var.get()

@@ -138,3 +138,24 @@ def test_retry_while_locked(monkeypatch):
 
     with pytest.raises(RuntimeError, match="CUDA"):
         models.retry_while_locked(broken)
+
+
+# ---- live typing (streaming.py) ----------------------------------------------------------
+def test_live_typer_types_only_confirmed_words_and_fixes_the_end():
+    from voice_typer.streaming import LiveTyper
+
+    t = LiveTyper()
+    assert t.update("Bonjour je") == ""              # first pass: nothing confirmed yet
+    assert t.update("Bonjour je suis") == "Bonjour je"
+    assert t.update("Bonjour je suis allé") == " suis"
+    assert t.update("Bonjour, je suis allé au") == ""  # an earlier word changed: never take back
+    assert t.typed == "Bonjour je suis"
+    back, rest = t.finish("Bonjour, je suis allé au marché. ")
+    screen = t.typed[:len(t.typed) - back] + rest
+    assert screen == "Bonjour, je suis allé au marché. " and back == len("Bonjour je suis") - len("Bonjour")
+
+
+def test_live_typer_nothing_typed():
+    from voice_typer.streaming import LiveTyper
+
+    assert LiveTyper().finish("Salut ") == (0, "Salut ")
