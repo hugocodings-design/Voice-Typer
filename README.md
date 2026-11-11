@@ -158,6 +158,24 @@ to install, which is why it also works on locked-down work PCs. Models (download
 On CPU only, expect several seconds per rewrite (1.5B is the best choice there).
 If the rewrite fails, the raw transcript is typed so nothing is lost; the history keeps both versions.
 
+## Power sharing (Partage de puissance)
+
+One powerful PC (e.g. at home, with an NVIDIA card) can do the speech recognition and AI writing
+for other devices running Voice Typer (e.g. a work laptop). Audio goes straight from one of your
+PCs to the other: no cloud service is involved.
+
+1. On the home PC: **Partage de puissance → Partager ce PC**, then **Copier le code** (`VT1-…`).
+   The page shows how many devices are connected now (active in the last 10 min), in total, and a
+   table per device (dictations, AI rewrites, minutes of audio).
+2. On the other device: **Partage de puissance → Utiliser un autre PC**, paste the code, **Se connecter**.
+3. From outside the home network, install [Tailscale](https://tailscale.com) (free) on both PCs with
+   the same account and pick the `100.x.x.x` address before copying the code. No router setup needed,
+   traffic is encrypted. On the same Wi-Fi the LAN address works without it.
+
+If the home PC is off or unreachable, the client transcribes locally, so keep a model downloaded on it.
+The home PC listens on TCP 8765 (`host_port`); Windows asks once to allow it on the network.
+Every request needs the access key in the code; **Changer la clé d'accès** disconnects all devices.
+
 ## Advanced settings
 
 **Réglages → Accélération** chooses Automatic (GPU if available), always GPU, or CPU only.
@@ -178,6 +196,7 @@ VOICE TYPER/
 │   ├── commands.py     # voice commands ("à la ligne", "virgule"…)
 │   ├── clipboard.py    # Win32 clipboard with privacy flags (no history / cloud)
 │   ├── winapp.py       # foreground app detection (per-app presets)
+│   ├── remote.py       # power sharing: home-PC HTTP server, client, device counting
 │   ├── diagnostic.py   # diagnostic zip export
 │   ├── overlay.py      # floating "listening" pill (click-through, no focus)
 │   ├── tray.py         # icon next to the clock (pystray)

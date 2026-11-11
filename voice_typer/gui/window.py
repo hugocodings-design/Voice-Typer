@@ -17,6 +17,7 @@ from voice_typer.gui.pages.help import HelpPage
 from voice_typer.gui.pages.home import HomePage
 from voice_typer.gui.pages.languages import LanguagesPage
 from voice_typer.gui.pages.models_page import ModelsPage
+from voice_typer.gui.pages.remote_page import RemotePage
 from voice_typer.gui.pages.settings import SettingsPage
 from voice_typer.gui.pages.writing import WritingPage
 from voice_typer.gui.shortcuts import ShortcutRecorder
@@ -28,7 +29,7 @@ from voice_typer.tray import Tray
 
 
 class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, WritingPage,
-             HelpPage, ShortcutRecorder, WelcomeWizard):
+             RemotePage, HelpPage, ShortcutRecorder, WelcomeWizard):
     def __init__(self, engine: Engine):
         self.engine = engine
         self.config = engine.config
@@ -407,6 +408,8 @@ class Window(HomePage, DictionaryPage, LanguagesPage, ModelsPage, SettingsPage, 
         elif kind == "pasted_last":
             if self.config.overlay:
                 self.overlay.flash(self.t("overlay_pasted"))
+        elif kind in ("remote_status", "remote_changed", "remote_down", "host_error"):
+            self._rm_on_event(kind, payload)
         elif kind == "status" and payload == "no_model":
             self._set_last(("no_model", {}))
         elif kind == "language_changed":

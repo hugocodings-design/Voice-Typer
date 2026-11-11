@@ -568,6 +568,126 @@ STRINGS["en"].update({
 })
 
 
+# Sharing AI power between PCs (remote.py, gui/pages/remote_page.py)
+STRINGS["fr"].update({
+    "nav_remote": "Partage de puissance", "title_remote": "Partage de puissance",
+    "sub_remote": "Faites travailler la carte graphique de votre PC de la maison pour vos autres appareils.",
+    "rm_mode_title": "Comment ce PC travaille",
+    "rm_mode_sub": "Le PC puissant (celui de la maison) partage sa puissance ; les autres l'utilisent. "
+                   "Le son est envoyé directement à votre PC, sans passer par un service Internet.",
+    "rm_mode_off": "Seul — ce PC fait tout lui-même",
+    "rm_mode_host": "Partager ce PC — les autres appareils utilisent sa puissance (à choisir sur le PC de la maison)",
+    "rm_mode_client": "Utiliser un autre PC — mes dictées sont traitées par mon PC de la maison",
+    "rm_host_title": "Ce PC partage sa puissance",
+    "rm_host_on": "● En marche (port {port}) — {model} sur {where}. Laissez ce PC allumé avec Voice Typer ouvert "
+                  "(il peut rester dans la barre des tâches).",
+    "rm_host_off": "○ Arrêté.",
+    "rm_host_error": "Impossible de démarrer le partage :\n\n{err}\n\nUn autre logiciel utilise peut-être déjà le port.",
+    "rm_stat_now": "appareils connectés maintenant", "rm_stat_total": "appareils au total",
+    "rm_stat_busy": "dictées en cours",
+    "rm_code_title": "Code de connexion",
+    "rm_code_sub": "Copiez ce code, puis collez-le sur l'autre appareil (page Partage de puissance → Utiliser un autre PC). "
+                   "Il contient l'adresse de ce PC et sa clé d'accès : ne le donnez qu'aux personnes de confiance.",
+    "rm_address": "Adresse :", "rm_refresh": "Actualiser", "rm_copy_code": "Copier le code",
+    "rm_code_copied": "Code de connexion copié",
+    "rm_kind_tailscale": "Tailscale — marche partout", "rm_kind_lan": "réseau de la maison seulement",
+    "rm_addr_ts": "✓ Tailscale est détecté : avec l'adresse Tailscale, vos appareils se connectent depuis n'importe où "
+                  "(bureau, 4G…), à condition d'avoir Tailscale eux aussi.",
+    "rm_addr_lan": "Cette adresse ne marche que sur le Wi-Fi de la maison. Pour vous connecter depuis le bureau, "
+                   "installez Tailscale (voir plus bas), puis cliquez sur Actualiser.",
+    "rm_new_key": "Changer la clé d'accès…",
+    "rm_new_key_confirm": "Tous les appareils connectés seront déconnectés. Il faudra leur redonner le nouveau code. Continuer ?",
+    "rm_devices_title": "Appareils qui utilisent ce PC",
+    "rm_devices_sub": "« Connecté maintenant » = actif dans les 10 dernières minutes. Clic droit pour oublier un appareil.",
+    "rm_col_name": "Appareil", "rm_col_ip": "Adresse", "rm_col_seen": "Dernière activité",
+    "rm_col_dict": "Dictées", "rm_col_rew": "Écriture IA", "rm_col_min": "Minutes",
+    "rm_forget": "Oublier cet appareil", "rm_forget_all": "Remettre les compteurs à zéro",
+    "rm_now": "à l'instant", "rm_min_ago": "il y a {n} min", "rm_h_ago": "il y a {n} h",
+    "rm_client_title": "Se connecter à mon PC de la maison",
+    "rm_client_sub": "Collez le code de connexion affiché sur le PC de la maison.",
+    "rm_connect": "Se connecter", "rm_test": "Tester la connexion", "rm_disconnect": "Se déconnecter",
+    "rm_bad_code": "Ce code n'est pas valide. Copiez-le de nouveau depuis le PC de la maison (il commence par VT1-).",
+    "rm_testing": "Connexion en cours…",
+    "rm_client_none": "Pas encore connecté.",
+    "rm_client_ok": "● Connecté à {name} — {model} sur {where} ({ms} ms). Vos dictées et l'écriture IA passent par ce PC.",
+    "rm_client_down": "● Injoignable — les dictées se font sur ce PC en attendant.\n{err}",
+    "rm_client_badkey": "● Clé refusée : le code a changé sur le PC de la maison. Collez le nouveau code.",
+    "rm_fallback_note": "Si le PC de la maison est éteint ou injoignable, Voice Typer transcrit automatiquement sur ce PC : "
+                        "vous ne perdez jamais une dictée. Gardez donc un modèle téléchargé ici aussi.",
+    "rm_down_last": "PC de la maison injoignable — dictée faite sur ce PC.",
+    "rm_howto_title": "Se connecter depuis l'extérieur de la maison (bureau, déplacement)",
+    "rm_howto": "1. Installez Tailscale (gratuit, tailscale.com) sur le PC de la maison ET sur l'autre appareil, "
+                "et connectez-vous avec le même compte sur les deux. Ça crée un réseau privé chiffré entre vos "
+                "appareils, sans toucher à votre box Internet.\n"
+                "2. Sur le PC de la maison : choisissez « Partager ce PC », cliquez sur Actualiser, choisissez "
+                "l'adresse Tailscale (100.x.x.x), puis Copier le code.\n"
+                "3. Sur l'autre appareil : choisissez « Utiliser un autre PC » et collez le code.\n"
+                "4. La première fois, Windows demande d'autoriser Voice Typer sur le réseau (sur le PC de la maison) : "
+                "acceptez.\n\n"
+                "À la maison sur le même Wi-Fi, Tailscale n'est pas nécessaire : utilisez l'adresse « réseau de la maison ».",
+    "chip_remote_ok": "Via le PC de la maison", "chip_remote_down": "PC de la maison injoignable",
+    "chip_host": "Partage activé",
+    "rm_where_gpu": "la carte graphique", "rm_where_cpu": "le processeur",
+})
+STRINGS["en"].update({
+    "nav_remote": "Power sharing", "title_remote": "Power sharing",
+    "sub_remote": "Let your home PC's graphics card do the work for your other devices.",
+    "rm_mode_title": "How this PC works",
+    "rm_mode_sub": "The powerful PC (the one at home) shares its power; the others use it. "
+                   "Audio goes straight to your own PC, never through an Internet service.",
+    "rm_mode_off": "On its own — this PC does everything itself",
+    "rm_mode_host": "Share this PC — other devices use its power (pick this on the home PC)",
+    "rm_mode_client": "Use another PC — my dictations are processed by my home PC",
+    "rm_host_title": "This PC shares its power",
+    "rm_host_on": "● Running (port {port}) — {model} on {where}. Leave this PC on with Voice Typer open "
+                  "(it can stay in the taskbar).",
+    "rm_host_off": "○ Stopped.",
+    "rm_host_error": "Could not start sharing:\n\n{err}\n\nAnother program may already use the port.",
+    "rm_stat_now": "devices connected now", "rm_stat_total": "devices in total", "rm_stat_busy": "dictations in progress",
+    "rm_code_title": "Connection code",
+    "rm_code_sub": "Copy this code and paste it on the other device (Power sharing → Use another PC). "
+                   "It holds this PC's address and access key: only give it to people you trust.",
+    "rm_address": "Address:", "rm_refresh": "Refresh", "rm_copy_code": "Copy code",
+    "rm_code_copied": "Connection code copied",
+    "rm_kind_tailscale": "Tailscale — works anywhere", "rm_kind_lan": "home network only",
+    "rm_addr_ts": "✓ Tailscale detected: with the Tailscale address, your devices can connect from anywhere "
+                  "(office, mobile data…), as long as they run Tailscale too.",
+    "rm_addr_lan": "This address only works on the home Wi-Fi. To connect from the office, install Tailscale "
+                   "(see below), then click Refresh.",
+    "rm_new_key": "Change the access key…",
+    "rm_new_key_confirm": "Every connected device will be disconnected and will need the new code. Continue?",
+    "rm_devices_title": "Devices using this PC",
+    "rm_devices_sub": "\"Connected now\" = active in the last 10 minutes. Right-click to forget a device.",
+    "rm_col_name": "Device", "rm_col_ip": "Address", "rm_col_seen": "Last activity",
+    "rm_col_dict": "Dictations", "rm_col_rew": "AI writing", "rm_col_min": "Minutes",
+    "rm_forget": "Forget this device", "rm_forget_all": "Reset the counters",
+    "rm_now": "just now", "rm_min_ago": "{n} min ago", "rm_h_ago": "{n} h ago",
+    "rm_client_title": "Connect to my home PC",
+    "rm_client_sub": "Paste the connection code shown on the home PC.",
+    "rm_connect": "Connect", "rm_test": "Test connection", "rm_disconnect": "Disconnect",
+    "rm_bad_code": "This code is not valid. Copy it again from the home PC (it starts with VT1-).",
+    "rm_testing": "Connecting…",
+    "rm_client_none": "Not connected yet.",
+    "rm_client_ok": "● Connected to {name} — {model} on {where} ({ms} ms). Dictation and AI writing go through it.",
+    "rm_client_down": "● Unreachable — dictation runs on this PC meanwhile.\n{err}",
+    "rm_client_badkey": "● Key refused: the code changed on the home PC. Paste the new code.",
+    "rm_fallback_note": "If the home PC is off or unreachable, Voice Typer transcribes on this PC automatically: "
+                        "you never lose a dictation. So keep a model downloaded here too.",
+    "rm_down_last": "Home PC unreachable — dictation done on this PC.",
+    "rm_howto_title": "Connecting from outside the house (office, travel)",
+    "rm_howto": "1. Install Tailscale (free, tailscale.com) on the home PC AND on the other device, and sign in "
+                "with the same account on both. It creates an encrypted private network between your devices, "
+                "with no router setup.\n"
+                "2. On the home PC: pick \"Share this PC\", click Refresh, choose the Tailscale address "
+                "(100.x.x.x), then Copy code.\n"
+                "3. On the other device: pick \"Use another PC\" and paste the code.\n"
+                "4. The first time, Windows asks to allow Voice Typer on the network (on the home PC): accept.\n\n"
+                "At home on the same Wi-Fi you don't need Tailscale: use the \"home network\" address.",
+    "chip_remote_ok": "Via home PC", "chip_remote_down": "Home PC unreachable", "chip_host": "Sharing on",
+    "rm_where_gpu": "the graphics card", "rm_where_cpu": "the processor",
+})
+
+
 def tr(lang: str, key: str, **kwargs) -> str:
     text = STRINGS.get(lang, STRINGS["en"]).get(key) or STRINGS["en"].get(key, key)
     return text.format(**kwargs) if kwargs else text

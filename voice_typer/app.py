@@ -55,6 +55,10 @@ class Engine:
         self._writer_lock = threading.Lock()
         self._active_preset: str | None = None
         self._record_started = 0.0
+        # sharing AI power between PCs (remote.py)
+        self.host = None                   # remote.Host when this PC shares its power
+        self.remote = None                 # remote.Client when this PC uses another one
+        self.remote_status: tuple[bool, object] | None = None  # (reachable, info dict | error)
 
     def _emit(self, kind: str, payload: object = None) -> None:
         self.events.put((kind, payload))
@@ -164,7 +168,21 @@ class Engine:
         self._emit("writer_unloaded")
 
     def rewrite(self, text: str, preset: dict) -> str:
-        """Blocking: rewrite text with a preset, loading the writing AI first if needed."""
+        """Blocking: rewrite text with a preset (on the home PC when connected to one)."""
+        instructions = preset.get("instructions", "")
+        if self.remote is not None:
+            from voice_typer.remote import RemoteError
+
+            try:
+                out = self.remote.rewrite(text, instructions, self.config.signature)
+                self._set_remote_status(True)
+                return out
+            except RemoteError as exc:
+                self._remote_failed(exc)
+        return self.rewrite_local(text, instructions, self.config.signature)
+
+    def rewrite_local(self, text: str, instructions: str, signature: str) -> str:
+        """Blocking: rewrite on this PC, loading the writing AI first if needed."""
         with self._writer_lock:
             if self.writer is None or self.writer.source != self.config.writing_model:
                 source = self.config.writing_model
@@ -173,10 +191,91 @@ class Engine:
                 self.writer = self._make_writer()
                 self._emit("writer_loaded", (source, self.writer.device, time.perf_counter() - started))
             writer = self.writer
-            out = writer.rewrite(text, preset.get("instructions", ""), self.config.signature)
-            if not self.config.writer_preload:
+            out = writer.rewrite(text, instructions, signature)
+            if not self.config.writer_preload and self.host is None:
                 self.writer = None
             return out
+
+    # ---- sharing AI power between PCs ----------------------------------------------------
+    def local_transcriber(self) -> Transcriber | None:
+        return self.transcriber
+
+    def apply_remote(self) -> None:
+        """Start / stop the home server or the client connection to match the settings."""
+        from voice_typer import remote
+
+        cfg = self.config
+        if cfg.remote_mode == "host":
+            if not cfg.host_key:
+                cfg.host_key = remote.new_key()
+                cfg.save()
+            if self.host and (self.host.port != cfg.host_port or self.host.key != cfg.host_key):
+                self.host.stop()
+                self.host = None
+            if self.host is None:
+                host = remote.Host(self, cfg.host_port, cfg.host_key)
+                try:
+                    host.start()
+                    self.host = host
+                except OSError as exc:  # port already used…
+                    self._emit("host_error", str(exc))
+            self.remote = None
+            self.remote_status = None
+        else:
+            if self.host:
+                self.host.stop()
+                self.host = None
+            if cfg.remote_mode == "client" and cfg.remote_url and cfg.remote_key:
+                if not cfg.client_id:
+                    import uuid
+
+                    cfg.client_id = uuid.uuid4().hex
+                    cfg.save()
+                self.remote = remote.Client(cfg.remote_url, cfg.remote_key, cfg.client_id)
+                self.remote_status = None
+                threading.Thread(target=self.check_remote, daemon=True).start()
+            else:
+                self.remote = None
+                self.remote_status = None
+        self._emit("remote_changed")
+
+    def check_remote(self) -> None:
+        client = self.remote
+        if client is None:
+            return
+        from voice_typer.remote import RemoteError
+
+        try:
+            t0 = time.perf_counter()
+            info = client.ping()
+            info["ms"] = round((time.perf_counter() - t0) * 1000)
+            self._set_remote_status(True, info)
+        except RemoteError as exc:
+            self._set_remote_status(False, str(exc))
+
+    def _set_remote_status(self, ok: bool, info: object = None) -> None:
+        if ok and info is None and self.remote_status and self.remote_status[0]:
+            return  # still fine: keep the details from the last ping
+        self.remote_status = (ok, info)
+        self._emit("remote_status", self.remote_status)
+
+    def _remote_failed(self, exc: Exception) -> None:
+        self._set_remote_status(False, str(exc))
+        self._emit("remote_down", str(exc))
+
+    def _remote_transcribe(self, audio, language, hotwords) -> str | None:
+        """Text from the home PC, or None if it can't be reached (then this PC does it)."""
+        if self.remote is None:
+            return None
+        from voice_typer.remote import RemoteError
+
+        try:
+            text = self.remote.transcribe(audio, language, hotwords)
+            self._set_remote_status(True)
+            return text
+        except RemoteError as exc:
+            self._remote_failed(exc)
+            return None
 
     # ---- hotkey -------------------------------------------------------------------------
     def set_hotkey(self, combo: str) -> None:
@@ -320,7 +419,7 @@ class Engine:
             self._finish_recording()
 
     def _start_recording(self) -> None:
-        if self.transcriber is None:
+        if self.transcriber is None and self.remote is None:
             self._emit("status", "no_model")
             return
         if self.recorder.is_recording:
@@ -377,13 +476,19 @@ class Engine:
     def _live_loop(self, started: float) -> None:
         """While recording, re-transcribe the audio so far and show it (the final pass is redone at the end)."""
         transcriber = self.transcriber
-        interval = 0.6 if transcriber and transcriber.device == "cuda" else 1.5
+        client = self.remote
+        if client is not None:
+            interval = 1.0
+            preview = lambda audio, lang: client.transcribe(audio, lang, preview=True)  # noqa: E731
+        else:
+            interval = 0.6 if transcriber and transcriber.device == "cuda" else 1.5
+            preview = transcriber.preview if transcriber else None
         last = ""
         time.sleep(0.8)
-        while self.recorder.is_recording and self._record_started == started and transcriber:
+        while self.recorder.is_recording and self._record_started == started and preview:
             t0 = time.perf_counter()
             try:
-                text = transcriber.preview(self.recorder.snapshot(), self.config.language)
+                text = preview(self.recorder.snapshot(), self.config.language)
             except Exception:  # noqa: BLE001 — preview is best effort
                 traceback.print_exc()
                 return
@@ -420,13 +525,18 @@ class Engine:
 
     def _transcribe_and_send(self, audio, preset_id: str | None = None) -> None:
         transcriber = self.transcriber
-        if transcriber is None:
+        if transcriber is None and self.remote is None:
             return
         self._emit("transcribing")
         try:
             started = time.perf_counter()
             language = self.config.language
-            text = transcriber.transcribe(audio, language, dictionary.hotwords(self.config.vocabulary))
+            hotwords = dictionary.hotwords(self.config.vocabulary)
+            text = self._remote_transcribe(audio, language, hotwords)
+            if text is None:
+                if transcriber is None:
+                    raise RuntimeError("home PC unreachable and no local model")
+                text = transcriber.transcribe(audio, language, hotwords)
             text = dictionary.apply_replacements(text, self.config.replacements)
             if self.config.voice_commands:
                 text = commands.apply(text, language)
@@ -456,7 +566,8 @@ class Engine:
     def start(self) -> None:
         self.resume_hotkey()
         self.load_model(self.config.model)
-        if self.config.writer_preload and self.preset_hotkeys:
+        self.apply_remote()
+        if self.config.writer_preload and (self.preset_hotkeys or self.host) and self.remote is None:
             from voice_typer import writer
 
             if writer.is_downloaded(self.config.writing_model):
@@ -464,6 +575,8 @@ class Engine:
 
     def stop(self) -> None:
         self.pause_hotkey()
+        if self.host:
+            self.host.stop()
         if self.recorder.is_recording:
             self.recorder.stop()
 

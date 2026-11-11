@@ -51,6 +51,13 @@ class Config:
     theme: str = "system"           # "system" | "light" | "dark"
     history_enabled: bool = True
     custom_models: list[dict] = field(default_factory=list)  # [{"label": ..., "source": ...}]
+    # Sharing AI power between PCs (see remote.py)
+    remote_mode: str = "off"        # "off" | "host" (share this PC) | "client" (use another PC)
+    host_port: int = 8765
+    host_key: str = ""              # access key other devices need (host side)
+    remote_url: str = ""            # host address, e.g. http://100.101.102.103:8765 (client side)
+    remote_key: str = ""
+    client_id: str = ""             # random id so the host can count devices
     sample_rate: int = 16_000
     settings_version: int = 3
 
