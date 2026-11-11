@@ -15,11 +15,12 @@ from faster_whisper.utils import download_model
 from huggingface_hub import HfApi, snapshot_download
 
 
-def retry_while_locked(load, attempts: int = 8, delay: float = 2.0):
+def retry_while_locked(load, attempts: int = 20, delay: float = 3.0):
     """Call `load()`, retrying while the model file can't be opened yet.
 
     Right after a download, Windows (usually the antivirus scanning the new, very large file)
-    can hold model.bin for a few seconds: CTranslate2 then fails with "Unable to open file".
+    can hold model.bin for a few seconds (also on the first start after an update, when the new
+    executable is scanned): CTranslate2 then fails with "Unable to open file". Retries for ~1 min.
     """
     import time
 
