@@ -110,6 +110,15 @@ class SettingsPage:
                         command=self._on_history).pack(anchor="w", pady=(8, 2))
         ttk.Button(c, text=self.t("history_clear"), command=self._history_clear).pack(anchor="w", pady=(8, 0))
 
+        # Move to another PC (transfer.py)
+        c = self._card(body, self.t("xfer_title"), self.t("xfer_sub"), **inner_pad)
+        ttk.Label(c, text=self.t("xfer_note"), style="Muted.TLabel", wraplength=680,
+                  justify="left").pack(anchor="w")
+        row = ttk.Frame(c)
+        row.pack(fill="x", pady=(10, 0))
+        ttk.Button(row, text=self.t("xfer_export"), command=self._export_settings).pack(side="left")
+        ttk.Button(row, text=self.t("xfer_import"), command=self._import_settings).pack(side="left", padx=6)
+
         # Updates
         self._upd_card(body, inner_pad)
 
@@ -166,6 +175,47 @@ class SettingsPage:
             messagebox.showerror(self.t("diag_export"), str(exc), parent=self.root)
             return
         messagebox.showinfo(self.t("diag_export"), self.t("diag_done", path=path), parent=self.root)
+
+    def _export_settings(self) -> None:
+        from datetime import datetime
+
+        from voice_typer import transfer
+
+        path = filedialog.asksaveasfilename(
+            parent=self.root, title=self.t("xfer_export"), defaultextension=".json",
+            initialdir=str(Path.home() / "Desktop"), initialfile=f"VoiceTyper-reglages-{datetime.now():%Y%m%d}.json",
+            filetypes=[(self.t("xfer_file_type"), "*.json")])
+        if not path:
+            return
+        try:
+            transfer.export_settings(self.config, path)
+        except OSError as exc:
+            messagebox.showerror(self.t("xfer_export"), str(exc), parent=self.root)
+            return
+        messagebox.showinfo(self.t("xfer_export"), self.t("xfer_exported", path=path), parent=self.root)
+
+    def _import_settings(self) -> None:
+        from voice_typer import transfer
+
+        path = filedialog.askopenfilename(parent=self.root, title=self.t("xfer_import"),
+                                          initialdir=str(Path.home() / "Desktop"),
+                                          filetypes=[(self.t("xfer_file_type"), "*.json")])
+        if not path:
+            return
+        try:
+            settings = transfer.read_export(path)
+        except transfer.ImportError_ as exc:
+            messagebox.showerror(self.t("xfer_import"), self.t(str(exc)), parent=self.root)
+            return
+        changes = len(transfer.changes(self.config, settings))
+        if not changes:
+            messagebox.showinfo(self.t("xfer_import"), self.t("xfer_nothing"), parent=self.root)
+            return
+        if not messagebox.askyesno(self.t("xfer_import"), self.t("xfer_confirm", count=changes), parent=self.root):
+            return
+        transfer.apply_settings(self.config, settings)
+        self.config.save()
+        self._restart()
 
     def _on_live_typing(self) -> None:
         self.config.live_typing = self.live_typing_var.get()

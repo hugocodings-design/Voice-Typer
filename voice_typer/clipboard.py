@@ -241,6 +241,7 @@ _user32.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, win
 _user32.GetMessageW.restype = wintypes.BOOL
 _user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
 _user32.GetClipboardOwner.restype = wintypes.HWND
+_user32.GetOpenClipboardWindow.restype = wintypes.HWND
 _kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
 _kernel32.GetModuleHandleW.restype = wintypes.HMODULE
 
@@ -253,6 +254,7 @@ class _DelayedText:
 
         self.text = ""
         self.rendered = threading.Event()
+        self.reader_hwnd = None   # window that asked for the text (None: opened without a window)
         self.hwnd = None
         ready = threading.Event()
         self._proc = _WNDPROC(self._wndproc)   # keep a reference: ctypes callbacks must stay alive
@@ -277,6 +279,7 @@ class _DelayedText:
 
     def _wndproc(self, hwnd, msg, wparam, lparam):
         if msg == WM_RENDERFORMAT and wparam == CF_UNICODETEXT:
+            self.reader_hwnd = _user32.GetOpenClipboardWindow()
             self._render()           # the requesting app has the clipboard open
             self.rendered.set()
             return 0
@@ -303,6 +306,7 @@ class _DelayedText:
         try:
             _user32.EmptyClipboard()          # makes our window the owner
             self.text = text
+            self.reader_hwnd = None
             self.rendered.clear()
             _user32.SetClipboardData(CF_UNICODETEXT, None)   # NULL handle = delayed rendering
             if private:

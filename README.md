@@ -51,6 +51,9 @@ No cloud API, no account, nothing leaves your PC.
       replacements used only in Outlook, Teams…
 - [x] Remembered microphone: if it is unplugged the Windows default takes over, and Voice Typer switches
       back to it by itself once it is reconnected (with a short notice both times)
+- [x] **Move to another PC** (Réglages): export your settings to one file (dictionary, per-app
+      dictionaries, AI presets, signature, shortcuts…) and import it on the other PC. The microphone,
+      power sharing, history and models stay with each PC
 - [x] Welcome assistant on first launch (language, model suited to the PC, mic test, shortcut)
 - [x] Diagnostic export (zip without your personal texts) for troubleshooting
 - [x] **Windows installer** (`VoiceTyperSetup-x.y.z.exe`, no admin rights) — see *Build the installer*
@@ -89,6 +92,11 @@ shortcut and "start with Windows"), and the welcome assistant downloads the righ
 Uninstall from Windows Settings → Apps; it asks whether to also delete settings and downloaded models.
 Windows SmartScreen may warn the first time ("unknown publisher", the installer isn't code-signed):
 *More info → Run anyway*.
+
+On another PC of your own: download the latest installer from
+[Voice-Typer-Releases](https://github.com/hugocodings-design/Voice-Typer-Releases/releases/latest)
+(or copy the `.exe` on a USB key), install, then on the first PC **Réglages → Transférer vers un autre
+PC → Exporter mes réglages**, and on the new one **Importer des réglages** (Voice Typer restarts).
 
 ## Build the installer
 
@@ -272,6 +280,7 @@ VOICE TYPER/
 │   ├── app.py          # engine: hotkey → recorder → transcriber → output, events to the UI
 │   ├── engine_*.py     # engine parts: writer (AI presets), remote (power sharing), hotkeys
 │   ├── undo.py         # « annuler la dernière dictée » with its safety checks
+│   ├── transfer.py     # settings export / import to another PC (portable settings only)
 │   ├── gui/            # tkinter window: window.py + pages/ (home, dictionary, models, writing,
 │   │                   #   remote, help, settings), wizard.py (first run), shortcuts.py
 │   ├── writer.py       # embedded LLM for AI-writing presets

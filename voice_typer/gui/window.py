@@ -461,6 +461,18 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
         self.tray.stop()
         self.root.destroy()
 
+    def _restart(self) -> None:
+        """Starts a new copy (it waits for this one to close) and quits."""
+        import os
+        import subprocess
+
+        from voice_typer.app import restart_command
+
+        cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        subprocess.Popen(restart_command(), cwd=cwd, close_fds=True,  # noqa: S603
+                         creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+        self._quit()
+
     def run(self, start_hidden: bool = False, updated: bool = False) -> None:
         self.root.after(60, self._poll)
         self._upd_schedule()

@@ -403,12 +403,33 @@ class Engine(WriterMixin, RemoteMixin, HotkeysMixin):
         if self.recorder.is_recording:
             self.recorder.stop()
 
-def _already_running() -> bool:
-    """Single instance: a second copy would type everything twice."""
+MUTEX_NAME = "VoiceTyper.SingleInstance"
+
+
+def _already_running(wait: float = 0.0) -> bool:
+    """Single instance: a second copy would type everything twice.
+
+    `wait` (seconds): after a restart, give the previous copy time to finish closing."""
     import ctypes
 
-    ctypes.windll.kernel32.CreateMutexW(None, False, "VoiceTyper.SingleInstance")
-    return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
+    k32 = ctypes.windll.kernel32
+    deadline = time.monotonic() + wait
+    while True:
+        handle = k32.CreateMutexW(None, False, MUTEX_NAME)
+        if k32.GetLastError() != 183:  # ERROR_ALREADY_EXISTS
+            return False  # keep the handle open for the whole life of the app
+        if handle:
+            k32.CloseHandle(handle)  # don't keep the other copy's mutex alive
+        if time.monotonic() >= deadline:
+            return True
+        time.sleep(0.25)
+
+
+def restart_command() -> list[str]:
+    """Command line that starts this app again (packaged exe or `python -m voice_typer`)."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable, "--restart"]
+    return [sys.executable, "-m", "voice_typer", "--restart"]
 
 
 def selftest() -> int:
@@ -419,7 +440,7 @@ def selftest() -> int:
         import numpy as np
 
         for name in ("keyboard", "pystray", "sounddevice", "sv_ttk", "tokenizers",
-                     "voice_typer.gui", "voice_typer.transcriber", "voice_typer.writer"):
+                     "voice_typer.gui", "voice_typer.transcriber", "voice_typer.writer", "voice_typer.transfer"):
             importlib.import_module(name)
         from faster_whisper.vad import get_speech_timestamps
 
@@ -452,7 +473,7 @@ def main() -> None:
     if "--selftest" in sys.argv:
         sys.exit(selftest())
     config = Config.load()
-    if _already_running():
+    if _already_running(wait=15.0 if "--restart" in sys.argv else 0.0):
         import tkinter as tk
 
         from voice_typer import ui_theme

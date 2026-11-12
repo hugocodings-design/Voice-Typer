@@ -75,23 +75,70 @@ def test_delayed_rendering_signals_the_paste(clip):
     assert clip.is_private()
 
 
+def _app_read(clip):
+    """Reads the clipboard like a real app does: through one of its windows (seen by GetOpenClipboardWindow)."""
+    import ctypes
+
+    u32 = ctypes.windll.user32
+    u32.CreateWindowExW.restype = ctypes.c_void_p
+    u32.CreateWindowExW.argtypes = [ctypes.c_ulong, ctypes.c_wchar_p, ctypes.c_wchar_p, ctypes.c_ulong] + \
+        [ctypes.c_int] * 4 + [ctypes.c_void_p] * 4
+    k32 = ctypes.windll.kernel32
+    k32.GlobalLock.restype = ctypes.c_void_p
+    k32.GlobalLock.argtypes = [ctypes.c_void_p]
+    k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    u32.GetClipboardData.restype = ctypes.c_void_p
+    hwnd = u32.CreateWindowExW(0, "STATIC", "fake app", 0, 0, 0, 0, 0, ctypes.c_void_p(-3), None, None, None)
+    try:
+        for _ in range(50):
+            if u32.OpenClipboard(ctypes.c_void_p(hwnd)):
+                break
+            time.sleep(0.01)
+        try:
+            time.sleep(0.02)  # apps hold it open a moment
+            h = u32.GetClipboardData(clip.CF_UNICODETEXT)
+            p = k32.GlobalLock(h) if h else None
+            text = ctypes.wstring_at(p) if p else None
+            if p:
+                k32.GlobalUnlock(h)
+            return text
+        finally:
+            u32.CloseClipboard()
+    finally:
+        u32.DestroyWindow(ctypes.c_void_p(hwnd))
+
+
 def _slow_app(clip, delay, seen):
     """keyboard.send replacement: the 'app' reads the clipboard `delay` s after Ctrl+V (Outlook…)."""
     def send(keys):
         assert keys == "ctrl+v"
-        threading.Timer(delay, lambda: seen.append(clip.get_text())).start()
+        threading.Timer(delay, lambda: seen.append(_app_read(clip))).start()
     return send
 
 
-def test_slow_app_gets_the_dictation_and_clipboard_is_restored(clip, monkeypatch):
+@pytest.mark.parametrize("sync_tool", [False, True])
+def test_slow_app_gets_the_dictation_and_clipboard_is_restored(clip, monkeypatch, sync_tool):
+    """sync_tool: an Android emulator / Phone Link / clipboard manager reads every new clipboard at once."""
+    import os
+
     from voice_typer import output
 
     items = _rich(clip)
     _put(clip, items)
     seen = []
     monkeypatch.setattr(output.keyboard, "send", _slow_app(clip, 0.9, seen))   # 6x the old fixed 0.15 s
+    monkeypatch.setattr(output, "_foreground_pid", lambda: os.getpid())         # the fake app is "focused"
+    if sync_tool:
+        offer = clip.offer_delayed
+
+        def offer_and_get_read(text):
+            owner = offer(text)
+            clip.get_text()
+            return owner
+        monkeypatch.setattr(clip, "offer_delayed", offer_and_get_read)
     t0 = time.perf_counter()
     output.send_text("Bonjour", trailing_space=False)
+    time.sleep(0.05)
     assert seen == ["Bonjour"]
     assert time.perf_counter() - t0 < 2.0             # restored soon after the app read it, not at the timeout
     got = _formats(clip.snapshot())

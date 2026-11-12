@@ -829,6 +829,45 @@ STRINGS["en"].update({
                             "graphics card or power sharing.",
 })
 
+# Settings export / import (transfer.py)
+STRINGS["fr"].update({
+    "xfer_title": "Transférer vers un autre PC",
+    "xfer_sub": "Emportez votre configuration sur un autre ordinateur en un seul fichier",
+    "xfer_note": "Contient : dictionnaire (général et par application), préréglages IA et signature, raccourcis, "
+                 "choix du modèle et options d'écriture et d'affichage. Ne contient pas : le micro, le partage de "
+                 "puissance (clé, certificat), l'historique ni les modèles eux-mêmes (ils se téléchargent sur l'autre PC).",
+    "xfer_export": "Exporter mes réglages…",
+    "xfer_import": "Importer des réglages…",
+    "xfer_exported": "Réglages enregistrés :\n{path}\n\nSur l'autre PC : Réglages → Transférer vers un autre PC → "
+                     "Importer des réglages.\n\nLe fichier contient votre dictionnaire et votre signature : "
+                     "gardez-le pour vous.",
+    "xfer_confirm": "Remplacer les réglages de ce PC par ceux du fichier ?\n\n{count} réglage(s) vont changer "
+                    "(dictionnaire, préréglages, raccourcis…). Le micro et le partage de puissance de ce PC sont "
+                    "conservés.\n\nVoice Typer va redémarrer pour tout appliquer.",
+    "xfer_nothing": "Ce fichier ne change rien : ce PC a déjà les mêmes réglages.",
+    "xfer_bad_file": "Ce fichier n'est pas un export de réglages Voice Typer (ou il est abîmé).",
+    "xfer_too_new": "Ce fichier vient d'une version plus récente de Voice Typer. Mettez ce PC à jour, puis réessayez.",
+    "xfer_file_type": "Réglages Voice Typer",
+})
+STRINGS["en"].update({
+    "xfer_title": "Move to another PC",
+    "xfer_sub": "Take your setup to another computer in a single file",
+    "xfer_note": "Includes: dictionary (general and per application), AI presets and signature, shortcuts, model "
+                 "choice, typing and display options. Does not include: the microphone, power sharing (key, "
+                 "certificate), history or the models themselves (they download on the other PC).",
+    "xfer_export": "Export my settings…",
+    "xfer_import": "Import settings…",
+    "xfer_exported": "Settings saved:\n{path}\n\nOn the other PC: Settings → Move to another PC → Import "
+                     "settings.\n\nThe file contains your dictionary and signature: keep it to yourself.",
+    "xfer_confirm": "Replace this PC's settings with the ones in the file?\n\n{count} setting(s) will change "
+                    "(dictionary, presets, shortcuts…). This PC's microphone and power sharing are kept.\n\n"
+                    "Voice Typer will restart to apply everything.",
+    "xfer_nothing": "This file changes nothing: this PC already has the same settings.",
+    "xfer_bad_file": "This file is not a Voice Typer settings export (or it is damaged).",
+    "xfer_too_new": "This file comes from a newer version of Voice Typer. Update this PC, then try again.",
+    "xfer_file_type": "Voice Typer settings",
+})
+
 
 def tr(lang: str, key: str, **kwargs) -> str:
     text = STRINGS.get(lang, STRINGS["en"]).get(key) or STRINGS["en"].get(key, key)
