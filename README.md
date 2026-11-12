@@ -54,7 +54,7 @@ No cloud API, no account, nothing leaves your PC.
       back to it by itself once it is reconnected (with a short notice both times)
 - [x] **Move to another PC** (Réglages): export your settings to one file (dictionary, per-app
       dictionaries, AI presets, signature, shortcuts…) and import it on the other PC. The microphone,
-      power sharing, history and models stay with each PC
+      history and models stay with each PC
 - [x] Welcome assistant on first launch (language, model suited to the PC, mic test, shortcut)
 - [x] Diagnostic export (zip without your personal texts) for troubleshooting
 - [x] **Windows installer** (`VoiceTyperSetup-x.y.z.exe`, no admin rights) — see *Build the installer*
@@ -213,33 +213,18 @@ to install, which is why it also works on locked-down work PCs. Models (download
 On CPU only, expect several seconds per rewrite (1.5B is the best choice there).
 If the rewrite fails, the raw transcript is typed so nothing is lost; the history keeps both versions.
 
-## Power sharing (Partage de puissance)
+## Network use
 
-One powerful PC (e.g. at home, with an NVIDIA card) can do the speech recognition and AI writing
-for other devices running Voice Typer (e.g. a work laptop). Audio goes straight from one of your
-PCs to the other: no cloud service is involved.
+Voice Typer never opens a network port and never contacts another computer. Its only network
+access is outgoing HTTPS to download:
+- speech and writing models from Hugging Face (only when you pick a model that isn't on the PC yet);
+- updates from the public GitHub repository `hugocodings-design/Voice-Typer-Releases`
+  (`latest.json` + installer, signature checked; can be turned off in Réglages).
 
-1. On the home PC: **Partage de puissance → Partager ce PC**, then **Copier le code** (`VT2-…`).
-   The page shows how many devices are connected now (active in the last 10 min), in total, and a
-   table per device (dictations, AI rewrites, minutes of audio).
-2. On the other device: **Partage de puissance → Utiliser un autre PC**, paste the code, **Se connecter**.
-3. From outside the home network, install [Tailscale](https://tailscale.com) (free) on both PCs with
-   the same account and pick the `100.x.x.x` address before copying the code. No router setup needed,
-   traffic is encrypted. On the same Wi-Fi the LAN address works without it.
-
-If the home PC is off or unreachable, the client transcribes locally, so keep a model downloaded on it.
-The home PC listens on TCP 8765 (`host_port`); Windows asks once to allow it on the network.
-
-Security (0.9.0+):
-- **Encrypted (TLS).** The home PC makes its own certificate on first use
-  (`%APPDATA%\VoiceTyper\host_certificate*.pem`). The code contains its SHA-256 fingerprint and the
-  client checks it before sending anything: another machine cannot pretend to be the home PC.
-- **Home network only by default**: private addresses, Tailscale (100.64.0.0/10) and the PC itself.
-  Connections from the public Internet are dropped unless *Accepter aussi les connexions venant
-  d'Internet* is ticked (only useful with a port opened on the router; not recommended).
-- Every request needs the access key in the code; 10 wrong keys in 5 minutes block that address for
-  a while. **Changer la clé d'accès** disconnects all devices.
-- Codes from before 0.9.0 (`VT1-`, unencrypted) are refused: update both PCs, then copy the new code.
+Audio, transcripts and history stay on the PC. The "power sharing" feature (one PC transcribing for
+another, HTTPS server on port 8765) was removed in 0.9.3. On the first start after the update,
+`legacy.py` deletes its settings, its certificate / key / device-statistics files, and offers to
+delete any Windows Firewall rule that allowed Voice Typer (needs administrator rights).
 
 ## Code signing (optional)
 
@@ -279,16 +264,16 @@ VOICE TYPER/
 ├── voice_typer/
 │   ├── __main__.py     # entry point: python -m voice_typer
 │   ├── app.py          # engine: hotkey → recorder → transcriber → output, events to the UI
-│   ├── engine_*.py     # engine parts: writer (AI presets), remote (power sharing), hotkeys
+│   ├── engine_*.py     # engine parts: writer (AI presets), hotkeys
 │   ├── undo.py         # « annuler la dernière dictée » with its safety checks
 │   ├── transfer.py     # settings export / import to another PC (portable settings only)
 │   ├── gui/            # tkinter window: window.py + pages/ (home, dictionary, models, writing,
-│   │                   #   remote, help, settings), wizard.py (first run), shortcuts.py
+│   │                   #   help, settings), wizard.py (first run), shortcuts.py
 │   ├── writer.py       # embedded LLM for AI-writing presets
 │   ├── commands.py     # voice commands ("à la ligne", "virgule"…)
 │   ├── clipboard.py    # Win32 clipboard: privacy flags, full save/restore, delayed rendering
 │   ├── winapp.py       # foreground app detection (per-app presets)
-│   ├── remote.py       # power sharing: home-PC HTTPS server (pinned certificate), client, device counting
+│   ├── legacy.py       # one-time cleanup of the removed power sharing (files, settings, firewall rules)
 │   ├── updater.py      # automatic updates from the public releases repository (ed25519-signed)
 │   ├── update_key.py   # public key updates must be signed with (installer/sign.py)
 │   ├── diagnostic.py   # diagnostic zip export

@@ -632,145 +632,22 @@ STRINGS["en"].update({
 })
 
 
-# Sharing AI power between PCs (remote.py, gui/pages/remote_page.py)
+# Power sharing removed in 0.9.3 (legacy.py): leftover firewall rules
 STRINGS["fr"].update({
-    "nav_remote": "Partage de puissance", "title_remote": "Partage de puissance",
-    "sub_remote": "Faites travailler la carte graphique de votre PC de la maison pour vos autres appareils.",
-    "rm_mode_title": "Comment ce PC travaille",
-    "rm_mode_sub": "Le PC puissant (celui de la maison) partage sa puissance ; les autres l'utilisent. "
-                   "Le son est envoyé directement à votre PC, sans passer par un service Internet.",
-    "rm_mode_off": "Seul — ce PC fait tout lui-même",
-    "rm_mode_host": "Partager ce PC — les autres appareils utilisent sa puissance (à choisir sur le PC de la maison)",
-    "rm_mode_client": "Utiliser un autre PC — mes dictées sont traitées par mon PC de la maison",
-    "rm_host_title": "Ce PC partage sa puissance",
-    "rm_host_on": "● En marche (port {port}) — {model} sur {where}. Laissez ce PC allumé avec Voice Typer ouvert "
-                  "(il peut rester dans la barre des tâches).",
-    "rm_host_off": "○ Arrêté.",
-    "rm_host_error": "Impossible de démarrer le partage :\n\n{err}\n\nUn autre logiciel utilise peut-être déjà le port.",
-    "rm_stat_now": "appareils connectés maintenant", "rm_stat_total": "appareils au total",
-    "rm_stat_busy": "dictées en cours",
-    "rm_code_title": "Code de connexion",
-    "rm_code_sub": "Copiez ce code, puis collez-le sur l'autre appareil (page Partage de puissance → Utiliser un autre PC). "
-                   "Il contient l'adresse de ce PC et sa clé d'accès : ne le donnez qu'aux personnes de confiance.",
-    "rm_address": "Adresse :", "rm_refresh": "Actualiser", "rm_copy_code": "Copier le code",
-    "rm_code_copied": "Code de connexion copié",
-    "rm_kind_tailscale": "Tailscale — marche partout", "rm_kind_lan": "réseau de la maison seulement",
-    "rm_addr_ts": "✓ Tailscale est détecté : avec l'adresse Tailscale, vos appareils se connectent depuis n'importe où "
-                  "(bureau, 4G…), à condition d'avoir Tailscale eux aussi.",
-    "rm_addr_lan": "Cette adresse ne marche que sur le Wi-Fi de la maison. Pour vous connecter depuis le bureau, "
-                   "installez Tailscale (voir plus bas), puis cliquez sur Actualiser.",
-    "rm_new_key": "Changer la clé d'accès…",
-    "rm_new_key_confirm": "Tous les appareils connectés seront déconnectés. Il faudra leur redonner le nouveau code. Continuer ?",
-    "rm_devices_title": "Appareils qui utilisent ce PC",
-    "rm_devices_sub": "« Connecté maintenant » = actif dans les 10 dernières minutes. Clic droit pour oublier un appareil.",
-    "rm_col_name": "Appareil", "rm_col_ip": "Adresse", "rm_col_seen": "Dernière activité",
-    "rm_col_dict": "Dictées", "rm_col_rew": "Écriture IA", "rm_col_min": "Minutes",
-    "rm_forget": "Oublier cet appareil", "rm_forget_all": "Remettre les compteurs à zéro",
-    "rm_now": "à l'instant", "rm_min_ago": "il y a {n} min", "rm_h_ago": "il y a {n} h",
-    "rm_client_title": "Se connecter à mon PC de la maison",
-    "rm_client_sub": "Collez le code de connexion affiché sur le PC de la maison.",
-    "rm_connect": "Se connecter", "rm_test": "Tester la connexion", "rm_disconnect": "Se déconnecter",
-    "rm_bad_code": "Ce code n'est pas valide. Copiez-le de nouveau depuis le PC de la maison (il commence par VT2-).",
-    "rm_old_code": "Ce code vient d'une ancienne version (VT1-), sans chiffrement. Mettez à jour Voice Typer sur le PC "
-                   "de la maison, puis copiez le nouveau code (il commence par VT2-).",
-    "rm_client_badcert": "● Refusé par sécurité : ce n'est pas le PC de la maison qui a répondu (certificat différent). "
-                         "Si vous avez réinstallé le PC de la maison, recopiez son code.",
-    "rm_client_nofp": "● Connexion à refaire : depuis la version 0.9, le partage est chiffré. Copiez le nouveau code "
-                      "du PC de la maison (il commence par VT2-) et collez-le ici.",
-    "rm_allow_internet": "Accepter aussi les connexions venant d'Internet (déconseillé)",
-    "rm_allow_internet_confirm": "Par défaut, seuls les appareils de la maison et de Tailscale peuvent se connecter. "
-                                 "N'activez ceci que si vous avez ouvert un port sur votre box. Continuer ?",
-    "rm_security_note": "Les échanges sont chiffrés (TLS) et le code contient l'empreinte de ce PC : un autre "
-                        "ordinateur ne peut pas se faire passer pour lui.",
-    "rm_testing": "Connexion en cours…",
-    "rm_client_none": "Pas encore connecté.",
-    "rm_client_ok": "● Connecté à {name} — {model} sur {where} ({ms} ms). Vos dictées et l'écriture IA passent par ce PC.",
-    "rm_client_down": "● Injoignable — les dictées se font sur ce PC en attendant.\n{err}",
-    "rm_client_badkey": "● Clé refusée : le code a changé sur le PC de la maison. Collez le nouveau code.",
-    "rm_fallback_note": "Si le PC de la maison est éteint ou injoignable, Voice Typer transcrit automatiquement sur ce PC : "
-                        "vous ne perdez jamais une dictée. Gardez donc un modèle téléchargé ici aussi.",
-    "rm_down_last": "PC de la maison injoignable — dictée faite sur ce PC.",
-    "rm_howto_title": "Se connecter depuis l'extérieur de la maison (bureau, déplacement)",
-    "rm_howto": "1. Installez Tailscale (gratuit, tailscale.com) sur le PC de la maison ET sur l'autre appareil, "
-                "et connectez-vous avec le même compte sur les deux. Ça crée un réseau privé chiffré entre vos "
-                "appareils, sans toucher à votre box Internet.\n"
-                "2. Sur le PC de la maison : choisissez « Partager ce PC », cliquez sur Actualiser, choisissez "
-                "l'adresse Tailscale (100.x.x.x), puis Copier le code.\n"
-                "3. Sur l'autre appareil : choisissez « Utiliser un autre PC » et collez le code.\n"
-                "4. La première fois, Windows demande d'autoriser Voice Typer sur le réseau (sur le PC de la maison) : "
-                "acceptez.\n\n"
-                "À la maison sur le même Wi-Fi, Tailscale n'est pas nécessaire : utilisez l'adresse « réseau de la maison ».",
-    "chip_remote_ok": "Via le PC de la maison", "chip_remote_down": "PC de la maison injoignable",
-    "chip_host": "Partage activé",
-    "rm_where_gpu": "la carte graphique", "rm_where_cpu": "le processeur",
+    "fw_title": "Pare-feu Windows",
+    "fw_msg": "Le partage de puissance a été retiré de Voice Typer : l'application n'ouvre plus aucun port réseau.\n\n"
+              "Windows garde encore {n} règle(s) de pare-feu qui autorisaient Voice Typer sur le réseau. "
+              "Les supprimer maintenant ? Windows va demander l'autorisation administrateur.",
+    "fw_failed": "La suppression n'a pas pu être lancée. Vous pouvez retirer les règles « Voice Typer » dans "
+                 "Pare-feu Windows Defender → Paramètres avancés → Règles de trafic entrant.",
 })
 STRINGS["en"].update({
-    "nav_remote": "Power sharing", "title_remote": "Power sharing",
-    "sub_remote": "Let your home PC's graphics card do the work for your other devices.",
-    "rm_mode_title": "How this PC works",
-    "rm_mode_sub": "The powerful PC (the one at home) shares its power; the others use it. "
-                   "Audio goes straight to your own PC, never through an Internet service.",
-    "rm_mode_off": "On its own — this PC does everything itself",
-    "rm_mode_host": "Share this PC — other devices use its power (pick this on the home PC)",
-    "rm_mode_client": "Use another PC — my dictations are processed by my home PC",
-    "rm_host_title": "This PC shares its power",
-    "rm_host_on": "● Running (port {port}) — {model} on {where}. Leave this PC on with Voice Typer open "
-                  "(it can stay in the taskbar).",
-    "rm_host_off": "○ Stopped.",
-    "rm_host_error": "Could not start sharing:\n\n{err}\n\nAnother program may already use the port.",
-    "rm_stat_now": "devices connected now", "rm_stat_total": "devices in total", "rm_stat_busy": "dictations in progress",
-    "rm_code_title": "Connection code",
-    "rm_code_sub": "Copy this code and paste it on the other device (Power sharing → Use another PC). "
-                   "It holds this PC's address and access key: only give it to people you trust.",
-    "rm_address": "Address:", "rm_refresh": "Refresh", "rm_copy_code": "Copy code",
-    "rm_code_copied": "Connection code copied",
-    "rm_kind_tailscale": "Tailscale — works anywhere", "rm_kind_lan": "home network only",
-    "rm_addr_ts": "✓ Tailscale detected: with the Tailscale address, your devices can connect from anywhere "
-                  "(office, mobile data…), as long as they run Tailscale too.",
-    "rm_addr_lan": "This address only works on the home Wi-Fi. To connect from the office, install Tailscale "
-                   "(see below), then click Refresh.",
-    "rm_new_key": "Change the access key…",
-    "rm_new_key_confirm": "Every connected device will be disconnected and will need the new code. Continue?",
-    "rm_devices_title": "Devices using this PC",
-    "rm_devices_sub": "\"Connected now\" = active in the last 10 minutes. Right-click to forget a device.",
-    "rm_col_name": "Device", "rm_col_ip": "Address", "rm_col_seen": "Last activity",
-    "rm_col_dict": "Dictations", "rm_col_rew": "AI writing", "rm_col_min": "Minutes",
-    "rm_forget": "Forget this device", "rm_forget_all": "Reset the counters",
-    "rm_now": "just now", "rm_min_ago": "{n} min ago", "rm_h_ago": "{n} h ago",
-    "rm_client_title": "Connect to my home PC",
-    "rm_client_sub": "Paste the connection code shown on the home PC.",
-    "rm_connect": "Connect", "rm_test": "Test connection", "rm_disconnect": "Disconnect",
-    "rm_bad_code": "This code is not valid. Copy it again from the home PC (it starts with VT2-).",
-    "rm_old_code": "This code comes from an older version (VT1-), without encryption. Update Voice Typer on the home "
-                   "PC, then copy the new code (it starts with VT2-).",
-    "rm_client_badcert": "● Refused for safety: the answer did not come from the home PC (different certificate). "
-                         "If you reinstalled the home PC, copy its code again.",
-    "rm_client_nofp": "● Please reconnect: since version 0.9 sharing is encrypted. Copy the new code from the home PC "
-                      "(it starts with VT2-) and paste it here.",
-    "rm_allow_internet": "Also accept connections from the Internet (not recommended)",
-    "rm_allow_internet_confirm": "By default only home-network and Tailscale devices can connect. Only turn this on "
-                                 "if you opened a port on your router. Continue?",
-    "rm_security_note": "Traffic is encrypted (TLS) and the code contains this PC's fingerprint: another computer "
-                        "cannot pretend to be it.",
-    "rm_testing": "Connecting…",
-    "rm_client_none": "Not connected yet.",
-    "rm_client_ok": "● Connected to {name} — {model} on {where} ({ms} ms). Dictation and AI writing go through it.",
-    "rm_client_down": "● Unreachable — dictation runs on this PC meanwhile.\n{err}",
-    "rm_client_badkey": "● Key refused: the code changed on the home PC. Paste the new code.",
-    "rm_fallback_note": "If the home PC is off or unreachable, Voice Typer transcribes on this PC automatically: "
-                        "you never lose a dictation. So keep a model downloaded here too.",
-    "rm_down_last": "Home PC unreachable — dictation done on this PC.",
-    "rm_howto_title": "Connecting from outside the house (office, travel)",
-    "rm_howto": "1. Install Tailscale (free, tailscale.com) on the home PC AND on the other device, and sign in "
-                "with the same account on both. It creates an encrypted private network between your devices, "
-                "with no router setup.\n"
-                "2. On the home PC: pick \"Share this PC\", click Refresh, choose the Tailscale address "
-                "(100.x.x.x), then Copy code.\n"
-                "3. On the other device: pick \"Use another PC\" and paste the code.\n"
-                "4. The first time, Windows asks to allow Voice Typer on the network (on the home PC): accept.\n\n"
-                "At home on the same Wi-Fi you don't need Tailscale: use the \"home network\" address.",
-    "chip_remote_ok": "Via home PC", "chip_remote_down": "Home PC unreachable", "chip_host": "Sharing on",
-    "rm_where_gpu": "the graphics card", "rm_where_cpu": "the processor",
+    "fw_title": "Windows Firewall",
+    "fw_msg": "Power sharing has been removed from Voice Typer: the app no longer opens any network port.\n\n"
+              "Windows still keeps {n} firewall rule(s) that allowed Voice Typer on the network. "
+              "Delete them now? Windows will ask for administrator permission.",
+    "fw_failed": "The removal could not be started. You can delete the \"Voice Typer\" rules in Windows Defender "
+                 "Firewall → Advanced settings → Inbound Rules.",
 })
 
 
@@ -828,7 +705,7 @@ STRINGS["fr"].update({
                             "transcription complète. Ne cliquez pas ailleurs pendant la dictée. Avec un raccourci qui contient "
                             "Ctrl ou Alt, l'écriture attend que ces touches soient relâchées : une touche seule (F1, F9…) ou le "
                             "mode « Appuyer pour commencer » est plus fluide. Les préréglages IA (F2…) écrivent toujours à la fin. "
-                            "Très fluide avec une carte graphique NVIDIA ou le partage de puissance.",
+                            "Très fluide avec une carte graphique NVIDIA.",
 })
 STRINGS["en"].update({
     "set_live_typing": "Type as I speak (where the cursor is)",
@@ -836,7 +713,7 @@ STRINGS["en"].update({
                             "full transcription. Don't click elsewhere while dictating. With a shortcut containing Ctrl or "
                             "Alt, typing waits until those keys are released: a single key (F1, F9…) or the \"press to "
                             "start\" mode is smoother. AI presets (F2…) still type at the end. Smoothest with an NVIDIA "
-                            "graphics card or power sharing.",
+                            "graphics card.",
 })
 
 # Settings export / import (transfer.py)
@@ -844,16 +721,16 @@ STRINGS["fr"].update({
     "xfer_title": "Transférer vers un autre PC",
     "xfer_sub": "Emportez votre configuration sur un autre ordinateur en un seul fichier",
     "xfer_note": "Contient : dictionnaire (général et par application), préréglages IA et signature, raccourcis, "
-                 "choix du modèle et options d'écriture et d'affichage. Ne contient pas : le micro, le partage de "
-                 "puissance (clé, certificat), l'historique ni les modèles eux-mêmes (ils se téléchargent sur l'autre PC).",
+                 "choix du modèle et options d'écriture et d'affichage. Ne contient pas : le micro, "
+                 "l'historique ni les modèles eux-mêmes (ils se téléchargent sur l'autre PC).",
     "xfer_export": "Exporter mes réglages…",
     "xfer_import": "Importer des réglages…",
     "xfer_exported": "Réglages enregistrés :\n{path}\n\nSur l'autre PC : Réglages → Transférer vers un autre PC → "
                      "Importer des réglages.\n\nLe fichier contient votre dictionnaire et votre signature : "
                      "gardez-le pour vous.",
     "xfer_confirm": "Remplacer les réglages de ce PC par ceux du fichier ?\n\n{count} réglage(s) vont changer "
-                    "(dictionnaire, préréglages, raccourcis…). Le micro et le partage de puissance de ce PC sont "
-                    "conservés.\n\nVoice Typer va redémarrer pour tout appliquer.",
+                    "(dictionnaire, préréglages, raccourcis…). Le micro de ce PC est "
+                    "conservé.\n\nVoice Typer va redémarrer pour tout appliquer.",
     "xfer_nothing": "Ce fichier ne change rien : ce PC a déjà les mêmes réglages.",
     "xfer_bad_file": "Ce fichier n'est pas un export de réglages Voice Typer (ou il est abîmé).",
     "xfer_too_new": "Ce fichier vient d'une version plus récente de Voice Typer. Mettez ce PC à jour, puis réessayez.",
@@ -863,14 +740,14 @@ STRINGS["en"].update({
     "xfer_title": "Move to another PC",
     "xfer_sub": "Take your setup to another computer in a single file",
     "xfer_note": "Includes: dictionary (general and per application), AI presets and signature, shortcuts, model "
-                 "choice, typing and display options. Does not include: the microphone, power sharing (key, "
-                 "certificate), history or the models themselves (they download on the other PC).",
+                 "choice, typing and display options. Does not include: the microphone, "
+                 "history or the models themselves (they download on the other PC).",
     "xfer_export": "Export my settings…",
     "xfer_import": "Import settings…",
     "xfer_exported": "Settings saved:\n{path}\n\nOn the other PC: Settings → Move to another PC → Import "
                      "settings.\n\nThe file contains your dictionary and signature: keep it to yourself.",
     "xfer_confirm": "Replace this PC's settings with the ones in the file?\n\n{count} setting(s) will change "
-                    "(dictionary, presets, shortcuts…). This PC's microphone and power sharing are kept.\n\n"
+                    "(dictionary, presets, shortcuts…). This PC's microphone is kept.\n\n"
                     "Voice Typer will restart to apply everything.",
     "xfer_nothing": "This file changes nothing: this PC already has the same settings.",
     "xfer_bad_file": "This file is not a Voice Typer settings export (or it is damaged).",

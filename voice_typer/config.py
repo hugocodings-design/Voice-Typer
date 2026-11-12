@@ -56,15 +56,6 @@ class Config:
     theme: str = "system"           # "system" | "light" | "dark"
     history_enabled: bool = True
     custom_models: list[dict] = field(default_factory=list)  # [{"label": ..., "source": ...}]
-    # Sharing AI power between PCs (see remote.py)
-    remote_mode: str = "off"        # "off" | "host" (share this PC) | "client" (use another PC)
-    host_port: int = 8765
-    host_key: str = ""              # access key other devices need (host side)
-    remote_url: str = ""            # host address, e.g. https://100.101.102.103:8765 (client side)
-    remote_key: str = ""
-    remote_fingerprint: str = ""    # SHA-256 of the host's TLS certificate (pinned, from the code)
-    host_allow_internet: bool = False   # host: also accept public Internet addresses (off = home/Tailscale only)
-    client_id: str = ""             # random id so the host can count devices
     # Updates (updater.py)
     auto_update: bool = True        # check the releases repository for a newer version
     skipped_update: str = ""        # version the user chose to skip

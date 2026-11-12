@@ -22,10 +22,6 @@ def _mine() -> Config:
     cfg.ui_language = "en"
     # machine-specific: must never travel
     cfg.input_device = "Jabra Evolve"
-    cfg.remote_mode = "host"
-    cfg.host_key = "secret-key"
-    cfg.remote_fingerprint = "ab" * 32
-    cfg.client_id = "abc"
     cfg.skipped_update = "0.9.9"
     return cfg
 
@@ -51,7 +47,7 @@ def test_machine_specific_and_secrets_stay(tmp_path):
     path = tmp_path / "s.json"
     transfer.export_settings(_mine(), path)
     raw = path.read_text(encoding="utf-8")
-    for secret in ("secret-key", "ab" * 32, "Jabra", "0.9.9", "remote_mode", "client_id", "first_run_done"):
+    for secret in ("Jabra", "0.9.9", "first_run_done"):
         assert secret not in raw
     data = json.loads(raw)["settings"]
     assert data["custom_models"] == [{"label": "HF", "source": "org/model"}]  # local folder dropped
@@ -73,7 +69,7 @@ def test_import_rejects_paths_and_bad_types(tmp_path):
         "sounds": False,                         # ok
         "vocabulary": ["ok", 3],                 # bad item
         "replacements": [{"from": "a"}],         # missing "to"
-        "host_key": "evil", "remote_url": "https://1.2.3.4:8765",  # not portable: ignored
+        "host_key": "evil", "remote_url": "https://1.2.3.4:8765",  # old power sharing: ignored
         "language": "de",                        # valid type, normalised on apply
     }}
     path = tmp_path / "s.json"
@@ -82,7 +78,7 @@ def test_import_rejects_paths_and_bad_types(tmp_path):
     assert set(settings) == {"sounds", "language"}
     cfg = Config()
     transfer.apply_settings(cfg, settings)
-    assert cfg.sounds is False and cfg.language is None and cfg.host_key == ""
+    assert cfg.sounds is False and cfg.language is None and not hasattr(cfg, "host_key")
 
 
 @pytest.mark.parametrize("content,key", [

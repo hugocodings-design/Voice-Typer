@@ -8,11 +8,14 @@ A model "source" can be:
 - a local folder path
 """
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from faster_whisper.utils import download_model
-from huggingface_hub import HfApi, snapshot_download
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+
+from faster_whisper.utils import download_model  # noqa: E402
+from huggingface_hub import HfApi, snapshot_download  # noqa: E402
 
 
 def retry_while_locked(load, attempts: int = 20, delay: float = 3.0):
@@ -108,9 +111,16 @@ def unlink_symlinks(folder) -> str:
 
 
 def resolve(source: str, local_only: bool = False) -> str:
-    """Return the local folder of a model, downloading it first unless local_only."""
+    """Return the local folder of a model, downloading it first unless local_only.
+
+    A model already on the PC is used as is: no request to Hugging Face (network only for a first download)."""
     if is_local_folder(source):
         return source
+    if not local_only:
+        try:
+            return resolve(source, local_only=True)
+        except Exception:  # noqa: BLE001 — not (fully) downloaded yet
+            pass
     if "#" in source:
         repo, sub = source.split("#", 1)
         root = snapshot_download(repo, allow_patterns=[f"{sub}/*"], local_files_only=local_only)

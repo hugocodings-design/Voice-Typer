@@ -1,8 +1,8 @@
 """Export / import of the user's settings, to set up Voice Typer on another PC in one step.
 
 Only what is the user's own work and taste travels (dictionary, per-app dictionaries, AI presets,
-shortcuts, output and interface choices). What belongs to one machine stays: microphone, power
-sharing (access key, certificate, pinned host), update state, history, local model folders.
+shortcuts, output and interface choices). What belongs to one machine stays: microphone,
+update state, history, local model folders. It is a plain file: nothing goes over the network.
 """
 
 import json

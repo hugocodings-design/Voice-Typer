@@ -16,7 +16,6 @@ from voice_typer.gui.pages.dictionary import DictionaryPage
 from voice_typer.gui.pages.help import HelpPage
 from voice_typer.gui.pages.home import HomePage
 from voice_typer.gui.pages.models_page import ModelsPage
-from voice_typer.gui.pages.remote_page import RemotePage
 from voice_typer.gui.pages.settings import SettingsPage
 from voice_typer.gui.pages.writing import WritingPage
 from voice_typer.gui.shortcuts import ShortcutRecorder
@@ -29,7 +28,7 @@ from voice_typer.tray import Tray
 
 
 class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
-             RemotePage, HelpPage, ShortcutRecorder, WelcomeWizard, UpdatesMixin):
+             HelpPage, ShortcutRecorder, WelcomeWizard, UpdatesMixin):
     def __init__(self, engine: Engine):
         self.engine = engine
         self.config = engine.config
@@ -431,14 +430,17 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
             self._set_last((kind, {"name": payload or ""}))
             if self.config.overlay:
                 self.overlay.flash(msg, ms=3500)
-        elif kind in ("remote_status", "remote_changed", "remote_down", "host_error"):
-            self._rm_on_event(kind, payload)
         elif kind == "status" and payload == "no_model":
             # Shortcut pressed with no model ready: say so where the user is looking, not only on Home.
             key = "no_model" if self.engine.loading_source else "no_model_none"
             self._set_last((key, {}))
             if self.config.overlay:
                 self.overlay.flash(self.t(key), ms=3500)
+        elif kind == "firewall_left":
+            # Never pop up by itself (no focus stealing): asked the next time the window is shown.
+            self._firewall_left = list(payload)
+            if self.root.state() == "normal":
+                self.root.after(500, self._ask_firewall_cleanup)
         elif kind == "language_changed":
             self._render_home_language()
             self.tray.refresh()
@@ -450,6 +452,19 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
         self.root.deiconify()
         self.root.lift()
         self.root.focus_force()
+        if getattr(self, "_firewall_left", None):
+            self.root.after(500, self._ask_firewall_cleanup)
+
+    def _ask_firewall_cleanup(self) -> None:
+        """Firewall rules left by the old power sharing: removing them needs administrator rights."""
+        names, self._firewall_left = getattr(self, "_firewall_left", None), None
+        if not names:
+            return
+        if messagebox.askyesno(self.t("fw_title"), self.t("fw_msg", n=len(names)), parent=self.root):
+            from voice_typer import legacy
+
+            if not legacy.remove_rules_elevated(names):
+                messagebox.showwarning(self.t("fw_title"), self.t("fw_failed"), parent=self.root)
 
     def _on_close(self) -> None:
         self._stop_mic_test()

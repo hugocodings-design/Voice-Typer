@@ -77,6 +77,8 @@ def download(source: str) -> str:
         disable_progress_bars()
     from voice_typer.models import unlink_symlinks
 
+    if is_downloaded(source):  # already on the PC: no request to Hugging Face
+        return unlink_symlinks(snapshot_download(source, allow_patterns=_PATTERNS, local_files_only=True))
     return unlink_symlinks(snapshot_download(source, allow_patterns=_PATTERNS))
 
 
