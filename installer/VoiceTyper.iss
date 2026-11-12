@@ -33,9 +33,11 @@ UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
 ; Look: modern wizard, Windows 11 styling, follows the system light/dark mode
 WizardStyle=modern dynamic windows11
-WizardImageFile=build_assets\wizard_0.bmp,build_assets\wizard_1.bmp,build_assets\wizard_2.bmp,build_assets\wizard_3.bmp,build_assets\wizard_4.bmp
-WizardSmallImageFile=build_assets\small_0.png,build_assets\small_1.png,build_assets\small_2.png,build_assets\small_3.png,build_assets\small_4.png,build_assets\small_5.png
-WizardImageStretch=no
+; The logo (make_assets.py): one image per DPI, Setup picks the closest. Same images in dark mode.
+WizardImageFile=build_assets\wizard_*.bmp
+WizardImageFileDynamicDark=build_assets\wizard_*.bmp
+WizardSmallImageFile=build_assets\small_*.png
+WizardSmallImageFileDynamicDark=build_assets\small_*.png
 ; Close a running copy before updating it (same mutex as voice_typer/app.py)
 AppMutex=VoiceTyper.SingleInstance
 CloseApplications=yes

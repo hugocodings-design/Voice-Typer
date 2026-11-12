@@ -35,7 +35,7 @@ def gradient(w: int, h: int) -> Image.Image:
 
 
 def side_image(scale: float) -> Image.Image:
-    """Left panel of the welcome / finish pages (164x314 at 100 %)."""
+    """Left panel of the welcome / finish pages (164:314 ratio; 202x386 at 100 % since Inno Setup 6.6)."""
     w, h = round(164 * scale), round(314 * scale)
     img = gradient(w, h)
     # soft green glows
@@ -91,9 +91,14 @@ def main() -> None:
     sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
     big = _icon_image(size=256)
     big.save(OUT / "app.ico", sizes=[(s, s) for s in sizes])
-    for i, scale in enumerate((1, 1.25, 1.5, 1.75, 2)):
-        side_image(scale).save(OUT / f"wizard_{i}.bmp")
-    for i, size in enumerate((55, 69, 83, 97, 110, 138)):
+    # Image-area sizes of Inno Setup 6.6+ at 100/125/150/175/200/225/250 % (Setup picks the closest).
+    for f in OUT.glob("wizard_*.bmp"):
+        f.unlink()
+    for f in OUT.glob("small_*.png"):
+        f.unlink()
+    for i, width in enumerate((202, 269, 336, 403, 430, 498, 534)):
+        side_image(width / 164).save(OUT / f"wizard_{i}.bmp")
+    for i, size in enumerate((58, 77, 97, 116, 124, 143, 159)):
         small_image(size).save(OUT / f"small_{i}.png")
     from voice_typer import __version__
 
