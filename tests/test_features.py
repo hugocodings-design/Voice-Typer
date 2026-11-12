@@ -246,3 +246,73 @@ def test_model_symlinks_become_real_files(tmp_path):
     models.unlink_symlinks(snap)
     assert not (snap / "model.bin").is_symlink()
     assert (snap / "model.bin").read_bytes() == b"weights"
+
+
+class _FakeRecorder:
+    def __init__(self):
+        self.is_recording = False
+        self.device_name = None
+        self.using_fallback = False
+
+    def start(self):
+        self.is_recording = True
+
+    def stop(self):
+        self.is_recording = False
+        return np.zeros(10, dtype=np.float32)  # too short: nothing transcribed
+
+
+@pytest.fixture
+def keyed(engine, monkeypatch):
+    """Engine whose recorder is fake and whose clock is driven by the test."""
+    eng, _ = engine
+    from voice_typer import app
+
+    eng.recorder = _FakeRecorder()
+    eng.transcriber = FakeTranscriber([])
+    now = [100.0]
+    monkeypatch.setattr(app.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(app.Engine, "_arm_escape", lambda self: None)
+    monkeypatch.setattr(app.Engine, "_safety_stop", lambda self, started: None)
+    return eng, now
+
+
+@pytest.mark.parametrize("mode, hold_s, after_release", [
+    ("hold", 0.1, False), ("hold", 2.0, False),
+    ("toggle", 0.1, True), ("toggle", 2.0, True),
+    ("auto", 0.1, True),    # quick tap: keeps listening
+    ("auto", 2.0, False),   # held while speaking: release ends it
+])
+def test_hotkey_modes(keyed, mode, hold_s, after_release):
+    eng, now = keyed
+    eng.config.mode = mode
+    eng._on_down(None)
+    assert eng.recorder.is_recording
+    now[0] += hold_s
+    eng._on_up(None)
+    assert eng.recorder.is_recording is after_release
+    if after_release:  # second press stops it, and its release doesn't restart anything
+        now[0] += 3.0
+        eng._on_down(None)
+        assert not eng.recorder.is_recording
+        now[0] += 1.0
+        eng._on_up(None)
+        assert not eng.recorder.is_recording
+
+
+def test_auto_mode_ignores_release_of_another_key(keyed):
+    eng, now = keyed
+    eng.config.mode = "auto"
+    eng._on_down(None)
+    now[0] += 2.0
+    eng._on_up("email")  # a preset key released meanwhile
+    assert eng.recorder.is_recording
+
+
+def test_shortcut_without_model_reports_it(keyed):
+    eng, _ = keyed
+    eng.transcriber = None
+    _drain(eng)
+    eng._on_down(None)
+    assert not eng.recorder.is_recording
+    assert ("status", "no_model") in _drain(eng)

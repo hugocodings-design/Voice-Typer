@@ -53,9 +53,11 @@ class HomePage:
         ttk.Button(caps_row, text=self.t("change"), command=lambda: self._record_hotkey("main")).pack(
             side="right")
         self.mode_var = tk.StringVar(value=self.config.mode)
-        for value, key in (("hold", "mode_hold"), ("toggle", "mode_toggle")):
+        for value, key in (("hold", "mode_hold"), ("toggle", "mode_toggle"), ("auto", "mode_auto")):
             ttk.Radiobutton(sc, text=self.t(key), value=value, variable=self.mode_var,
                             command=self._on_mode).pack(anchor="w", pady=(8 if value == "hold" else 2, 0))
+        ttk.Label(sc, text=self.t("mode_auto_hint"), style="Muted.TLabel", wraplength=310,
+                  justify="left").pack(anchor="w", padx=(22, 0))
         ttk.Label(sc, text=self.t("paste_last_title"), wraplength=330, justify="left").pack(anchor="w", pady=(12, 4))
         prow = ttk.Frame(sc)
         prow.pack(fill="x")

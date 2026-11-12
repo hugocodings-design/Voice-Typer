@@ -251,7 +251,8 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
         self._render_status()
 
     def _set_ready(self) -> None:
-        key = "status_ready_toggle" if self.config.mode == "toggle" else "status_ready_hold"
+        key = {"toggle": "status_ready_toggle", "auto": "status_ready_auto"}.get(
+            self.config.mode, "status_ready_hold")
         self._set_status(key, "ok")
 
     def _render_status(self) -> None:
@@ -350,7 +351,8 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
                                  self.t("model_error_msg", name=self._label_for(source), err=err),
                                  parent=self.root)
         elif kind == "recording":
-            key = "status_recording_toggle" if self.config.mode == "toggle" else "status_recording_hold"
+            key = {"toggle": "status_recording_toggle", "auto": "status_recording_auto"}.get(
+                self.config.mode, "status_recording_hold")
             self._set_status(key, "rec")
             if self.config.overlay:
                 extra = f"  ·  {payload['name']}" if payload else ""
@@ -432,7 +434,11 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
         elif kind in ("remote_status", "remote_changed", "remote_down", "host_error"):
             self._rm_on_event(kind, payload)
         elif kind == "status" and payload == "no_model":
-            self._set_last(("no_model", {}))
+            # Shortcut pressed with no model ready: say so where the user is looking, not only on Home.
+            key = "no_model" if self.engine.loading_source else "no_model_none"
+            self._set_last((key, {}))
+            if self.config.overlay:
+                self.overlay.flash(self.t(key), ms=3500)
         elif kind == "language_changed":
             self._render_home_language()
             self.tray.refresh()

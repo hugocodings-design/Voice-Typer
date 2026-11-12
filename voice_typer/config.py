@@ -29,7 +29,7 @@ class Config:
     writer_preload: bool = True         # keep the writing AI loaded (instant presets)
     # Shortcuts
     hotkey: str = "ctrl+alt+space"
-    mode: str = "hold"              # "hold" (push-to-talk) | "toggle" (press to start, press to stop)
+    mode: str = "hold"              # "hold" (push-to-talk) | "toggle" (press to start, press to stop) | "auto" (tap = toggle, hold = push-to-talk)
     language_hotkey: str = ""       # cycles through favorite languages ("" = off)
     paste_last_hotkey: str = ""     # types the last transcription again ("" = off)
     undo_hotkey: str = ""           # deletes the last dictation ("" = off; the voice command works anyway)

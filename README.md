@@ -19,7 +19,8 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Settings saved between launches (`%APPDATA%\VoiceTyper\settings.json`)
 - [x] Voice-activity detection to trim silences
 - [x] Custom shortcut (record any combo, or pick F9 / Right Ctrl / Ctrl+Win…); its keys are swallowed so nothing leaks into the app
-- [x] Two modes: hold to talk, or press once to start / once to stop
+- [x] Three modes: hold to talk; press once to start / once to stop; or automatic (a quick tap keeps
+  listening until the next press, holding the key stops at release)
 - [x] Floating indicator with a live mic level while dictating (never steals focus)
 - [x] Icon next to the clock: closing the window keeps it running; option to start with Windows
 - [x] Interface in French or English

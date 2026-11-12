@@ -243,9 +243,11 @@ class WelcomeWizard:
             self.config.mode = var.get()
             self.config.save()
 
-        for value, key in (("hold", "mode_hold"), ("toggle", "mode_toggle")):
+        for value, key in (("hold", "mode_hold"), ("toggle", "mode_toggle"), ("auto", "mode_auto")):
             ttk.Radiobutton(body, text=self.t(key), value=value, variable=var, command=mode).pack(
                 anchor="w", pady=(16 if value == "hold" else 4, 0))
+        ttk.Label(body, text=self.t("mode_auto_hint"), style="Muted.TLabel", wraplength=420,
+                  justify="left").pack(anchor="w", padx=(22, 0))
         ttk.Label(body, text=self.t("wz_key_tips"), style="Muted.TLabel", wraplength=680,
                   justify="left").pack(anchor="w", pady=(20, 0))
 

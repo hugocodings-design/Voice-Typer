@@ -23,6 +23,7 @@ from voice_typer.undo import UndoTracker
 
 MIN_SECONDS = 0.3     # ignore accidental taps
 MAX_SECONDS = 300     # safety stop in toggle mode
+AUTO_HOLD_S = 0.4     # "auto" mode: held at least this long = push-to-talk, shorter tap = toggle
 
 
 class Engine(WriterMixin, RemoteMixin, HotkeysMixin):
@@ -117,12 +118,14 @@ class Engine(WriterMixin, RemoteMixin, HotkeysMixin):
         threading.Thread(target=work, daemon=True).start()
 
     def _on_down(self, preset_id: str | None) -> None:
-        if self.config.mode == "toggle" and self.recorder.is_recording:
+        self._press_started = None
+        if self.config.mode in ("toggle", "auto") and self.recorder.is_recording:
             self._finish_recording()
             return
         if self.recorder.is_recording:
             return
         self._down_key = preset_id  # which key's release ends a hold (None = main dictation key)
+        self._press_started = time.monotonic()  # "auto": a long press ends at release, a tap doesn't
         try:
             from voice_typer.winapp import foreground_exe
 
@@ -138,8 +141,14 @@ class Engine(WriterMixin, RemoteMixin, HotkeysMixin):
         self._start_recording()
 
     def _on_up(self, preset_id: str | None) -> None:
-        if self.config.mode == "hold" and preset_id == getattr(self, "_down_key", None):
+        if preset_id != getattr(self, "_down_key", None):
+            return
+        started, self._press_started = getattr(self, "_press_started", None), None
+        if self.config.mode == "hold":
             self._finish_recording()
+        elif (self.config.mode == "auto" and started is not None and self.recorder.is_recording
+              and time.monotonic() - started >= AUTO_HOLD_S):
+            self._finish_recording()  # held down while speaking → push-to-talk
 
     def _start_recording(self) -> None:
         if self.transcriber is None and self.remote is None:
@@ -169,7 +178,7 @@ class Engine(WriterMixin, RemoteMixin, HotkeysMixin):
                 self._live_typer = LiveTyper()
         if self.config.live_preview or self._live_typer is not None:
             threading.Thread(target=self._live_loop, args=(self._record_started,), daemon=True).start()
-        if self.config.mode == "toggle":
+        if self.config.mode in ("toggle", "auto"):
             threading.Thread(target=self._safety_stop, args=(self._record_started,), daemon=True).start()
 
     def _check_microphone(self) -> None:
