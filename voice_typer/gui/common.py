@@ -12,6 +12,7 @@ PAGES = [("home", "home"), ("dictionary", "dictionary"),
          ("settings", "settings")]
 PASTE_PRESETS = ["f9", "f10", "ctrl+shift+v", "insert"]
 REWRITE_PRESETS = ["f8", "f10", "ctrl+alt+r", "ctrl+shift+e"]
+UNDO_PRESETS = ["ctrl+alt+z", "ctrl+shift+z", "f7", "pause"]
 WRITING_PRESET_KEYS =["f2", "f3", "f4", "f6", "f7", "ctrl+alt+e"]
 
 

@@ -66,6 +66,11 @@ class RemotePage:
         self.rm_addr_note = ttk.Label(c, style="Muted.TLabel", wraplength=700, justify="left")
         self.rm_addr_note.pack(anchor="w", pady=(10, 0))
         ttk.Button(c, text=self.t("rm_new_key"), command=self._rm_new_key).pack(anchor="w", pady=(10, 0))
+        self.rm_internet_var = tk.BooleanVar(value=self.config.host_allow_internet)
+        ttk.Checkbutton(c, text=self.t("rm_allow_internet"), variable=self.rm_internet_var,
+                        command=self._rm_on_internet).pack(anchor="w", pady=(10, 0))
+        ttk.Label(c, text=self.t("rm_security_note"), style="Muted.TLabel", wraplength=700,
+                  justify="left").pack(anchor="w", pady=(4, 0))
 
         c = self._card(self.rm_host, self.t("rm_devices_title"), self.t("rm_devices_sub"), **pad)
         cols = ("name", "ip", "seen", "dict", "rew", "min")
@@ -148,7 +153,23 @@ class RemotePage:
             self.rm_code_var.set("")
             return
         ip = self._rm_addresses[max(self.rm_addr_combo.current(), 0)][1]
-        self.rm_code_var.set(remote.make_code(ip, self.config.host_port, self.config.host_key))
+        host = self.engine.host
+        try:
+            fp = host.fingerprint if host else remote.ensure_certificate()
+        except (OSError, ValueError):
+            self.rm_code_var.set("")
+            return
+        self.rm_code_var.set(remote.make_code(ip, self.config.host_port, self.config.host_key, fp))
+
+    def _rm_on_internet(self) -> None:
+        on = bool(self.rm_internet_var.get())
+        if on and not messagebox.askyesno(self.t("rm_allow_internet"), self.t("rm_allow_internet_confirm"),
+                                          parent=self.root, icon="warning"):
+            self.rm_internet_var.set(False)
+            return
+        self.config.host_allow_internet = on
+        self.config.save()
+        self.engine.apply_remote()
 
     def _rm_copy_code(self) -> None:
         code = self.rm_code_var.get()
@@ -224,11 +245,14 @@ class RemotePage:
     def _rm_connect(self) -> None:
         code = self.rm_paste_var.get().strip()
         try:
-            url, key = remote.parse_code(code)
+            url, key, fp = remote.parse_code(code)
+        except remote.OldCodeError:
+            messagebox.showerror(self.t("rm_client_title"), self.t("rm_old_code"), parent=self.root)
+            return
         except Exception:  # noqa: BLE001
             messagebox.showerror(self.t("rm_client_title"), self.t("rm_bad_code"), parent=self.root)
             return
-        self.config.remote_url, self.config.remote_key = url, key
+        self.config.remote_url, self.config.remote_key, self.config.remote_fingerprint = url, key, fp
         self.config.remote_mode = "client"
         self.config.save()
         self.rm_paste_var.set("")
@@ -245,7 +269,7 @@ class RemotePage:
         threading.Thread(target=self.engine.check_remote, daemon=True).start()
 
     def _rm_disconnect(self) -> None:
-        self.config.remote_url = self.config.remote_key = ""
+        self.config.remote_url = self.config.remote_key = self.config.remote_fingerprint = ""
         self.config.save()
         self.engine.apply_remote()
 
@@ -266,7 +290,14 @@ class RemotePage:
                                              where=where, ms=info.get("ms", "?")))
         else:
             err = str(st[1])
-            key = "rm_client_badkey" if "bad_key" in err else "rm_client_down"
+            if "bad_key" in err:
+                key = "rm_client_badkey"
+            elif "bad_certificate" in err:
+                key = "rm_client_badcert"
+            elif "no_fingerprint" in err:
+                key = "rm_client_nofp"
+            else:
+                key = "rm_client_down"
             self.rm_client_status.set(self.t(key, err=err[:160]))
 
     def _rm_on_event(self, kind: str, payload) -> None:

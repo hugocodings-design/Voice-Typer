@@ -64,6 +64,16 @@ class HomePage:
             ttk.Button(prow, text=self.t("wr_remove_key"),
                        command=lambda: self._set_paste_hotkey("")).pack(side="right", padx=(6, 0))
         ttk.Button(prow, text=self.t("change"), command=lambda: self._record_hotkey("paste")).pack(side="right")
+        ttk.Label(sc, text=self.t("undo_title"), wraplength=330, justify="left").pack(anchor="w", pady=(12, 4))
+        urow = ttk.Frame(sc)
+        urow.pack(fill="x")
+        self._keycaps(urow, self.config.undo_hotkey).pack(side="left")
+        if self.config.undo_hotkey:
+            ttk.Button(urow, text=self.t("wr_remove_key"),
+                       command=lambda: self._set_undo_hotkey("")).pack(side="right", padx=(6, 0))
+        ttk.Button(urow, text=self.t("change"), command=lambda: self._record_hotkey("undo")).pack(side="right")
+        ttk.Label(sc, text=self.t("undo_sub"), style="Muted.TLabel", wraplength=330,
+                  justify="left").pack(anchor="w", pady=(4, 0))
         self.home_presets_var = tk.StringVar()
         presets_lbl = ttk.Label(sc, textvariable=self.home_presets_var, style="Muted.TLabel", wraplength=330,
                                 justify="left", cursor="hand2")

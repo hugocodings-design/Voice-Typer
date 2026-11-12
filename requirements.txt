@@ -10,3 +10,5 @@ nvidia-cublas-cu12>=12.4,<13; sys_platform == "win32"
 tokenizers>=0.15
 ctranslate2>=4.4
 huggingface-hub>=0.23
+# Update signatures (ed25519) and encrypted power sharing (TLS certificate)
+cryptography>=42

@@ -7,6 +7,11 @@
 #   venv\Scripts\python.exe -m pip install pyinstaller
 #   winget install --id JRSoftware.InnoSetup -e --scope user
 # The version comes from voice_typer/__init__.py: bump it there before a release.
+#
+# Optional code signing (Windows "Unknown publisher" warning): skipped unless a certificate is set up.
+#   $env:VT_SIGN_PFX = "C:\chemin\certificat.pfx"; $env:VT_SIGN_PASSWORD = "..."   # certificate file
+#   $env:VT_SIGN_THUMBPRINT = "AB12..."     # or: certificate in the Windows store / on a USB token
+# Needs signtool.exe (Windows SDK). See README → "Code signing".
 param([switch]$SkipTests, [switch]$Clean)
 
 $ErrorActionPreference = "Continue"  # native tools log to stderr; exit codes are checked instead
@@ -17,6 +22,27 @@ $started = Get-Date
 
 function Step($text) { Write-Host "`n==> $text" -ForegroundColor Cyan }
 function Fail($text) { Write-Host "`nERREUR : $text" -ForegroundColor Red; exit 1 }
+
+# ---- optional code signing (only when a certificate is configured)
+$signtool = $null
+if ($env:VT_SIGN_PFX -or $env:VT_SIGN_THUMBPRINT) {
+    $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+    if (-not $signtool) { Fail "certificat configuré mais signtool.exe introuvable (installez le Windows SDK)." }
+}
+function Sign($file) {
+    if (-not $signtool) { return }
+    $a = @("sign", "/fd", "SHA256", "/tr", "http://timestamp.digicert.com", "/td", "SHA256", "/d", "Voice Typer")
+    if ($env:VT_SIGN_PFX) {
+        $a += @("/f", $env:VT_SIGN_PFX)
+        if ($env:VT_SIGN_PASSWORD) { $a += @("/p", $env:VT_SIGN_PASSWORD) }
+    } else {
+        $a += @("/sha1", $env:VT_SIGN_THUMBPRINT)
+    }
+    & $signtool @a $file
+    if ($LASTEXITCODE -ne 0) { Fail "signature de code impossible : $file" }
+    Write-Host "Signé : $file" -ForegroundColor DarkGray
+}
 
 if (-not (Test-Path $py)) { Fail "venv introuvable ($py)." }
 $iscc = @("$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
@@ -57,10 +83,18 @@ $log = Get-Content (Join-Path $testHome "VoiceTyper\voice_typer.log") -Raw -Erro
 if ($p.ExitCode -ne 0 -or $log -notmatch "SELFTEST OK") { Write-Host $log; Fail "l'application compilée ne démarre pas correctement." }
 Write-Host ($log.Trim())
 
+if ($signtool) {
+    Step "Signature de code"
+    Sign "dist\Voice Typer\Voice Typer.exe"
+} else {
+    Write-Host "`n(Signature de code : aucun certificat configuré, étape ignorée.)" -ForegroundColor DarkGray
+}
+
 Step "Installateur (Inno Setup)"
 & $iscc /Qp "/DAppVersion=$version" installer\VoiceTyper.iss
 if ($LASTEXITCODE -ne 0) { Fail "Inno Setup a échoué." }
 
+Sign "dist\VoiceTyperSetup-$version.exe"
 $setup = Get-Item "dist\VoiceTyperSetup-$version.exe"
 $mins = [math]::Round(((Get-Date) - $started).TotalMinutes, 1)
 Write-Host "`nOK : $($setup.FullName)  ($([math]::Round($setup.Length / 1MB)) Mo, $mins min)" -ForegroundColor Green

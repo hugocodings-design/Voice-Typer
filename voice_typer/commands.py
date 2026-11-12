@@ -109,6 +109,26 @@ def _tidy(text: str) -> str:
     return text.strip(" \t")
 
 
+UNDO_PHRASES = {
+    "fr": ("efface ça", "efface cela", "efface ca", "annule ça", "annule la dernière dictée", "supprime ça"),
+    "en": ("delete that", "scratch that", "undo that", "erase that"),
+}
+
+
+def _bare(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s'’]", " ", text.lower().replace("-", " ")).split())
+
+
+def is_undo(text: str, language: str | None) -> bool:
+    """True when the WHOLE dictation is just « efface ça » (said alone, so it can't be a sentence
+    that merely contains those words)."""
+    bare = _bare(text)
+    if not bare or len(bare) > 40:
+        return False
+    langs = [language] if language in UNDO_PHRASES else list(UNDO_PHRASES)
+    return any(bare == _bare(p) for lang in langs for p in UNDO_PHRASES[lang])
+
+
 def reference(ui: str) -> list[tuple[str, str]]:
     """(what to say, what you get) rows for the help page, in the interface language."""
     lang = "fr" if ui == "fr" else "en"
@@ -117,4 +137,7 @@ def reference(ui: str) -> list[tuple[str, str]]:
         label = c.label_fr if lang == "fr" else c.label_en
         shown = c.phrases[:2]  # the table stays readable; the other variants work too
         rows.append((" / ".join(f"« {p} »" if lang == "fr" else f"“{p}”" for p in shown), label))
+    undo = UNDO_PHRASES[lang][:1] + UNDO_PHRASES[lang][1:2]
+    rows.append((" / ".join(f"« {p} »" if lang == "fr" else f"“{p}”" for p in undo),
+                 "Efface la dernière dictée (dit seul)" if lang == "fr" else "Deletes the last dictation (said alone)"))
     return rows

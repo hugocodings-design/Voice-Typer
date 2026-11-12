@@ -194,8 +194,7 @@ class WritingPage:
         box = ttk.Frame(dlg, padding=22)
         box.pack()
         ttk.Label(box, text=self.t("ap_dlg_app")).grid(row=0, column=0, sticky="w", pady=6)
-        apps = sorted({f"{name}  ({exe})" for exe, name in winapp.KNOWN_APPS.items()})
-        app_box = ttk.Combobox(box, width=34, values=apps)
+        app_box = ttk.Combobox(box, width=34, values=winapp.app_choices())
         app_box.grid(row=0, column=1, padx=(12, 0), pady=6)
         ttk.Label(box, text=self.t("ap_dlg_hint"), style="Muted.TLabel", wraplength=360,
                   justify="left").grid(row=1, column=0, columnspan=2, sticky="w")
@@ -205,11 +204,7 @@ class WritingPage:
         preset_box.grid(row=2, column=1, padx=(12, 0), pady=(12, 6))
 
         def ok():
-            raw = app_box.get().strip()
-            exe = raw[raw.rfind("(") + 1:raw.rfind(")")] if raw.endswith(")") else raw
-            exe = exe.strip().lower()
-            if exe and not exe.endswith(".exe"):
-                exe += ".exe"
+            exe = winapp.parse_app(app_box.get())
             if not exe:
                 return
             self.config.app_presets = [r for r in self.config.app_presets if r.get("app") != exe]

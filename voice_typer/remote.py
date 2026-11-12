@@ -1,6 +1,6 @@
 """Share one PC's AI power with other devices ("home server").
 
-The *host* (e.g. the powerful PC at home, with its NVIDIA card) runs a small HTTP server. Other
+The *host* (e.g. the powerful PC at home, with its NVIDIA card) runs a small HTTPS server. Other
 copies of Voice Typer (*clients*, e.g. the PC at work) send it the recorded audio and get the
 text back, and can also ask it to do the AI writing. Everything still runs on your own machines:
 nothing goes through a cloud service.
@@ -9,26 +9,37 @@ nothing goes through a cloud service.
     POST /api/rewrite      JSON {"text", "instructions", "signature"}
     GET  /api/ping         what the host runs (model, GPU…)
 
-Every request carries `Authorization: Bearer <access key>`. Devices introduce themselves with
-X-Client-Id / X-Client-Name, which is how the host counts its users.
+Security:
+* Everything is encrypted with TLS. The host makes its own self-signed certificate on first use;
+  its SHA-256 fingerprint is part of the connection code, and the client checks it on every
+  connection (certificate pinning: no certificate authority needed, no man-in-the-middle).
+* Every request carries `Authorization: Bearer <access key>` (also in the code), compared in
+  constant time; 10 wrong keys in 5 minutes from one address and it is ignored for a while.
+* By default the host only accepts private / local addresses (home network, Tailscale 100.x):
+  connections from the public Internet are dropped before any TLS exchange.
+
+Devices introduce themselves with X-Client-Id / X-Client-Name, which is how the host counts its users.
 
 To reach the host from outside the home network, the simplest safe way is Tailscale (a free
 private network between your own devices): no router setup, traffic is encrypted.
 """
 
 import base64
+import datetime as dt
+import hashlib
 import hmac
+import http.client
 import ipaddress
 import json
 import secrets
 import socket
+import ssl
 import threading
 import time
 import traceback
-import urllib.error
 import urllib.parse
-import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import numpy as np
 
@@ -40,7 +51,14 @@ STATS_FILE = SETTINGS_DIR / "server_devices.json"
 ACTIVE_WINDOW = 10 * 60          # a device counts as "connected now" if seen in the last 10 minutes
 MAX_BODY = 40 * 1024 * 1024      # ~20 min of audio
 SAMPLE_RATE = 16_000
-CODE_PREFIX = "VT1-"
+CODE_PREFIX = "VT2-"            # VT1- codes (plain HTTP, before 0.9.0) are refused: re-pair
+CERT_FILE = SETTINGS_DIR / "host_certificate.pem"
+CERT_KEY_FILE = SETTINGS_DIR / "host_certificate_key.pem"
+_CGNAT = ipaddress.ip_network("100.64.0.0/10")   # Tailscale addresses
+
+
+class OldCodeError(ValueError):
+    """A connection code from a version before encryption (VT1-)."""
 
 
 def new_key() -> str:
@@ -48,27 +66,34 @@ def new_key() -> str:
 
 
 # ---- connection code: address + key in one string to copy to the other device -------------------
-def make_code(address: str, port: int, key: str) -> str:
-    raw = json.dumps({"a": f"{address}:{port}", "k": key}, separators=(",", ":")).encode()
+def make_code(address: str, port: int, key: str, fingerprint: str) -> str:
+    raw = json.dumps({"a": f"{address}:{port}", "k": key, "f": fingerprint}, separators=(",", ":")).encode()
     return CODE_PREFIX + base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
-def parse_code(code: str) -> tuple[str, str]:
-    """Returns (base_url, key). Raises ValueError if the code is not valid."""
+def parse_code(code: str) -> tuple[str, str, str]:
+    """Returns (base_url, key, certificate fingerprint). Raises ValueError if the code is not
+    valid, OldCodeError for a code made before encryption."""
     code = "".join(code.split())
+    if code.upper().startswith("VT1-"):
+        raise OldCodeError("old code")
     if not code.upper().startswith(CODE_PREFIX):
         raise ValueError("bad prefix")
     body = code[len(CODE_PREFIX):]
     data = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)))
-    return normalize_url(data["a"]), str(data["k"])
+    fp = str(data["f"]).lower()
+    if len(fp) != 64 or any(c not in "0123456789abcdef" for c in fp):
+        raise ValueError("bad fingerprint")
+    return normalize_url(data["a"]), str(data["k"]), fp
 
 
 def normalize_url(address: str) -> str:
     address = address.strip().rstrip("/")
     if not address:
         return ""
+    address = address.replace("http://", "https://", 1)   # always encrypted
     if "://" not in address:
-        address = "http://" + address
+        address = "https://" + address
     parts = urllib.parse.urlsplit(address)
     if parts.port is None:
         address = f"{parts.scheme}://{parts.hostname}:{DEFAULT_PORT}"
@@ -103,6 +128,68 @@ def local_addresses() -> list[tuple[str, str]]:
 
 
 # ================================================================================ host side
+def ensure_certificate(cert_file: Path = CERT_FILE, key_file: Path = CERT_KEY_FILE) -> str:
+    """Creates the host's self-signed TLS certificate on first use. Returns its SHA-256 fingerprint."""
+    if not (cert_file.exists() and key_file.exists()):
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.x509.oid import NameOID
+
+        key = ec.generate_private_key(ec.SECP256R1())
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Voice Typer host")])
+        now = dt.datetime.now(dt.timezone.utc)
+        cert = (x509.CertificateBuilder().subject_name(name).issuer_name(name)
+                .public_key(key.public_key()).serial_number(x509.random_serial_number())
+                .not_valid_before(now - dt.timedelta(days=1)).not_valid_after(now + dt.timedelta(days=3650))
+                .sign(key, hashes.SHA256()))
+        cert_file.parent.mkdir(parents=True, exist_ok=True)
+        key_file.write_bytes(key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                               serialization.NoEncryption()))
+        cert_file.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    return fingerprint_of(ssl.PEM_cert_to_DER_cert(cert_file.read_text(encoding="ascii")))
+
+
+def fingerprint_of(der: bytes) -> str:
+    return hashlib.sha256(der).hexdigest()
+
+
+def is_local_address(ip: str) -> bool:
+    """Home network, loopback, link-local or Tailscale (100.64.0.0/10)."""
+    try:
+        addr = ipaddress.ip_address(ip.split("%")[0])
+    except ValueError:
+        return False
+    if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+        addr = addr.ipv4_mapped
+    return addr.is_private or addr.is_loopback or addr.is_link_local or (
+        isinstance(addr, ipaddress.IPv4Address) and addr in _CGNAT)
+
+
+class _TLSServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_internet = False
+    ssl_context: ssl.SSLContext
+
+    def verify_request(self, request, client_address) -> bool:
+        return self.allow_internet or is_local_address(client_address[0])
+
+    def finish_request(self, request, client_address) -> None:
+        # TLS handshake here, in the connection's own thread (a slow client can't block the others)
+        try:
+            request.settimeout(30)
+            tls = self.ssl_context.wrap_socket(request, server_side=True)
+        except (ssl.SSLError, OSError):
+            return
+        try:
+            super().finish_request(tls, client_address)
+        finally:
+            try:
+                tls.close()
+            except OSError:
+                pass
+
+
 class DeviceStats:
     """Which devices use the host, persisted so the count survives restarts."""
 
@@ -164,9 +251,13 @@ class DeviceStats:
 class Host:
     """HTTP server sharing this PC's speech model and writing AI. Owned by the Engine."""
 
-    def __init__(self, engine, port: int, key: str, stats: DeviceStats | None = None, bind: str = "0.0.0.0"):
+    def __init__(self, engine, port: int, key: str, stats: DeviceStats | None = None, bind: str = "0.0.0.0",
+                 allow_internet: bool = False, cert_file: Path = CERT_FILE, key_file: Path = CERT_KEY_FILE):
         self.engine = engine
         self.bind = bind
+        self.allow_internet = allow_internet
+        self.cert_file, self.key_file = cert_file, key_file
+        self.fingerprint = ensure_certificate(cert_file, key_file)
         self.port = port
         self.key = key
         self.stats = stats or DeviceStats()
@@ -187,8 +278,12 @@ class Host:
         class Handler(_Handler):
             server_owner = host
 
-        self._httpd = ThreadingHTTPServer((self.bind, self.port), Handler)
-        self._httpd.daemon_threads = True
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        ctx.load_cert_chain(self.cert_file, self.key_file)
+        self._httpd = _TLSServer((self.bind, self.port), Handler)
+        self._httpd.ssl_context = ctx
+        self._httpd.allow_internet = self.allow_internet
         threading.Thread(target=self._httpd.serve_forever, daemon=True, name="vt-host").start()
 
     def stop(self) -> None:
@@ -313,28 +408,51 @@ class RemoteError(Exception):
 
 
 class Client:
-    def __init__(self, url: str, key: str, client_id: str, name: str | None = None):
+    def __init__(self, url: str, key: str, client_id: str, name: str | None = None, fingerprint: str = ""):
         self.url = normalize_url(url)
+        parts = urllib.parse.urlsplit(self.url)
+        self.host, self.port = parts.hostname or "", parts.port or DEFAULT_PORT
         self.key = key
+        self.fingerprint = (fingerprint or "").lower()
         self.client_id = client_id
         self.name = name or socket.gethostname()
+        # The certificate is self-signed: no CA check, the pinned fingerprint is checked instead.
+        self._ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        self._ctx.check_hostname = False
+        self._ctx.verify_mode = ssl.CERT_NONE
+        self._ctx.minimum_version = ssl.TLSVersion.TLSv1_2
 
     def _request(self, path: str, body: bytes | None = None, headers: dict | None = None,
                  timeout: float = 60) -> dict:
-        h = {"Authorization": f"Bearer {self.key}", "X-Client-Id": self.client_id,
-             "X-Client-Name": urllib.parse.quote(self.name), **(headers or {})}
-        req = urllib.request.Request(self.url + path, data=body, headers=h, method="POST" if body is not None else "GET")
+        if not self.fingerprint:
+            raise RemoteError("no_fingerprint")   # paired before 0.9.0: needs the new code
+        conn = http.client.HTTPSConnection(self.host, self.port, timeout=timeout, context=self._ctx)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read())
-        except urllib.error.HTTPError as exc:
             try:
-                err = json.loads(exc.read()).get("error", str(exc))
-            except Exception:  # noqa: BLE001
-                err = str(exc)
-            raise RemoteError(err) from exc
-        except (OSError, ValueError) as exc:  # unreachable, timeout, garbage
-            raise RemoteError(str(getattr(exc, "reason", exc))) from exc
+                conn.connect()
+            except (OSError, ssl.SSLError) as exc:  # unreachable, timeout, not TLS
+                raise RemoteError(str(exc)) from exc
+            der = conn.sock.getpeercert(binary_form=True) or b""
+            # checked BEFORE anything (the access key, the audio) is sent
+            if not hmac.compare_digest(fingerprint_of(der), self.fingerprint):
+                raise RemoteError("bad_certificate")
+            h = {"Authorization": f"Bearer {self.key}", "X-Client-Id": self.client_id,
+                 "X-Client-Name": urllib.parse.quote(self.name), **(headers or {})}
+            try:
+                conn.request("POST" if body is not None else "GET", path, body=body, headers=h)
+                resp = conn.getresponse()
+                raw = resp.read()
+            except (OSError, ssl.SSLError, http.client.HTTPException) as exc:
+                raise RemoteError(str(exc)) from exc
+            try:
+                data = json.loads(raw)
+            except ValueError as exc:
+                raise RemoteError("bad response") from exc
+            if resp.status != 200:
+                raise RemoteError(str(data.get("error", resp.status)) if isinstance(data, dict) else str(resp.status))
+            return data
+        finally:
+            conn.close()
 
     def ping(self, timeout: float = 4) -> dict:
         return self._request("/api/ping", timeout=timeout)

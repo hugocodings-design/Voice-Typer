@@ -42,6 +42,15 @@ No cloud API, no account, nothing leaves your PC.
 - [x] **Rewrite the selected text** with a preset via a shortcut, and **per-app presets**
       (e.g. Outlook → Courriel automatically)
 - [x] Clipboard privacy: dictations are kept out of Windows clipboard history (Win+V) and cloud sync
+- [x] Clipboard fully restored after a dictation: every format (image, Excel cells, rich text, copied
+      files…), and only once the target app has really read the dictation (slow Outlook / Teams included)
+- [x] **Undo the last dictation**: a shortcut (Home) or say « efface ça » / “delete that” on its own —
+      deletes exactly what was typed, only when that is certainly safe (same window, nothing typed or
+      clicked since, less than 10 min)
+- [x] **Per-application dictionary** (Dictionnaire → Ajouter une application): extra words and
+      replacements used only in Outlook, Teams…
+- [x] Remembered microphone: if it is unplugged the Windows default takes over, and Voice Typer switches
+      back to it by itself once it is reconnected (with a short notice both times)
 - [x] Welcome assistant on first launch (language, model suited to the PC, mic test, shortcut)
 - [x] Diagnostic export (zip without your personal texts) for troubleshooting
 - [x] **Windows installer** (`VoiceTyperSetup-x.y.z.exe`, no admin rights) — see *Build the installer*
@@ -107,16 +116,32 @@ To ship a change:
 
 ```powershell
 # 1. bump __version__ in voice_typer/__init__.py
-powershell -ExecutionPolicy Bypass -File installeruild.ps1
+powershell -ExecutionPolicy Bypass -File installer\build.ps1
 powershell -ExecutionPolicy Bypass -File installer\publish.ps1 -Notes "Ce qui change" -NotesEn "What changed"
 ```
 
 `publish.ps1` needs the GitHub CLI logged in to the owner account. Protect that account with two-factor
-authentication: whoever controls it can ship code to every installed copy.
+authentication.
+
+### Update signing key
+
+Since 0.9.0 every `latest.json` is signed (ed25519) and the app **refuses any update that is not signed
+with the publisher's key** (wrong or missing signature = no install), so even someone who took over the
+GitHub account could not push code to installed copies.
+
+- The **private key** lives on the publishing PC only, outside the repository:
+  `%USERPROFILE%\.voice-typer\update-signing-key.pem` (`*.pem` is git-ignored). `publish.ps1` uses it
+  through `installer\sign.py`. The public half is in `voice_typer/update_key.py` (not a secret).
+- **Back it up now**: copy the `.pem` file to a USB key kept at home and/or paste its content into a
+  password manager (Bitwarden, 1Password… as a secure note). **If it is lost, no update can ever be
+  published again for the installed copies**: everyone would have to download and reinstall by hand.
+- Never send it by e-mail or put it in a cloud folder that syncs in clear. To publish from another PC,
+  copy the file to the same place there (or set `VT_SIGNING_DIR` to the folder that holds it).
+- `installer\sign.py keygen` creates a key only if none exists (it never overwrites one).
 
 ## Reproducible install (pinned + hashed packages)
 
-`requirements.lock` pins the exact version of every package (34) with its SHA-256 hashes: pip refuses
+`requirements.lock` pins the exact version of every package (35) with its SHA-256 hashes: pip refuses
 any file that differs from the one tested here (protects against a tampered or swapped package).
 
 ```powershell
@@ -185,7 +210,7 @@ One powerful PC (e.g. at home, with an NVIDIA card) can do the speech recognitio
 for other devices running Voice Typer (e.g. a work laptop). Audio goes straight from one of your
 PCs to the other: no cloud service is involved.
 
-1. On the home PC: **Partage de puissance → Partager ce PC**, then **Copier le code** (`VT1-…`).
+1. On the home PC: **Partage de puissance → Partager ce PC**, then **Copier le code** (`VT2-…`).
    The page shows how many devices are connected now (active in the last 10 min), in total, and a
    table per device (dictations, AI rewrites, minutes of audio).
 2. On the other device: **Partage de puissance → Utiliser un autre PC**, paste the code, **Se connecter**.
@@ -195,7 +220,41 @@ PCs to the other: no cloud service is involved.
 
 If the home PC is off or unreachable, the client transcribes locally, so keep a model downloaded on it.
 The home PC listens on TCP 8765 (`host_port`); Windows asks once to allow it on the network.
-Every request needs the access key in the code; **Changer la clé d'accès** disconnects all devices.
+
+Security (0.9.0+):
+- **Encrypted (TLS).** The home PC makes its own certificate on first use
+  (`%APPDATA%\VoiceTyper\host_certificate*.pem`). The code contains its SHA-256 fingerprint and the
+  client checks it before sending anything: another machine cannot pretend to be the home PC.
+- **Home network only by default**: private addresses, Tailscale (100.64.0.0/10) and the PC itself.
+  Connections from the public Internet are dropped unless *Accepter aussi les connexions venant
+  d'Internet* is ticked (only useful with a port opened on the router; not recommended).
+- Every request needs the access key in the code; 10 wrong keys in 5 minutes block that address for
+  a while. **Changer la clé d'accès** disconnects all devices.
+- Codes from before 0.9.0 (`VT1-`, unencrypted) are refused: update both PCs, then copy the new code.
+
+## Code signing (optional)
+
+Without a code-signing certificate Windows shows "Unknown publisher" and SmartScreen may warn on the
+first downloads. `installer\build.ps1` signs the app and the installer **only if** a certificate is
+configured (otherwise the step is skipped):
+
+```powershell
+$env:VT_SIGN_PFX = "C:\chemin\certificat.pfx"; $env:VT_SIGN_PASSWORD = "…"   # certificate file
+$env:VT_SIGN_THUMBPRINT = "AB12…"   # or a certificate in the Windows store / on a USB token
+powershell -ExecutionPolicy Bypass -File installer\build.ps1
+```
+
+It uses `signtool.exe` from the Windows SDK with an RFC 3161 timestamp (signatures stay valid after
+the certificate expires). Options, roughly (prices change, check before buying):
+
+| Option | Approx. price | Notes |
+| --- | --- | --- |
+| Microsoft Azure Trusted Signing (Artifact Signing) | ~10 USD / month | Cheapest trusted option; individuals in Canada / US can be verified; signs from the cloud (needs a small signtool plug-in setup) |
+| OV certificate (Certum, Sectigo, SSL.com…) | ~100–300 USD / year + USB token | Key must be on a hardware token since 2023; SmartScreen trust builds up over downloads |
+| EV certificate | ~300–600 USD / year | No longer gives instant SmartScreen trust (Microsoft changed this in 2024): rarely worth it here |
+| Self-signed | free | Only trusted on PCs where you install it yourself (e.g. your own PCs); useless for colleagues |
+
+Update integrity does not depend on this: updates are already verified by their ed25519 signature.
 
 ## Advanced settings
 
@@ -211,14 +270,17 @@ VOICE TYPER/
 ├── voice_typer/
 │   ├── __main__.py     # entry point: python -m voice_typer
 │   ├── app.py          # engine: hotkey → recorder → transcriber → output, events to the UI
+│   ├── engine_*.py     # engine parts: writer (AI presets), remote (power sharing), hotkeys
+│   ├── undo.py         # « annuler la dernière dictée » with its safety checks
 │   ├── gui/            # tkinter window: window.py + pages/ (home, dictionary, models, writing,
 │   │                   #   remote, help, settings), wizard.py (first run), shortcuts.py
 │   ├── writer.py       # embedded LLM for AI-writing presets
 │   ├── commands.py     # voice commands ("à la ligne", "virgule"…)
-│   ├── clipboard.py    # Win32 clipboard with privacy flags (no history / cloud)
+│   ├── clipboard.py    # Win32 clipboard: privacy flags, full save/restore, delayed rendering
 │   ├── winapp.py       # foreground app detection (per-app presets)
-│   ├── remote.py       # power sharing: home-PC HTTP server, client, device counting
-│   ├── updater.py      # automatic updates from the public releases repository
+│   ├── remote.py       # power sharing: home-PC HTTPS server (pinned certificate), client, device counting
+│   ├── updater.py      # automatic updates from the public releases repository (ed25519-signed)
+│   ├── update_key.py   # public key updates must be signed with (installer/sign.py)
 │   ├── diagnostic.py   # diagnostic zip export
 │   ├── overlay.py      # floating "listening" pill (click-through, no focus)
 │   ├── tray.py         # icon next to the clock (pystray)
@@ -230,7 +292,8 @@ VOICE TYPER/
 │   ├── transcriber.py  # faster-whisper wrapper
 │   ├── output.py       # types / pastes text into the focused app
 │   └── hotkey.py       # global push-to-talk hotkey
-├── installer/          # build.ps1, voice_typer.spec (PyInstaller), VoiceTyper.iss (Inno Setup), make_assets.py
+├── installer/          # build.ps1, publish.ps1, sign.py (update signatures), voice_typer.spec (PyInstaller),
+│                       #   VoiceTyper.iss (Inno Setup), make_assets.py
 ├── tests/              # pytest (python -m pytest)
 ├── requirements.txt / requirements.lock
 └── CLAUDE.md

@@ -41,5 +41,19 @@ def foreground_exe() -> str:
         _kernel32.CloseHandle(handle)
 
 
+def parse_app(raw: str) -> str:
+    """"Outlook  (outlook.exe)" or "outlook" → "outlook.exe"; "" if empty."""
+    raw = raw.strip()
+    exe = raw[raw.rfind("(") + 1:raw.rfind(")")] if raw.endswith(")") else raw
+    exe = exe.strip().lower()
+    if exe and not exe.endswith(".exe"):
+        exe += ".exe"
+    return exe
+
+
+def app_choices() -> list[str]:
+    return sorted({f"{name}  ({exe})" for exe, name in KNOWN_APPS.items()})
+
+
 def friendly(exe: str) -> str:
     return KNOWN_APPS.get(exe.lower(), exe)

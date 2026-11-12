@@ -57,15 +57,20 @@ class SettingsPage:
         c = self._card(body, self.t("set_mic"), self.t("set_mic_sub"), **inner_pad)
         row = ttk.Frame(c)
         row.pack(fill="x")
-        self._mics = [None] + list_microphones()
+        self._mics = [None] + list_microphones(refresh=not self.engine.recorder.is_recording)
         names = [self.t("mic_default")] + self._mics[1:]
+        if self.config.input_device and self.config.input_device not in self._mics:
+            # unplugged: stays the choice, used again by itself once reconnected
+            self._mics.append(self.config.input_device)
+            names.append(self.t("mic_unplugged", name=self.config.input_device))
         self.mic_combo = ttk.Combobox(row, state="readonly", width=48, values=names)
-        cur = self.config.input_device if self.config.input_device in self._mics else None
-        self.mic_combo.current(self._mics.index(cur))
+        self.mic_combo.current(self._mics.index(self.config.input_device))
         self.mic_combo.bind("<<ComboboxSelected>>", self._on_mic)
         self.mic_combo.pack(side="left")
         self.mic_test_btn = ttk.Button(row, text=self.t("mic_test"), command=self._toggle_mic_test)
         self.mic_test_btn.pack(side="left", padx=10)
+        ttk.Label(c, text=self.t("mic_remember_note"), style="Muted.TLabel", wraplength=680,
+                  justify="left").pack(anchor="w", pady=(6, 0))
         self.mic_level = ttk.Progressbar(c, mode="determinate", maximum=100, length=360)
         self.mic_level.pack(anchor="w", pady=(10, 0))
         self.sounds_var = tk.BooleanVar(value=self.config.sounds)

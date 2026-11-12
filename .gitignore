@@ -33,6 +33,9 @@ recordings/
 
 # Secrets & local settings
 .env
+# update signing key: must NEVER be committed (lives in %USERPROFILE%\.voice-typer\)
+*.pem
+update-signing-key*
 *.local.*
 
 # Editors / OS

@@ -414,6 +414,21 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
         elif kind == "pasted_last":
             if self.config.overlay:
                 self.overlay.flash(self.t("overlay_pasted"))
+        elif kind == "undone":
+            self._set_ready()
+            self._set_last(("undo_done", {}))
+            if self.config.overlay:
+                self.overlay.flash(self.t("overlay_undone"))
+        elif kind == "undo_refused":
+            self._set_ready()
+            self._set_last((f"undo_no_{payload}", {}))
+            if self.config.overlay:
+                self.overlay.flash(self.t(f"undo_no_{payload}"), ms=3200)
+        elif kind in ("mic_fallback", "mic_back"):
+            msg = self.t(kind, name=payload or "")
+            self._set_last((kind, {"name": payload or ""}))
+            if self.config.overlay:
+                self.overlay.flash(msg, ms=3500)
         elif kind in ("remote_status", "remote_changed", "remote_down", "host_error"):
             self._rm_on_event(kind, payload)
         elif kind == "status" and payload == "no_model":

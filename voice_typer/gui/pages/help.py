@@ -42,6 +42,7 @@ class HelpPage:
                  for p in self.config.presets or [] if p.get("hotkey")]
         rows += [(self.config.rewrite_hotkey, self.t("help_key_rewrite")),
                  (self.config.paste_last_hotkey, self.t("help_key_paste")),
+                 (self.config.undo_hotkey, self.t("help_key_undo")),
                  (self.config.language_hotkey, self.t("help_key_lang"))]
         for i, (combo, what) in enumerate(rows):
             self._keycaps(grid, combo).grid(row=i, column=0, sticky="w", pady=4)

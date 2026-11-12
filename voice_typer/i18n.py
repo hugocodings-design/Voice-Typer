@@ -353,6 +353,33 @@ STRINGS["fr"].update({
     "set_keep_clipboard": "Laisser la dernière dictée dans le presse-papiers (Ctrl+V la recolle)",
     "overlay_pasted": "Dernière dictée recollée",
     "overlay_cancelled": "Dictée annulée", "cancelled": "Dictée annulée (Échap) — rien n'a été écrit.",
+    "rec_target_undo": "annuler la dernière dictée",
+    "undo_title": "Annuler la dernière dictée",
+    "undo_sub": "Efface exactement ce que la dernière dictée a écrit. Marche aussi en disant « efface ça » seul.",
+    "help_key_undo": "Effacer la dernière dictée (ou dire « efface ça »)",
+    "overlay_undone": "Dernière dictée effacée",
+    "undo_done": "Dernière dictée effacée.",
+    "undo_no_nothing": "Rien à effacer : aucune dictée récente.",
+    "undo_no_done": "La dernière dictée est déjà effacée.",
+    "undo_no_too_old": "Rien effacé : la dernière dictée date de plus de 10 minutes.",
+    "undo_no_other_window": "Rien effacé : vous n'êtes plus dans la fenêtre de la dernière dictée.",
+    "undo_no_typed_since": "Rien effacé : vous avez tapé au clavier depuis (utilisez Ctrl+Z).",
+    "undo_no_clicked_since": "Rien effacé : vous avez cliqué depuis, le curseur a pu bouger (utilisez Ctrl+Z).",
+    "mic_unplugged": "{name} (débranché — repris dès qu'il revient)",
+    "mic_remember_note": "Le micro choisi est retenu : s'il est débranché, celui de Windows prend le relais, "
+                         "puis Voice Typer revient au vôtre tout seul dès qu'il est rebranché.",
+    "mic_fallback": "Micro « {name} » absent : micro par défaut de Windows utilisé.",
+    "mic_back": "Micro « {name} » de retour : il est de nouveau utilisé.",
+    "dict_scope": "Dictionnaire :",
+    "dict_scope_all": "Général (toutes les applications)",
+    "dict_scope_app": "Seulement dans {app}",
+    "dict_add_app": "Ajouter une application…",
+    "dict_remove_app": "Supprimer ce dictionnaire",
+    "dict_remove_confirm": "Supprimer le dictionnaire propre à {app} (ses mots et remplacements) ?",
+    "dict_scope_note_all": "Ces mots et remplacements servent partout. Ajoutez une application pour des termes "
+                           "qui ne servent que là (ex. noms de clients dans Outlook).",
+    "dict_scope_note_app": "Ces entrées s'ajoutent au dictionnaire général quand vous dictez dans cette "
+                           "application ; en cas de conflit, ce sont elles qui l'emportent.",
 })
 STRINGS["en"].update({
     "nav_writing": "AI writing",
@@ -405,6 +432,33 @@ STRINGS["en"].update({
     "set_keep_clipboard": "Leave the last dictation on the clipboard (Ctrl+V pastes it again)",
     "overlay_pasted": "Last dictation pasted",
     "overlay_cancelled": "Dictation cancelled", "cancelled": "Dictation cancelled (Esc) — nothing was typed.",
+    "rec_target_undo": "undo last dictation",
+    "undo_title": "Undo last dictation",
+    "undo_sub": "Deletes exactly what the last dictation typed. Also works by saying “delete that” on its own.",
+    "help_key_undo": "Delete the last dictation (or say “delete that”)",
+    "overlay_undone": "Last dictation deleted",
+    "undo_done": "Last dictation deleted.",
+    "undo_no_nothing": "Nothing to delete: no recent dictation.",
+    "undo_no_done": "The last dictation is already deleted.",
+    "undo_no_too_old": "Nothing deleted: the last dictation is more than 10 minutes old.",
+    "undo_no_other_window": "Nothing deleted: you are no longer in the window of the last dictation.",
+    "undo_no_typed_since": "Nothing deleted: you typed on the keyboard since (use Ctrl+Z).",
+    "undo_no_clicked_since": "Nothing deleted: you clicked since, the cursor may have moved (use Ctrl+Z).",
+    "mic_unplugged": "{name} (unplugged — used again once it is back)",
+    "mic_remember_note": "Your microphone choice is remembered: if it is unplugged the Windows default takes over, "
+                         "then Voice Typer switches back to yours by itself as soon as it is reconnected.",
+    "mic_fallback": "Microphone “{name}” missing: using the Windows default.",
+    "mic_back": "Microphone “{name}” is back and in use again.",
+    "dict_scope": "Dictionary:",
+    "dict_scope_all": "General (all applications)",
+    "dict_scope_app": "Only in {app}",
+    "dict_add_app": "Add an application…",
+    "dict_remove_app": "Delete this dictionary",
+    "dict_remove_confirm": "Delete the dictionary for {app} (its words and replacements)?",
+    "dict_scope_note_all": "These words and replacements apply everywhere. Add an application for terms only "
+                           "used there (e.g. client names in Outlook).",
+    "dict_scope_note_app": "These entries are added to the general dictionary when you dictate in this "
+                           "application; on conflicts, they win.",
 })
 
 
@@ -606,7 +660,18 @@ STRINGS["fr"].update({
     "rm_client_title": "Se connecter à mon PC de la maison",
     "rm_client_sub": "Collez le code de connexion affiché sur le PC de la maison.",
     "rm_connect": "Se connecter", "rm_test": "Tester la connexion", "rm_disconnect": "Se déconnecter",
-    "rm_bad_code": "Ce code n'est pas valide. Copiez-le de nouveau depuis le PC de la maison (il commence par VT1-).",
+    "rm_bad_code": "Ce code n'est pas valide. Copiez-le de nouveau depuis le PC de la maison (il commence par VT2-).",
+    "rm_old_code": "Ce code vient d'une ancienne version (VT1-), sans chiffrement. Mettez à jour Voice Typer sur le PC "
+                   "de la maison, puis copiez le nouveau code (il commence par VT2-).",
+    "rm_client_badcert": "● Refusé par sécurité : ce n'est pas le PC de la maison qui a répondu (certificat différent). "
+                         "Si vous avez réinstallé le PC de la maison, recopiez son code.",
+    "rm_client_nofp": "● Connexion à refaire : depuis la version 0.9, le partage est chiffré. Copiez le nouveau code "
+                      "du PC de la maison (il commence par VT2-) et collez-le ici.",
+    "rm_allow_internet": "Accepter aussi les connexions venant d'Internet (déconseillé)",
+    "rm_allow_internet_confirm": "Par défaut, seuls les appareils de la maison et de Tailscale peuvent se connecter. "
+                                 "N'activez ceci que si vous avez ouvert un port sur votre box. Continuer ?",
+    "rm_security_note": "Les échanges sont chiffrés (TLS) et le code contient l'empreinte de ce PC : un autre "
+                        "ordinateur ne peut pas se faire passer pour lui.",
     "rm_testing": "Connexion en cours…",
     "rm_client_none": "Pas encore connecté.",
     "rm_client_ok": "● Connecté à {name} — {model} sur {where} ({ms} ms). Vos dictées et l'écriture IA passent par ce PC.",
@@ -665,7 +730,18 @@ STRINGS["en"].update({
     "rm_client_title": "Connect to my home PC",
     "rm_client_sub": "Paste the connection code shown on the home PC.",
     "rm_connect": "Connect", "rm_test": "Test connection", "rm_disconnect": "Disconnect",
-    "rm_bad_code": "This code is not valid. Copy it again from the home PC (it starts with VT1-).",
+    "rm_bad_code": "This code is not valid. Copy it again from the home PC (it starts with VT2-).",
+    "rm_old_code": "This code comes from an older version (VT1-), without encryption. Update Voice Typer on the home "
+                   "PC, then copy the new code (it starts with VT2-).",
+    "rm_client_badcert": "● Refused for safety: the answer did not come from the home PC (different certificate). "
+                         "If you reinstalled the home PC, copy its code again.",
+    "rm_client_nofp": "● Please reconnect: since version 0.9 sharing is encrypted. Copy the new code from the home PC "
+                      "(it starts with VT2-) and paste it here.",
+    "rm_allow_internet": "Also accept connections from the Internet (not recommended)",
+    "rm_allow_internet_confirm": "By default only home-network and Tailscale devices can connect. Only turn this on "
+                                 "if you opened a port on your router. Continue?",
+    "rm_security_note": "Traffic is encrypted (TLS) and the code contains this PC's fingerprint: another computer "
+                        "cannot pretend to be it.",
     "rm_testing": "Connecting…",
     "rm_client_none": "Not connected yet.",
     "rm_client_ok": "● Connected to {name} — {model} on {where} ({ms} ms). Dictation and AI writing go through it.",

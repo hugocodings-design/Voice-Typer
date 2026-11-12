@@ -32,8 +32,12 @@ class Config:
     mode: str = "hold"              # "hold" (push-to-talk) | "toggle" (press to start, press to stop)
     language_hotkey: str = ""       # cycles through favorite languages ("" = off)
     paste_last_hotkey: str = ""     # types the last transcription again ("" = off)
+    undo_hotkey: str = ""           # deletes the last dictation ("" = off; the voice command works anyway)
     # Audio
-    input_device: str | None = None  # microphone name, None = Windows default
+    input_device: str | None = None  # microphone name, None = Windows default (kept while unplugged:
+    #                                  used again automatically as soon as it is reconnected)
+    app_dictionaries: list = field(default_factory=list)  # [{"app": "outlook.exe", "vocabulary": [...],
+    #                                                         "replacements": [{"from", "to"}]}]
     sounds: bool = True             # short beep on start / stop
     # Output
     output: str = "paste"           # "paste" | "type"
@@ -56,8 +60,10 @@ class Config:
     remote_mode: str = "off"        # "off" | "host" (share this PC) | "client" (use another PC)
     host_port: int = 8765
     host_key: str = ""              # access key other devices need (host side)
-    remote_url: str = ""            # host address, e.g. http://100.101.102.103:8765 (client side)
+    remote_url: str = ""            # host address, e.g. https://100.101.102.103:8765 (client side)
     remote_key: str = ""
+    remote_fingerprint: str = ""    # SHA-256 of the host's TLS certificate (pinned, from the code)
+    host_allow_internet: bool = False   # host: also accept public Internet addresses (off = home/Tailscale only)
     client_id: str = ""             # random id so the host can count devices
     # Updates (updater.py)
     auto_update: bool = True        # check the releases repository for a newer version

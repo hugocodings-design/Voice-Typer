@@ -9,7 +9,8 @@ from voice_typer.gui import dialogs as messagebox
 import keyboard
 
 from voice_typer import ui_theme
-from voice_typer.gui.common import PRESETS, LANG_PRESETS, PASTE_PRESETS, REWRITE_PRESETS, WRITING_PRESET_KEYS
+from voice_typer.gui.common import (LANG_PRESETS, PASTE_PRESETS, PRESETS, REWRITE_PRESETS, UNDO_PRESETS,
+                                    WRITING_PRESET_KEYS)
 from voice_typer.hotkey import normalize as normalize_hotkey
 from voice_typer.hotkey import validate as validate_hotkey
 from voice_typer.i18n import pretty_hotkey
@@ -40,7 +41,7 @@ class ShortcutRecorder:
         row = ttk.Frame(box)
         row.pack(pady=(0, 10))
         choices = {"main": PRESETS, "lang": LANG_PRESETS, "paste": PASTE_PRESETS,
-                   "rewrite": REWRITE_PRESETS}.get(target, WRITING_PRESET_KEYS)
+                   "rewrite": REWRITE_PRESETS, "undo": UNDO_PRESETS}.get(target, WRITING_PRESET_KEYS)
         taken = self._taken_hotkeys(target)
         for combo in [c for c in choices if c not in taken]:
             ttk.Button(row, text=pretty_hotkey(self.config.ui_language, combo),
@@ -99,9 +100,15 @@ class ShortcutRecorder:
             self.engine.set_paste_last_hotkey(combo)
         elif target == "rewrite":
             self.engine.set_rewrite_hotkey(combo)
+        elif target == "undo":
+            self.engine.set_undo_hotkey(combo)
         elif target.startswith("preset:"):
             self._set_preset_hotkey(target.split(":", 1)[1], combo)
             return
+        self._build()
+
+    def _set_undo_hotkey(self, combo: str) -> None:
+        self.engine.set_undo_hotkey(combo)
         self._build()
 
     def _set_paste_hotkey(self, combo: str) -> None:
@@ -120,6 +127,8 @@ class ShortcutRecorder:
             taken[norm(self.config.language_hotkey)] = self.t("rec_target_lang")
         if target != "paste" and self.config.paste_last_hotkey:
             taken[norm(self.config.paste_last_hotkey)] = self.t("rec_target_paste")
+        if target != "undo" and self.config.undo_hotkey:
+            taken[norm(self.config.undo_hotkey)] = self.t("rec_target_undo")
         if target != "rewrite" and self.config.rewrite_hotkey:
             taken[norm(self.config.rewrite_hotkey)] = self.t("rec_target_rewrite")
         for p in self.config.presets or []:

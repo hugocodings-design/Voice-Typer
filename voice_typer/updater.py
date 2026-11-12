@@ -6,12 +6,18 @@ the installer and `latest.json` (written by installer/publish.ps1):
     {"version": "0.8.0", "url": "https://github.com/.../VoiceTyperSetup-0.8.0.exe",
      "sha256": "…", "size": 600000000, "notes_fr": "…", "notes_en": "…"}
 
+latest.json is signed (ed25519, field "signature", made by installer/sign.py with a private key
+that never leaves the publisher's PC). The app checks it against UPDATE_PUBLIC_KEY and refuses any
+unsigned or wrongly signed manifest: taking over the GitHub account is not enough to ship code.
+Copies older than 0.9.0 ignore the extra field, so they still receive signed releases.
+
 The app reads latest.json, and if the version is newer, offers to download the installer, checks
 its SHA-256 (a tampered or truncated file is never run), then runs it silently with /UPDATE=1:
 the installer closes the app, keeps settings / history / models, and starts the new version.
 Only installed (frozen) copies update themselves; a dev checkout uses git.
 """
 
+import base64
 import hashlib
 import json
 import os
@@ -50,8 +56,35 @@ def is_newer(remote: str, local: str = __version__) -> bool:
     return parse_version(remote) > parse_version(local)
 
 
-def validate(info: dict) -> dict:
-    """Raises UpdateError if the manifest is malformed or points outside the releases repository."""
+def signed_bytes(info: dict) -> bytes:
+    """What the signature covers: every field except "signature", in a canonical form."""
+    payload = {k: v for k, v in info.items() if k != "signature"}
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def verify_signature(info: dict, public_key: str | None = None) -> None:
+    """Raises UpdateError unless the manifest carries a valid signature from the publisher's key."""
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    if public_key is None:
+        from voice_typer.update_key import UPDATE_PUBLIC_KEY as public_key
+    sig = info.get("signature")
+    if not isinstance(sig, str) or not sig:
+        raise UpdateError("unsigned update: refused")
+    try:
+        key = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key))
+        key.verify(base64.b64decode(sig, validate=True), signed_bytes(info))
+    except (InvalidSignature, ValueError) as exc:
+        raise UpdateError("bad signature: the update was not published by Voice Typer, refused") from exc
+
+
+def validate(info: dict, public_key: str | None = None) -> dict:
+    """Raises UpdateError if the manifest is unsigned / badly signed, malformed, or points outside
+    the releases repository."""
+    if not isinstance(info, dict):
+        raise UpdateError("bad manifest")
+    verify_signature(info, public_key)
     try:
         version, url, sha = str(info["version"]), str(info["url"]), str(info["sha256"]).lower()
         size = int(info.get("size") or 0)
@@ -69,14 +102,14 @@ def _open(url: str, timeout: float):
     return urllib.request.urlopen(req, timeout=timeout)  # noqa: S310 — https only (see validate)
 
 
-def check(timeout: float = 10, manifest_url: str = MANIFEST_URL) -> dict | None:
+def check(timeout: float = 10, manifest_url: str = MANIFEST_URL, public_key: str | None = None) -> dict | None:
     """The newer release's manifest, or None if up to date. Raises UpdateError when offline etc."""
     try:
         with _open(manifest_url, timeout) as resp:
             info = json.loads(resp.read(65536))
     except Exception as exc:  # noqa: BLE001 — offline, 404 (no release yet), garbage
         raise UpdateError(str(exc)) from exc
-    info = validate(info)
+    info = validate(info, public_key)
     return info if is_newer(info["version"]) else None
 
 
