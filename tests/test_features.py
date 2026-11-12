@@ -225,3 +225,24 @@ def test_device_rescan_waits_while_recording(monkeypatch):
     assert not recorder.refresh_devices(0) and calls == []
     monkeypatch.setattr(recorder, "_open_streams", 0)
     assert recorder.refresh_devices(0) and calls == ["t", "i"]
+
+
+def test_model_symlinks_become_real_files(tmp_path):
+    import os
+
+    import pytest
+
+    from voice_typer import models
+
+    blob = tmp_path / "blobs" / "ab"
+    blob.mkdir(parents=True)
+    (blob / "data").write_bytes(b"weights")
+    snap = tmp_path / "snap"
+    snap.mkdir()
+    try:
+        os.symlink(blob / "data", snap / "model.bin")
+    except OSError:
+        pytest.skip("symlinks not allowed on this PC")
+    models.unlink_symlinks(snap)
+    assert not (snap / "model.bin").is_symlink()
+    assert (snap / "model.bin").read_bytes() == b"weights"

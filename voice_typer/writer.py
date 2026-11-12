@@ -75,7 +75,9 @@ def download(source: str) -> str:
         from huggingface_hub.utils import disable_progress_bars
 
         disable_progress_bars()
-    return snapshot_download(source, allow_patterns=_PATTERNS)
+    from voice_typer.models import unlink_symlinks
+
+    return unlink_symlinks(snapshot_download(source, allow_patterns=_PATTERNS))
 
 
 def new_preset_id() -> str:

@@ -80,6 +80,33 @@ def is_local_folder(source: str) -> bool:
     return Path(source).is_dir()
 
 
+def unlink_symlinks(folder) -> str:
+    """Replace symbolic links in a model folder by hard links (or copies) of their target.
+
+    huggingface_hub 2.x ("shared blobs" cache) turns model files into symlinks to
+    hub/blobs/xx/…; CTranslate2 inside the packaged app then fails with "Unable to open file
+    'model.bin'" (works from source). Same disk → hard link, so no extra space is used."""
+    import os
+    import shutil
+
+    for f in Path(folder).iterdir():
+        try:
+            if not f.is_symlink():
+                continue
+            target = f.resolve(strict=True)
+            tmp = f.with_name(f.name + ".vt-tmp")
+            if tmp.exists():
+                tmp.unlink()
+            try:
+                os.link(target, tmp)
+            except OSError:
+                shutil.copy2(target, tmp)
+            os.replace(tmp, f)
+        except OSError:
+            continue  # leave it: loading reports a clear error if it really can't be read
+    return str(folder)
+
+
 def resolve(source: str, local_only: bool = False) -> str:
     """Return the local folder of a model, downloading it first unless local_only."""
     if is_local_folder(source):
@@ -90,8 +117,8 @@ def resolve(source: str, local_only: bool = False) -> str:
         path = Path(root) / sub
         if not (path / "model.bin").exists():
             raise FileNotFoundError(f"{source}: model.bin not found")
-        return str(path)
-    return download_model(source, local_files_only=local_only)
+        return unlink_symlinks(path)
+    return unlink_symlinks(download_model(source, local_files_only=local_only))
 
 
 def is_downloaded(source: str) -> bool:
