@@ -1,6 +1,7 @@
 import sys
 import threading
 import time
+import uuid
 
 import pytest
 
@@ -26,7 +27,7 @@ def test_close_choice_is_a_portable_setting():
 
 @pytest.mark.skipif(sys.platform != "win32", reason="named Windows events")
 def test_second_launch_brings_the_running_copy_forward(monkeypatch, tmp_path):
-    suffix = str(time.monotonic_ns())
+    suffix = uuid.uuid4().hex   # unique per test: the Windows clock ticks every 15.6 ms
     monkeypatch.setattr(instance, "SHOW_EVENT", "VoiceTyper.Test.Show." + suffix)
     monkeypatch.setattr(instance, "ACK_EVENT", "VoiceTyper.Test.Ack." + suffix)
     monkeypatch.setattr(config_mod, "SETTINGS_DIR", tmp_path)
@@ -47,7 +48,7 @@ def test_second_launch_brings_the_running_copy_forward(monkeypatch, tmp_path):
 
 @pytest.mark.skipif(sys.platform != "win32", reason="named Windows events")
 def test_frozen_copy_does_not_answer(monkeypatch, tmp_path):
-    suffix = str(time.monotonic_ns())
+    suffix = uuid.uuid4().hex   # unique per test: the Windows clock ticks every 15.6 ms
     monkeypatch.setattr(instance, "SHOW_EVENT", "VoiceTyper.Test.Show." + suffix)
     monkeypatch.setattr(instance, "ACK_EVENT", "VoiceTyper.Test.Ack." + suffix)
     monkeypatch.setattr(config_mod, "SETTINGS_DIR", tmp_path)
