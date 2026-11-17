@@ -135,6 +135,47 @@ class HotkeysMixin:
 
         threading.Thread(target=work, daemon=True).start()
 
+    BUTTON_KEY = "__mic_button__"  # _down_key of a dictation started by the floating button
+
+    def button_dictate(self, preset_id: str | None = None, use_app_preset: bool = True) -> None:
+        """Floating mic button: click = start, click again = stop, whatever the shortcut mode.
+
+        The button never takes focus, so the focused application is still the dictation's target.
+        preset_id None + use_app_preset: the application's preset (like the main shortcut);
+        preset_id None + not use_app_preset: plain dictation, no AI.
+        """
+        if self.recorder.is_recording:
+            self._finish_recording()
+            return
+        if getattr(self, "busy", False):
+            return
+        try:
+            from voice_typer.winapp import foreground_exe
+
+            self._target_exe = foreground_exe()
+        except Exception:  # noqa: BLE001
+            self._target_exe = ""
+        if preset_id is None and use_app_preset:
+            try:
+                preset_id = self.preset_for_app(self._target_exe)
+            except Exception:  # noqa: BLE001
+                preset_id = None
+        self._down_key = self.BUTTON_KEY  # releasing a shortcut key must not end it
+        self._press_started = None
+        self._active_preset = preset_id
+        self._start_recording()
+        if self.recorder.is_recording and self.config.mode == "hold":
+            # in hold mode _start_recording arms no time limit: a forgotten click must not record forever
+            threading.Thread(target=self._safety_stop, args=(self._record_started,), daemon=True).start()
+
+    def set_app_preset(self, exe: str, preset_id: str | None) -> None:
+        """« Toujours dans cette application » from the button menu (None = no preset for it)."""
+        exe = exe.lower()
+        self.config.app_presets = [r for r in self.config.app_presets if r.get("app", "").lower() != exe]
+        if preset_id:
+            self.config.app_presets.append({"app": exe, "preset": preset_id})
+        self.config.save()
+
     def preset_for_app(self, exe: str | None = None) -> str | None:
         """Preset mapped to the focused application (normal dictation key only), else None."""
         if not self.config.app_presets:

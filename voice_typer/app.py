@@ -10,7 +10,7 @@ import threading
 import time
 import traceback
 
-from voice_typer import commands, dictionary, models
+from voice_typer import cleanup, commands, dictionary, models
 from voice_typer.config import Config
 from voice_typer.engine_hotkeys import HotkeysMixin
 from voice_typer.engine_writer import WriterMixin
@@ -69,6 +69,7 @@ class Engine(WriterMixin, HotkeysMixin):
         self._writer_lock = threading.Lock()
         self._active_preset: str | None = None
         self._record_started = 0.0
+        self.busy = False                  # transcribing / rewriting (the floating mic button shows it)
         # live typing (streaming.py): words typed while speaking, guarded by _type_lock
         self._live_typer = None
         self._type_lock = threading.Lock()
@@ -305,9 +306,11 @@ class Engine(WriterMixin, HotkeysMixin):
             time.sleep(0.03)
 
     def _transcribe_and_send(self, audio, preset_id: str | None = None) -> None:
+        self.busy = True
         try:
             self._transcribe_and_send_inner(audio, preset_id)
         finally:
+            self.busy = False
             self.undo.resume()
 
     def _transcribe_and_send_inner(self, audio, preset_id: str | None = None) -> None:
@@ -322,6 +325,9 @@ class Engine(WriterMixin, HotkeysMixin):
                                                           self.config.app_dictionaries, self._target_exe)
             hotwords = dictionary.hotwords(vocabulary)
             text = transcriber.transcribe(audio, language, hotwords)
+            text = cleanup.strip_hallucinations(text)
+            if self.config.remove_fillers:
+                text = cleanup.remove_fillers(text, language)
             text = dictionary.apply_replacements(text, replacements)
             if self.config.voice_commands and commands.is_undo(text, language):
                 self._voice_undo()

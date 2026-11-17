@@ -89,6 +89,14 @@ class SettingsPage:
         self.keepclip_var = tk.BooleanVar(value=self.config.keep_in_clipboard)
         ttk.Checkbutton(c, text=self.t("set_keep_clipboard"), style="Switch.TCheckbutton",
                         variable=self.keepclip_var, command=self._on_keepclip).pack(anchor="w", pady=(8, 0))
+        self.fillers_var = tk.BooleanVar(value=self.config.remove_fillers)
+        ttk.Checkbutton(c, text=self.t("set_remove_fillers"), style="Switch.TCheckbutton",
+                        variable=self.fillers_var, command=self._on_fillers).pack(anchor="w", pady=(8, 0))
+        self.micbtn_var = tk.BooleanVar(value=self.config.mic_button)
+        ttk.Checkbutton(c, text=self.t("set_mic_button"), style="Switch.TCheckbutton",
+                        variable=self.micbtn_var, command=self._on_mic_button).pack(anchor="w", pady=(8, 0))
+        ttk.Label(c, text=self.t("set_mic_button_note"), style="Muted.TLabel", wraplength=680,
+                  justify="left").pack(anchor="w", pady=(4, 0))
 
         # Acceleration
         c = self._card(body, self.t("set_accel"), **inner_pad)
@@ -288,6 +296,15 @@ class SettingsPage:
     def _on_keepclip(self) -> None:
         self.config.keep_in_clipboard = self.keepclip_var.get()
         self.config.save()
+
+    def _on_fillers(self) -> None:
+        self.config.remove_fillers = self.fillers_var.get()
+        self.config.save()
+
+    def _on_mic_button(self) -> None:
+        self.config.mic_button = self.micbtn_var.get()
+        self.config.save()
+        self.mic_button.sync()
 
     def _on_space(self) -> None:
         self.config.trailing_space = self.space_var.get()

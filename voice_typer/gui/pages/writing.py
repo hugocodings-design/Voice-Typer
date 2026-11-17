@@ -131,6 +131,8 @@ class WritingPage:
         row.pack(fill="x", pady=(8, 0))
         ttk.Button(row, text=self.t("ap_add"), style="Accent.TButton", command=self._ap_add).pack(side="left")
         ttk.Button(row, text=self.t("delete"), command=self._ap_delete).pack(side="left", padx=6)
+        ttk.Button(row, text=self.t("ap_suggest"), command=self._ap_suggest).pack(side="left", padx=(18, 6))
+        ttk.Label(row, text=self.t("ap_suggest_hint"), style="Muted.TLabel").pack(side="left")
         self._refresh_app_presets()
 
         # --- signature
@@ -166,6 +168,17 @@ class WritingPage:
             p = self.engine.preset(rule.get("preset"))
             tree.insert("", "end", iid=str(i), values=(
                 f"{winapp.friendly(rule['app'])}  ({rule['app']})", p["name"] if p else "—"))
+
+    def _ap_suggest(self) -> None:
+        from voice_typer.config import suggest_app_presets
+
+        new = suggest_app_presets(self.config.app_presets, {p["id"] for p in self.config.presets or []})
+        if not new:
+            messagebox.showinfo("Voice Typer", self.t("ap_suggest_none"), parent=self.root)
+            return
+        self.config.app_presets.extend(new)
+        self.config.save()
+        self._refresh_app_presets()
 
     def _ap_delete(self) -> None:
         sel = self.ap_tree.selection()

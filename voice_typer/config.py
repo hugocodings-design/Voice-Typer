@@ -44,6 +44,7 @@ class Config:
     trailing_space: bool = True
     keep_in_clipboard: bool = True  # leave the last transcription on the clipboard (Ctrl+V works again)
     voice_commands: bool = True     # "à la ligne", "virgule"… → formatting (see commands.py)
+    remove_fillers: bool = True     # drop "euh", "hum", "um" and repeated words ("le le") — cleanup.py
     live_preview: bool = False      # show the transcription in real time while speaking
     live_typing: bool = False       # type words into the app while speaking (streaming.py)
     rewrite_hotkey: str = ""        # rewrite the selected text with a preset ("" = off)
@@ -52,6 +53,8 @@ class Config:
     first_run_done: bool = False    # welcome assistant shown
     # Interface
     overlay: bool = True            # floating indicator while dictating
+    mic_button: bool = True         # floating mic button: click = dictate, right-click = menu (mic_button.py)
+    mic_button_pos: list | None = None  # [x, y] on screen (this PC only, never exported)
     ui_language: str = "fr"         # "fr" | "en"
     theme: str = "system"           # "system" | "light" | "dark"
     history_enabled: bool = True
@@ -125,3 +128,19 @@ def load_history() -> list[dict]:
 def save_history(items: list[dict]) -> None:
     SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
     HISTORY_FILE.write_text(json.dumps(items[-200:], indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+# Per-application presets offered on the AI writing page (same idea as Voice Typer Mobile's defaults)
+SUGGESTED_APP_PRESETS = (
+    ("outlook.exe", "email"), ("olk.exe", "email"),
+    ("ms-teams.exe", "message"), ("teams.exe", "message"), ("slack.exe", "message"),
+    ("onenote.exe", "notes"),
+)
+
+
+def suggest_app_presets(app_presets: list[dict], preset_ids: set[str]) -> list[dict]:
+    """The suggested rules not yet configured, for presets that exist (the user's own choices win)."""
+    taken = {(r.get("app") or "").lower() for r in app_presets}
+    return [{"app": app, "preset": pid} for app, pid in SUGGESTED_APP_PRESETS
+            if app not in taken and pid in preset_ids]
+

@@ -27,15 +27,16 @@ PORTABLE = (
     "hotkey", "mode", "language_hotkey", "paste_last_hotkey", "undo_hotkey", "rewrite_hotkey",
     # output
     "output", "trailing_space", "keep_in_clipboard", "voice_commands", "live_preview", "live_typing",
-    "sounds",
+    "sounds", "remove_fillers",
     # interface
-    "overlay", "ui_language", "theme", "history_enabled", "auto_update",
+    "overlay", "mic_button", "ui_language", "theme", "history_enabled", "auto_update",
 )
 
 # Each field's accepted JSON type(s), from the Config defaults (None allowed where the default is None).
 _TYPES = {
     "language": (str, type(None)),
     "presets": (list, type(None)),
+    "mic_button_pos": (list, type(None)),
 }
 
 

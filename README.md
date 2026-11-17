@@ -57,6 +57,13 @@ No cloud API, no account, nothing leaves your PC.
       history and models stay with each PC
 - [x] Welcome assistant on first launch (language, model suited to the PC, mic test, shortcut)
 - [x] Diagnostic export (zip without your personal texts) for troubleshooting
+- [x] **Floating mic button** (from Voice Typer Mobile): a green circle you can drag anywhere — click to
+      dictate, click again to finish, whatever the shortcut mode; right-click for a menu (dictate with another
+      preset, « Toujours dans <app> », language, re-paste / undo the last dictation, hide). It never takes focus,
+      so the text lands in the app you were typing in. Can be turned off in Réglages
+- [x] Hesitations (euh, hum, um…) and repeated words ("le le") removed without the AI (Réglages, on by default);
+      captions Whisper invents on silence ("Sous-titrage Société Radio-Canada") are dropped
+- [x] One-click suggested per-app presets (Outlook → Courriel, Teams/Slack → Message rapide, OneNote → Notes)
 - [x] **Windows installer** (`VoiceTyperSetup-x.y.z.exe`, no admin rights) — see *Build the installer*
 
 ## Requirements

@@ -22,6 +22,7 @@ from voice_typer.gui.shortcuts import ShortcutRecorder
 from voice_typer.gui.updates import UpdatesMixin
 from voice_typer.gui.wizard import WelcomeWizard
 from voice_typer.i18n import pretty_hotkey, tr
+from voice_typer.mic_button import MicButton
 from voice_typer.overlay import Overlay
 from voice_typer.recorder import Recorder
 from voice_typer.tray import Tray
@@ -62,6 +63,8 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.fonts = ui_theme.Fonts(self.root)
         self.overlay = Overlay(self.root, lambda: self.engine.recorder.level)
+        self.mic_button = MicButton(self)
+        self.mic_button.sync()
         self.tray = Tray(self._tray_menu)
         self.tray.start()
         self._build()

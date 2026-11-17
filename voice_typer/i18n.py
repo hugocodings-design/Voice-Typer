@@ -756,6 +756,47 @@ STRINGS["en"].update({
 })
 
 
+# Floating mic button, filler removal, suggested app presets (features from Voice Typer Mobile)
+STRINGS["fr"].update({
+    "set_remove_fillers": "Retirer les hésitations (euh, hum…) et les mots répétés",
+    "set_mic_button": "Bouton micro flottant (clic = dicter, clic droit = menu)",
+    "set_mic_button_note": "Un rond vert toujours visible, à déplacer où vous voulez : cliquez pour commencer, "
+                           "recliquez pour finir. Le texte va dans l'application où vous écriviez.",
+    "mb_dictate_with": "Dicter avec…",
+    "mb_plain": "Dictée normale (sans IA)",
+    "mb_no_preset": "Aucun préréglage",
+    "mb_always_in": "Toujours dans {app}",
+    "mb_language": "Langue : {lang}",
+    "mb_repaste": "Recoller la dernière dictée",
+    "mb_undo": "Annuler la dernière dictée",
+    "mb_open": "Ouvrir Voice Typer",
+    "mb_hide": "Masquer le bouton",
+    "mb_hidden": "Bouton masqué — réactivable dans Réglages",
+    "ap_suggest": "Ajouter les suggestions",
+    "ap_suggest_hint": "Outlook → Courriel, Teams et Slack → Message rapide, OneNote → Notes",
+    "ap_suggest_none": "Les suggestions sont déjà toutes associées.",
+})
+STRINGS["en"].update({
+    "set_remove_fillers": "Remove hesitations (um, uh…) and repeated words",
+    "set_mic_button": "Floating mic button (click = dictate, right-click = menu)",
+    "set_mic_button_note": "An always-visible green circle you can move anywhere: click to start, click again "
+                           "to finish. The text goes to the application you were typing in.",
+    "mb_dictate_with": "Dictate with…",
+    "mb_plain": "Plain dictation (no AI)",
+    "mb_no_preset": "No preset",
+    "mb_always_in": "Always in {app}",
+    "mb_language": "Language: {lang}",
+    "mb_repaste": "Paste the last dictation again",
+    "mb_undo": "Undo the last dictation",
+    "mb_open": "Open Voice Typer",
+    "mb_hide": "Hide the button",
+    "mb_hidden": "Button hidden — turn it back on in Settings",
+    "ap_suggest": "Add the suggestions",
+    "ap_suggest_hint": "Outlook → Email, Teams and Slack → Quick message, OneNote → Bullet notes",
+    "ap_suggest_none": "All the suggestions are already linked.",
+})
+
+
 def tr(lang: str, key: str, **kwargs) -> str:
     text = STRINGS.get(lang, STRINGS["en"]).get(key) or STRINGS["en"].get(key, key)
     return text.format(**kwargs) if kwargs else text

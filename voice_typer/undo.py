@@ -43,6 +43,7 @@ class UndoTracker:
         self._at = 0.0
         self._invalid: str | None = "nothing"
         self._suspended = 0
+        self.ignore_click = lambda: False  # set by the window: clicks on our own mic button don't count
         self._kb_hook = None
         self._mouse = _MouseWatcher(self._on_click)
 
@@ -85,6 +86,11 @@ class UndoTracker:
                 self._invalid = "typed_since"
 
     def _on_click(self) -> None:
+        try:
+            if self.ignore_click():  # a click on our own floating mic button / its menu
+                return
+        except Exception:  # noqa: BLE001
+            pass
         with self._lock:
             if not self._invalid:
                 self._invalid = "clicked_since"
