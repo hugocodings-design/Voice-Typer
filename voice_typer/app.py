@@ -4,6 +4,7 @@ The engine never touches the UI directly: it reports what happens through an eve
 that the window polls (tkinter must only be used from the main thread).
 """
 
+import os
 import queue
 import sys
 import threading
@@ -434,6 +435,40 @@ def _already_running(wait: float = 0.0) -> bool:
         time.sleep(0.25)
 
 
+def _take_over(config: Config) -> bool:
+    """Voice Typer is already running. Bring its window to the front and stop here (False).
+
+    If that copy does not answer (frozen, or stuck in the background with no window), offer to close it
+    and start this one instead: True = this launch continues with the single-instance mutex.
+    """
+    from voice_typer import instance
+
+    if "--restart" not in sys.argv and instance.ask_existing_to_show():
+        return False  # its window is now in front: nothing more to do, no message
+
+    import tkinter as tk
+
+    from voice_typer import ui_theme
+    from voice_typer.gui import dialogs
+    from voice_typer.i18n import tr
+
+    root = tk.Tk()
+    root.withdraw()
+    mode, pal = ui_theme.apply(root, config.theme)
+    dialogs.configure(mode, pal, ui_theme.Fonts(root), config.ui_language)
+    lang = config.ui_language
+    try:
+        if not dialogs.askyesno("Voice Typer", tr(lang, "instance_frozen"), parent=root):
+            return False
+        instance.close_frozen_copy()
+        if not _already_running(wait=8.0):
+            return True
+        dialogs.showinfo("Voice Typer", tr(lang, "instance_still_running"), parent=root)
+        return False
+    finally:
+        root.destroy()
+
+
 def restart_command() -> list[str]:
     """Command line that starts this app again (packaged exe or `python -m voice_typer`)."""
     if getattr(sys, "frozen", False):
@@ -449,7 +484,8 @@ def selftest() -> int:
         import numpy as np
 
         for name in ("keyboard", "pystray", "sounddevice", "sv_ttk", "tokenizers",
-                     "voice_typer.gui", "voice_typer.transcriber", "voice_typer.writer", "voice_typer.transfer"):
+                     "voice_typer.gui", "voice_typer.transcriber", "voice_typer.writer", "voice_typer.transfer",
+                     "voice_typer.instance", "voice_typer.mic_button", "voice_typer.cleanup"):
             importlib.import_module(name)
         from faster_whisper.vad import get_speech_timestamps
 
@@ -479,19 +515,7 @@ def main() -> None:
     if "--selftest" in sys.argv:
         sys.exit(selftest())
     config = Config.load()
-    if _already_running(wait=15.0 if "--restart" in sys.argv else 0.0):
-        import tkinter as tk
-
-        from voice_typer import ui_theme
-        from voice_typer.gui import dialogs
-        from voice_typer.i18n import tr
-
-        root = tk.Tk()
-        root.withdraw()
-        mode, pal = ui_theme.apply(root, config.theme)
-        dialogs.configure(mode, pal, ui_theme.Fonts(root), config.ui_language)
-        dialogs.showinfo("Voice Typer", tr(config.ui_language, "already_running"), parent=root)
-        root.destroy()
+    if _already_running(wait=15.0 if "--restart" in sys.argv else 0.0) and not _take_over(config):
         return
 
     from voice_typer import legacy
@@ -503,3 +527,8 @@ def main() -> None:
         engine.cleanup_firewall_later()
     updated = "--updated" in sys.argv
     Window(engine).run(start_hidden="--minimized" in sys.argv or updated, updated=updated)
+    # The window is closed: end the process for real. Library threads (keyboard hooks, tray, audio) could
+    # otherwise keep it alive with no window, and every launch would then say "already open".
+    sys.stdout.flush() if sys.stdout else None
+    sys.stderr.flush() if sys.stderr else None
+    os._exit(0)

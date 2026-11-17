@@ -64,6 +64,10 @@ No cloud API, no account, nothing leaves your PC.
 - [x] Hesitations (euh, hum, um…) and repeated words ("le le") removed without the AI (Réglages, on by default);
       captions Whisper invents on silence ("Sous-titrage Société Radio-Canada") are dropped
 - [x] One-click suggested per-app presets (Outlook → Courriel, Teams/Slack → Message rapide, OneNote → Notes)
+- [x] **Opening it again just shows it**: launching Voice Typer while it runs (Start menu, shortcut) brings
+      its window to the front instead of "already open"; if the running copy is frozen or stuck in the background,
+      it offers to close it and start fresh. Closing the window asks once: keep running next to the clock, or
+      quit (changeable in Réglages). Quitting really ends the process
 - [x] **Windows installer** (`VoiceTyperSetup-x.y.z.exe`, no admin rights) — see *Build the installer*
 
 ## Requirements

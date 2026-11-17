@@ -758,6 +758,18 @@ STRINGS["en"].update({
 
 # Floating mic button, filler removal, suggested app presets (features from Voice Typer Mobile)
 STRINGS["fr"].update({
+    "instance_frozen": "Voice Typer est déjà lancé mais ne répond pas (il est peut-être bloqué en arrière-plan, "
+                       "sans fenêtre).\n\nLe fermer et redémarrer Voice Typer ?",
+    "instance_still_running": "L'ancienne copie de Voice Typer n'a pas pu être fermée.\nRedémarrez l'ordinateur, "
+                              "ou fermez « Voice Typer » dans le Gestionnaire des tâches (Ctrl+Maj+Échap).",
+    "close_ask": "Fermer la fenêtre…\n\nGarder Voice Typer actif : la fenêtre disparaît, mais les raccourcis et le "
+                 "bouton micro continuent de marcher (icône près de l'horloge).\n\nQuitter : Voice Typer s'arrête "
+                 "complètement.\n\nVotre choix est retenu (modifiable dans Réglages).",
+    "close_keep": "Garder actif", "close_quit": "Quitter",
+    "set_close": "Quand je ferme la fenêtre",
+    "set_close_tray": "Garder Voice Typer actif près de l'horloge (les raccourcis continuent de marcher)",
+    "set_close_quit": "Quitter complètement Voice Typer",
+    "set_close_ask": "Me demander",
     "set_remove_fillers": "Retirer les hésitations (euh, hum…) et les mots répétés",
     "set_mic_button": "Bouton micro flottant (clic = dicter, clic droit = menu)",
     "set_mic_button_note": "Un rond vert toujours visible, à déplacer où vous voulez : cliquez pour commencer, "
@@ -777,6 +789,18 @@ STRINGS["fr"].update({
     "ap_suggest_none": "Les suggestions sont déjà toutes associées.",
 })
 STRINGS["en"].update({
+    "instance_frozen": "Voice Typer is already running but does not respond (it may be stuck in the background, "
+                       "with no window).\n\nClose it and restart Voice Typer?",
+    "instance_still_running": "The old copy of Voice Typer could not be closed.\nRestart the computer, or end "
+                              "\"Voice Typer\" in Task Manager (Ctrl+Shift+Esc).",
+    "close_ask": "Closing the window…\n\nKeep Voice Typer running: the window goes away, but the shortcuts and the "
+                 "mic button keep working (icon next to the clock).\n\nQuit: Voice Typer stops completely.\n\n"
+                 "Your choice is remembered (changeable in Settings).",
+    "close_keep": "Keep running", "close_quit": "Quit",
+    "set_close": "When I close the window",
+    "set_close_tray": "Keep Voice Typer running next to the clock (shortcuts keep working)",
+    "set_close_quit": "Quit Voice Typer completely",
+    "set_close_ask": "Ask me",
     "set_remove_fillers": "Remove hesitations (um, uh…) and repeated words",
     "set_mic_button": "Floating mic button (click = dictate, right-click = menu)",
     "set_mic_button_note": "An always-visible green circle you can move anywhere: click to start, click again "

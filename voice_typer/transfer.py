@@ -29,7 +29,7 @@ PORTABLE = (
     "output", "trailing_space", "keep_in_clipboard", "voice_commands", "live_preview", "live_typing",
     "sounds", "remove_fillers",
     # interface
-    "overlay", "mic_button", "ui_language", "theme", "history_enabled", "auto_update",
+    "overlay", "mic_button", "close_action", "ui_language", "theme", "history_enabled", "auto_update",
 )
 
 # Each field's accepted JSON type(s), from the Config defaults (None allowed where the default is None).

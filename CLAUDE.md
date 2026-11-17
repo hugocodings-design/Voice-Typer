@@ -30,7 +30,14 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - `voice_typer/tray.py`, `autostart.py`, `i18n.py` — tray icon, HKCU Run autostart, FR/EN strings (every UI text goes through `tr()`)
 - `run.pyw` — under pythonw `sys.stdout/stderr` are None: it redirects them to `%APPDATA%\VoiceTyper\voice_typer.log` (tracebacks land there) and disables HF progress bars, which otherwise crash downloads/loads (`'NoneType' object has no attribute 'write'`). Test console-less behaviour with pythonw, not python
 - `run.pyw` — console-less entry used by `Start Voice Typer.bat` and autostart (`--minimized` starts in the tray)
-- Single instance enforced with a named mutex (two instances would type everything twice)
+- Single instance enforced with a named mutex (two instances would type everything twice). `instance.py`: a second
+  launch sets the named event `VoiceTyper.ShowWindow` (after `AllowSetForegroundWindow`); the running copy
+  (`wait_for_launches`, started in `Window.run`) shows its window via `call_soon` and sets `…Ack` FROM THE TK THREAD,
+  so a frozen copy doesn't answer → `app._take_over` asks to close it (`close_frozen_copy`: PID from
+  `%APPDATA%\VoiceTyper\instance.pid`, only if the image is our exe) and continues. Events only, no socket (the
+  no-network test also forbids the text `.listen(`). `main()` ends with `os._exit(0)` after the window closes
+  (library threads used to keep a windowless process alive → "already open" forever). `config.close_action`
+  "ask" (first ✕ asks, then remembered) | "tray" | "quit" (Réglages → Démarrage)
 - `voice_typer/gpu.py` — adds `site-packages/nvidia/*/bin` (cuBLAS 12 from `nvidia-cublas-cu12`) to the DLL search path; must run before CTranslate2 uses CUDA (done at `transcriber.py` import). `Transcriber` tries CUDA float16 with a warm-up, falls back to CPU int8 and reports `gpu_error`
 - `_build()` rebuilds every page (theme/UI-language change) but keeps Toplevels (overlay caption, assistant). `ui_theme.py` = sv-ttk + palettes + Segoe Fluent icon glyphs
 - `voice_typer/dictionary.py` — vocabulary → faster-whisper `hotwords`; replacements = case-insensitive whole-phrase regex after transcription

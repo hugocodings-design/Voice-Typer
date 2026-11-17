@@ -117,6 +117,11 @@ class SettingsPage:
         ttk.Checkbutton(c, text=self.t("set_history"), style="Switch.TCheckbutton", variable=self.history_var,
                         command=self._on_history).pack(anchor="w", pady=(8, 2))
         ttk.Button(c, text=self.t("history_clear"), command=self._history_clear).pack(anchor="w", pady=(8, 0))
+        ttk.Label(c, text=self.t("set_close"), style="Muted.TLabel").pack(anchor="w", pady=(14, 2))
+        self.close_var = tk.StringVar(value=self.config.close_action)
+        for value, key in (("tray", "set_close_tray"), ("quit", "set_close_quit"), ("ask", "set_close_ask")):
+            ttk.Radiobutton(c, text=self.t(key), value=value, variable=self.close_var,
+                            command=self._on_close_action).pack(anchor="w", pady=2)
 
         # Move to another PC (transfer.py)
         c = self._card(body, self.t("xfer_title"), self.t("xfer_sub"), **inner_pad)
@@ -295,6 +300,10 @@ class SettingsPage:
 
     def _on_keepclip(self) -> None:
         self.config.keep_in_clipboard = self.keepclip_var.get()
+        self.config.save()
+
+    def _on_close_action(self) -> None:
+        self.config.close_action = self.close_var.get()
         self.config.save()
 
     def _on_fillers(self) -> None:

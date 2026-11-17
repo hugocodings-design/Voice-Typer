@@ -98,7 +98,7 @@ def _dialog(kind: str, title: str, message: str, buttons: list[tuple[str, object
 
     primary = None
     for key, value, is_primary in reversed(buttons):  # packed right-to-left: primary ends up rightmost
-        b = ttk.Button(footer, text=labels[key], style="Accent.TButton" if is_primary else "TButton",
+        b = ttk.Button(footer, text=labels.get(key, key), style="Accent.TButton" if is_primary else "TButton",
                        command=lambda v=value: close(v), width=10)
         b.pack(side="right", padx=(8, 0))
         if is_primary:

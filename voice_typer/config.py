@@ -53,6 +53,7 @@ class Config:
     first_run_done: bool = False    # welcome assistant shown
     # Interface
     overlay: bool = True            # floating indicator while dictating
+    close_action: str = "ask"       # window's ✕: "ask" (first time) | "tray" (keep running) | "quit"
     mic_button: bool = True         # floating mic button: click = dictate, right-click = menu (mic_button.py)
     mic_button_pos: list | None = None  # [x, y] on screen (this PC only, never exported)
     ui_language: str = "fr"         # "fr" | "en"

@@ -454,6 +454,8 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
     def _show_window(self) -> None:
         self.root.deiconify()
         self.root.lift()
+        self.root.attributes("-topmost", True)    # really in front of the other windows…
+        self.root.after(200, lambda: self.root.attributes("-topmost", False))  # …without staying on top
         self.root.focus_force()
         if getattr(self, "_firewall_left", None):
             self.root.after(500, self._ask_firewall_cleanup)
@@ -471,19 +473,42 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
 
     def _on_close(self) -> None:
         self._stop_mic_test()
-        if self.tray.available:
-            self.root.withdraw()
-            if not self._hint_shown:
-                self._hint_shown = True
-                self.tray.notify(self.t("tray_hint"))
-        else:
+        if not self.tray.available:
             self._quit()
+            return
+        action = self.config.close_action
+        if action not in ("tray", "quit"):
+            # First time: ask once, remember the answer (changeable in Réglages)
+            action = messagebox._dialog("question", "Voice Typer", self.t("close_ask"), [
+                (self.t("close_keep"), "tray", True), (self.t("close_quit"), "quit", False),
+                (self.t("cancel"), None, False)], parent=self.root)
+            if action is None:
+                return
+            self.config.close_action = action
+            self.config.save()
+        if action == "quit":
+            self._quit()
+            return
+        self.root.withdraw()
+        if not self._hint_shown:
+            self._hint_shown = True
+            self.tray.notify(self.t("tray_hint"))
 
     def _quit(self) -> None:
         self._stop_mic_test()
-        self.engine.stop()
-        self.tray.stop()
+        for step in (self.engine.stop, self.tray.stop):  # never let one failing step keep the app alive
+            try:
+                step()
+            except Exception:  # noqa: BLE001
+                pass
+        from voice_typer import instance
+
+        instance.forget_pid()
         self.root.destroy()
+
+    def _on_new_launch(self, ack) -> None:
+        """Voice Typer was launched again (worker thread): show this window, then confirm."""
+        self.call_soon(lambda: (self._show_window(), ack()))
 
     def _restart(self) -> None:
         """Starts a new copy (it waits for this one to close) and quits."""
@@ -498,6 +523,9 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
         self._quit()
 
     def run(self, start_hidden: bool = False, updated: bool = False) -> None:
+        from voice_typer import instance
+
+        instance.wait_for_launches(self._on_new_launch)
         self.root.after(60, self._poll)
         self._upd_schedule()
         if updated:  # restarted by the installer after an automatic update
