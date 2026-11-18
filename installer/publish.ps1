@@ -2,12 +2,13 @@
 #
 #   powershell -ExecutionPolicy Bypass -File installer\build.ps1
 #   powershell -ExecutionPolicy Bypass -File installer\publish.ps1 -Notes "Corrections diverses" -NotesEn "Bug fixes"
+#   … -Required    → required update: installed copies (0.11+) install it by themselves, no "Later" / "Skip"
 #
 # latest.json is signed with the private key in %USERPROFILE%\.voice-typer\ (installer/sign.py).
 # Creates a release on the PUBLIC repository hugocodings-design/Voice-Typer-Releases (installer + latest.json,
 # no source code). Installed copies read latest.json (voice_typer/updater.py) and offer the update.
 # Needs the GitHub CLI logged in (gh auth status).
-param([string]$Notes = "", [string]$NotesEn = "", [switch]$Draft)
+param([string]$Notes = "", [string]$NotesEn = "", [switch]$Draft, [switch]$Required)
 
 $ErrorActionPreference = "Continue"
 $root = Split-Path $PSScriptRoot -Parent
@@ -30,6 +31,7 @@ $env:PYTHONIOENCODING = "utf-8"
 $signArgs = @("installer\sign.py", "manifest", "--setup", $setup.FullName, "--version", $version, "--out", $json)
 if ($Notes) { $signArgs += @("--notes-fr", $Notes) }     # PowerShell 5.1 drops empty arguments
 if ($NotesEn) { $signArgs += @("--notes-en", $NotesEn) }
+if ($Required) { $signArgs += "--required"; Write-Host "Mise à jour OBLIGATOIRE." -ForegroundColor Yellow }
 & $py @signArgs
 if ($LASTEXITCODE -ne 0) { Fail "signature impossible (clé privée absente ? voir README, Update signing key)." }
 $sha = (Get-Content $json -Raw -Encoding UTF8 | ConvertFrom-Json).sha256

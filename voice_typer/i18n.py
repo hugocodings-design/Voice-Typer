@@ -774,6 +774,21 @@ STRINGS["fr"].update({
     "set_mic_button": "Bouton micro flottant (clic = dicter, clic droit = menu)",
     "set_mic_button_note": "Un rond vert toujours visible, à déplacer où vous voulez : cliquez pour commencer, "
                            "recliquez pour finir. Le texte va dans l'application où vous écriviez.",
+    "report_btn": "Signaler un problème…",
+    "report_intro": "Que s'est-il passé ? Décrivez en quelques mots ce que vous faisiez et ce qui n'a pas marché.",
+    "report_privacy": "Un fichier de diagnostic sera joint : réglages et journal, sans votre historique, "
+                      "sans audio, sans votre dictionnaire ni votre signature. Vous verrez le courriel avant de "
+                      "l'envoyer.",
+    "report_send": "Préparer le courriel",
+    "report_done_outlook": "Le courriel est prêt dans Outlook, avec le diagnostic joint : relisez-le puis "
+                           "cliquez sur Envoyer.\n\nS'il ne s'est pas ouvert, écrivez à {email} en joignant :\n{path}",
+    "report_done_mailto": "Votre logiciel de courriel s'est ouvert. Joignez-y le fichier de diagnostic (son dossier "
+                          "vient de s'ouvrir), puis envoyez.\n\nAdresse : {email}\nFichier : {path}",
+    "report_done_none": "Aucun logiciel de courriel n'a pu s'ouvrir. Écrivez à {email} depuis votre messagerie "
+                        "en joignant ce fichier (son dossier vient de s'ouvrir) :\n{path}",
+    "upd_required_banner": "Mise à jour importante : Voice Typer {version} s'installe…",
+    "upd_required_tray": "Mise à jour importante de Voice Typer ({version}) : elle s'installe dès que vous ne "
+                         "dictez pas. Voice Typer redémarre tout seul.",
     "mb_dictate_with": "Dicter avec…",
     "mb_plain": "Dictée normale (sans IA)",
     "mb_no_preset": "Aucun préréglage",
@@ -805,6 +820,20 @@ STRINGS["en"].update({
     "set_mic_button": "Floating mic button (click = dictate, right-click = menu)",
     "set_mic_button_note": "An always-visible green circle you can move anywhere: click to start, click again "
                            "to finish. The text goes to the application you were typing in.",
+    "report_btn": "Report a problem…",
+    "report_intro": "What happened? Describe in a few words what you were doing and what went wrong.",
+    "report_privacy": "A diagnostic file will be attached: settings and log, without your history, audio, "
+                      "dictionary or signature. You will see the e-mail before sending it.",
+    "report_send": "Prepare the e-mail",
+    "report_done_outlook": "The e-mail is ready in Outlook with the diagnostic attached: read it, then click "
+                           "Send.\n\nIf it did not open, write to {email} and attach:\n{path}",
+    "report_done_mailto": "Your e-mail app opened. Attach the diagnostic file (its folder just opened), then "
+                          "send.\n\nAddress: {email}\nFile: {path}",
+    "report_done_none": "No e-mail app could be opened. Write to {email} from your mailbox and attach this file "
+                        "(its folder just opened):\n{path}",
+    "upd_required_banner": "Important update: Voice Typer {version} is installing…",
+    "upd_required_tray": "Important Voice Typer update ({version}): it installs as soon as you are not dictating. "
+                         "Voice Typer restarts by itself.",
     "mb_dictate_with": "Dictate with…",
     "mb_plain": "Plain dictation (no AI)",
     "mb_no_preset": "No preset",

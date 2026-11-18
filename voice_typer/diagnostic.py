@@ -18,7 +18,8 @@ from voice_typer.config import SETTINGS_DIR
 
 PACKAGES = ["faster-whisper", "ctranslate2", "tokenizers", "huggingface-hub", "sounddevice", "numpy",
             "keyboard", "pystray", "pillow", "sv-ttk", "nvidia-cublas-cu12"]
-PRIVATE_FIELDS = {"signature": "<removed>", "vocabulary": "<removed>", "replacements": "<removed>"}
+PRIVATE_FIELDS = {"signature": "<removed>", "vocabulary": "<removed>", "replacements": "<removed>",
+                  "app_dictionaries": "<removed>"}
 
 
 def system_info(engine=None) -> dict:

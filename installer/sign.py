@@ -1,7 +1,7 @@
 """Update signing (ed25519). Run by publish.ps1; keygen once per publisher.
 
     venv\\Scripts\\python.exe installer\\sign.py keygen
-    venv\\Scripts\\python.exe installer\\sign.py manifest --setup dist\\VoiceTyperSetup-0.9.0.exe \\
+    venv\\Scripts\\python.exe installer\\sign.py manifest [--required] --setup dist\\VoiceTyperSetup-0.9.0.exe \\
         --notes-fr "…" --notes-en "…" --out dist\\latest.json
 
 The PRIVATE key never goes in the repository: it lives in %USERPROFILE%\\.voice-typer\\ (see
@@ -58,7 +58,7 @@ def keygen() -> None:
           "plus aucune mise à jour ne pourra être publiée pour les copies installées.")
 
 
-def manifest(setup: Path, version: str, notes_fr: str, notes_en: str, out: Path) -> None:
+def manifest(setup: Path, version: str, notes_fr: str, notes_en: str, out: Path, required: bool = False) -> None:
     key = load_private()
     from voice_typer.update_key import UPDATE_PUBLIC_KEY
 
@@ -76,6 +76,8 @@ def manifest(setup: Path, version: str, notes_fr: str, notes_en: str, out: Path)
         "notes_fr": notes_fr,
         "notes_en": notes_en or notes_fr,
     }
+    if required:  # signed like everything else: nobody can make an update "required" without the key
+        data["required"] = True
     data["signature"] = base64.b64encode(key.sign(updater.signed_bytes(data))).decode()
     updater.verify_signature(data)  # self-check with the code the app runs
     out.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -92,11 +94,12 @@ def main() -> None:
     m.add_argument("--notes-fr", default="")
     m.add_argument("--notes-en", default="")
     m.add_argument("--out", type=Path, required=True)
+    m.add_argument("--required", action="store_true", help="installed copies install it without asking")
     a = ap.parse_args()
     if a.cmd == "keygen":
         keygen()
     else:
-        manifest(a.setup, a.version, a.notes_fr, a.notes_en, a.out)
+        manifest(a.setup, a.version, a.notes_fr, a.notes_en, a.out, a.required)
 
 
 if __name__ == "__main__":

@@ -58,6 +58,14 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
   `UndoTracker.ignore_click` = `MicButton.owns_click` so clicks on it/its menu don't invalidate undo
 - `cleanup.py` — shared with mobile `Text.kt`: `strip_hallucinations` (always, right after Whisper) and
   `remove_fillers` (`config.remove_fillers`), both before dictionary replacements
+- `report.py` — « Signaler un problème » (Réglages + tray): `diagnostic.export` to Downloads, then classic Outlook
+  `/c ipm.note /m "<addr>&subject=…&body=…" /a <zip>` (App Paths registry), else `mailto:` + Explorer `/select`.
+  `SUPPORT_EMAIL` = the developer's address. `diagnostic.PRIVATE_FIELDS` also strips `app_dictionaries`
+- Required updates: `latest.json` `"required": true` (signed; `sign.py --required`, `publish.ps1 -Required`);
+  `updater.is_required`. The 6-h check always runs; with `auto_update` off or a skipped version only a required
+  update is acted on; it hides Later/Skip and `_upd_install_when_idle` installs when not recording/busy (30 s retry)
+- Code signing: `build.ps1` also supports Microsoft Trusted Signing (`%USERPROFILE%\.voice-typer\trusted-signing.json`
+  metadata + `Azure.CodeSigning.Dlib.dll`), besides PFX / thumbprint
 - `config.suggest_app_presets` — "Ajouter les suggestions" on the AI writing page (never overrides user rules)
 - `commands.py` — voice commands applied after dictionary replacements (`config.voice_commands`); `reference()` feeds the Help page
 - Esc cancels a recording (`keyboard.on_press_key("esc", suppress=True)` armed only while recording)

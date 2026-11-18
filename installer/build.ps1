@@ -11,6 +11,8 @@
 # Optional code signing (Windows "Unknown publisher" warning): skipped unless a certificate is set up.
 #   $env:VT_SIGN_PFX = "C:\chemin\certificat.pfx"; $env:VT_SIGN_PASSWORD = "..."   # certificate file
 #   $env:VT_SIGN_THUMBPRINT = "AB12..."     # or: certificate in the Windows store / on a USB token
+#   Microsoft Trusted Signing (cheapest): put its metadata.json at %USERPROFILE%\.voice-typer\trusted-signing.json
+#   (or $env:VT_SIGN_AZURE_METADATA), install the client tools and log in once with `az login`.
 # Needs signtool.exe (Windows SDK). See README → "Code signing".
 param([switch]$SkipTests, [switch]$Clean)
 
@@ -25,18 +27,33 @@ function Fail($text) { Write-Host "`nERREUR : $text" -ForegroundColor Red; exit 
 
 # ---- optional code signing (only when a certificate is configured)
 $signtool = $null
-if ($env:VT_SIGN_PFX -or $env:VT_SIGN_THUMBPRINT) {
+$azureMeta = if ($env:VT_SIGN_AZURE_METADATA) { $env:VT_SIGN_AZURE_METADATA } else { Join-Path $env:USERPROFILE ".voice-typer\trusted-signing.json" }
+$azureDlib = $null
+if (Test-Path $azureMeta) {
+    $azureDlib = if ($env:VT_SIGN_AZURE_DLIB) { $env:VT_SIGN_AZURE_DLIB } else {
+        @("$env:LOCALAPPDATA\Microsoft", "$env:ProgramFiles", "${env:ProgramFiles(x86)}") |
+            ForEach-Object { Get-ChildItem $_ -Recurse -Filter "Azure.CodeSigning.Dlib.dll" -ErrorAction SilentlyContinue } |
+            Where-Object { $_.FullName -match "x64" } | Select-Object -First 1 -ExpandProperty FullName
+    }
+    if (-not $azureDlib) { Fail "Trusted Signing configuré mais Azure.CodeSigning.Dlib.dll introuvable : winget install -e --id Microsoft.Azure.TrustedSigningClientTools" }
+}
+if ($env:VT_SIGN_PFX -or $env:VT_SIGN_THUMBPRINT -or $azureDlib) {
     $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
         Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
     if (-not $signtool) { Fail "certificat configuré mais signtool.exe introuvable (installez le Windows SDK)." }
 }
 function Sign($file) {
     if (-not $signtool) { return }
-    $a = @("sign", "/fd", "SHA256", "/tr", "http://timestamp.digicert.com", "/td", "SHA256", "/d", "Voice Typer")
-    if ($env:VT_SIGN_PFX) {
+    if ($azureDlib) {
+        $a = @("sign", "/fd", "SHA256", "/tr", "http://timestamp.acs.microsoft.com", "/td", "SHA256", "/d", "Voice Typer",
+               "/dlib", $azureDlib, "/dmdf", $azureMeta)
+    } else {
+        $a = @("sign", "/fd", "SHA256", "/tr", "http://timestamp.digicert.com", "/td", "SHA256", "/d", "Voice Typer")
+    }
+    if (-not $azureDlib -and $env:VT_SIGN_PFX) {
         $a += @("/f", $env:VT_SIGN_PFX)
         if ($env:VT_SIGN_PASSWORD) { $a += @("/p", $env:VT_SIGN_PASSWORD) }
-    } else {
+    } elseif (-not $azureDlib) {
         $a += @("/sha1", $env:VT_SIGN_THUMBPRINT)
     }
     & $signtool @a $file

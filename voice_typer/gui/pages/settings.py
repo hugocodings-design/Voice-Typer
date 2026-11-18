@@ -144,6 +144,7 @@ class SettingsPage:
         ttk.Button(row, text=self.t("open_settings_dir"),
                    command=lambda: os.startfile(SETTINGS_DIR)).pack(side="left", padx=6)  # noqa: S606
         ttk.Button(row, text=self.t("diag_export"), command=self._export_diagnostic).pack(side="left")
+        ttk.Button(row, text=self.t("report_btn"), command=self._report_problem).pack(side="left", padx=(6, 0))
         ttk.Button(row, text=self.t("wizard_open"), command=lambda: self._open_wizard(force=True)).pack(
             side="left", padx=6)
         ttk.Button(row, text=self.t("btn_quit"), command=self._quit).pack(side="right")
@@ -188,6 +189,46 @@ class SettingsPage:
             messagebox.showerror(self.t("diag_export"), str(exc), parent=self.root)
             return
         messagebox.showinfo(self.t("diag_export"), self.t("diag_done", path=path), parent=self.root)
+
+    def _report_problem(self) -> None:
+        """« Signaler un problème »: a short description, then an e-mail with the diagnostic attached."""
+        from voice_typer import report
+
+        self._show_window()
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self.t("report_btn"))
+        dlg.transient(self.root)
+        dlg.resizable(False, False)
+        dlg.configure(bg=self.pal["bg"])
+        box = ttk.Frame(dlg, padding=22)
+        box.pack()
+        ttk.Label(box, text=self.t("report_intro"), wraplength=460, justify="left").pack(anchor="w")
+        text = self._text_box(box, 6)
+        text.pack(fill="x", pady=(10, 4))
+        ttk.Label(box, text=self.t("report_privacy"), style="Muted.TLabel", wraplength=460,
+                  justify="left").pack(anchor="w")
+
+        def send():
+            description = text.get("1.0", "end").strip()
+            dlg.destroy()
+            try:
+                path, how = report.prepare(self.engine, description)
+            except Exception as exc:  # noqa: BLE001
+                messagebox.showerror(self.t("report_btn"), str(exc), parent=self.root)
+                return
+            key = {"outlook": "report_done_outlook", "mailto": "report_done_mailto"}.get(how, "report_done_none")
+            messagebox.showinfo(self.t("report_btn"), self.t(key, email=report.SUPPORT_EMAIL, path=str(path)),
+                                parent=self.root)
+
+        row = ttk.Frame(box)
+        row.pack(fill="x", pady=(16, 0))
+        ttk.Button(row, text=self.t("cancel"), command=dlg.destroy).pack(side="right")
+        ttk.Button(row, text=self.t("report_send"), style="Accent.TButton", command=send).pack(side="right", padx=6)
+        dlg.update_idletasks()
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - dlg.winfo_width()) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - dlg.winfo_height()) // 3
+        dlg.geometry(f"+{max(0, x)}+{max(0, y)}")
+        text.focus_set()
 
     def _export_settings(self) -> None:
         from datetime import datetime

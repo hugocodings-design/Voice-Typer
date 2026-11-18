@@ -21,8 +21,8 @@ class UpdatesMixin:
         self.root.after(FIRST_CHECK_MS, self._upd_auto)
 
     def _upd_auto(self) -> None:
-        if self.config.auto_update:
-            self._upd_check(manual=False)
+        # Checking always runs: with automatic updates turned off, only a REQUIRED update is acted on.
+        self._upd_check(manual=False)
         self.root.after(EVERY_MS, self._upd_auto)
 
     def _upd_check(self, manual: bool = True) -> None:
@@ -48,7 +48,9 @@ class UpdatesMixin:
         if info is None:
             self._upd_set_status(self.t("upd_uptodate", version=__version__))
             return
-        if not manual and info["version"] == self.config.skipped_update:
+        required = updater.is_required(info)
+        if not manual and not required and (not self.config.auto_update
+                                            or info["version"] == self.config.skipped_update):
             return
         is_new = self._update is None or self._update["version"] != info["version"]
         self._update = info
@@ -58,7 +60,18 @@ class UpdatesMixin:
         self._upd_render_banner()
         self.tray.refresh()
         if is_new and not manual:
-            self.tray.notify(self.t("upd_tray", version=info["version"]))
+            self.tray.notify(self.t("upd_required_tray" if required else "upd_tray", version=info["version"]))
+        if required:
+            self._upd_install_when_idle()
+
+    def _upd_install_when_idle(self) -> None:
+        """Required update: install as soon as nothing is being dictated (checked every 30 s)."""
+        if self._upd_busy or not updater.can_self_update() or not updater.is_required(self._update):
+            return
+        if self.engine.recorder.is_recording or getattr(self.engine, "busy", False):
+            self.root.after(30_000, self._upd_install_when_idle)
+            return
+        self._upd_install()
 
     # ---- banner (above every page)
     def _upd_build_banner(self) -> None:
@@ -73,8 +86,10 @@ class UpdatesMixin:
         self.upd_btns.pack(side="right")
         ttk.Button(self.upd_btns, text=self.t("upd_install"), style="Accent.TButton",
                    command=self._upd_install).pack(side="right")
-        ttk.Button(self.upd_btns, text=self.t("upd_later"), command=self._upd_later).pack(side="right", padx=6)
-        ttk.Button(self.upd_btns, text=self.t("upd_skip"), command=self._upd_skip).pack(side="right")
+        self.upd_later_btn = ttk.Button(self.upd_btns, text=self.t("upd_later"), command=self._upd_later)
+        self.upd_skip_btn = ttk.Button(self.upd_btns, text=self.t("upd_skip"), command=self._upd_skip)
+        self.upd_later_btn.pack(side="right", padx=6)
+        self.upd_skip_btn.pack(side="right")
         self.upd_text = tk.Label(self.upd_banner, font=self.fonts.small, bg=pal["accent_soft"], fg=pal["muted"],
                                  anchor="w", justify="left", wraplength=720)
         self.upd_text.pack(fill="x", pady=(4, 0))
@@ -88,7 +103,15 @@ class UpdatesMixin:
         if info is None or self._upd_hidden:
             self.upd_banner.pack_forget()
             return
-        self.upd_title.configure(text=self.t("upd_banner", version=info["version"]))
+        required = updater.is_required(info)
+        self.upd_title.configure(text=self.t("upd_required_banner" if required else "upd_banner",
+                                             version=info["version"]))
+        if required:  # only "Install now"
+            self.upd_later_btn.pack_forget()
+            self.upd_skip_btn.pack_forget()
+        elif not self.upd_later_btn.winfo_manager():  # not packed (hidden by a required update)
+            self.upd_later_btn.pack(side="right", padx=6)
+            self.upd_skip_btn.pack(side="right")
         notes = info.get(f"notes_{self.config.ui_language}") or info.get("notes_en") or ""
         size = info.get("size") or 0
         extra = self.t("upd_size", mb=round(size / 1e6)) if size else ""

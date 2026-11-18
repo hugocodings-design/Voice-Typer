@@ -119,3 +119,24 @@ def test_download_verifies_hash(server, tmp_path, monkeypatch):
     with pytest.raises(updater.UpdateError, match="checksum"):
         updater.download({**_manifest(sha="0" * 64), "url": base + "/setup.exe"})
     assert list(tmp_path.iterdir()) == []   # nothing damaged left behind
+
+
+def test_required_flag_is_signed_and_detected():
+    key = Ed25519PrivateKey.generate()
+    pub = base64.b64encode(key.public_key().public_bytes(serialization.Encoding.Raw,
+                                                         serialization.PublicFormat.Raw)).decode()
+
+    def signed(info):
+        return {**info, "signature": base64.b64encode(key.sign(updater.signed_bytes(info))).decode()}
+
+    base = {"version": "9.9.9", "url": updater.ALLOWED_PREFIX + "v9.9.9/VoiceTyperSetup-9.9.9.exe",
+            "sha256": "a" * 64, "size": 1}
+    required = signed({**base, "required": True})
+    assert updater.is_required(updater.validate(required, pub))
+    with pytest.raises(updater.UpdateError):          # the flag cannot be removed without the key…
+        updater.validate({**required, "required": False}, pub)
+    normal = signed(base)
+    assert not updater.is_required(updater.validate(normal, pub))
+    with pytest.raises(updater.UpdateError):          # …nor added to a normal update
+        updater.validate({**normal, "required": True}, pub)
+    assert not updater.is_required(None)

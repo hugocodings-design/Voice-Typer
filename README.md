@@ -68,6 +68,11 @@ No cloud API, no account, nothing leaves your PC.
       its window to the front instead of "already open"; if the running copy is frozen or stuck in the background,
       it offers to close it and start fresh. Closing the window asks once: keep running next to the clock, or
       quit (changeable in Réglages). Quitting really ends the process
+- [x] **« Signaler un problème »** (Réglages, menu près de l'horloge): a short description, then an e-mail to the
+      developer with a diagnostic attached (classic Outlook attaches it by itself; otherwise the default mail app
+      opens and the file's folder is shown). Nothing is sent without the user seeing it
+- [x] **Required updates** (`publish.ps1 -Required`): installed copies install it by themselves as soon as nothing
+      is being dictated, even with automatic updates turned off, and "Plus tard / Ignorer" are hidden
 - [x] **Windows installer** (`VoiceTyperSetup-x.y.z.exe`, no admin rights) — see *Build the installer*
 
 ## Requirements
@@ -138,6 +143,7 @@ To ship a change:
 # 1. bump __version__ in voice_typer/__init__.py
 powershell -ExecutionPolicy Bypass -File installer\build.ps1
 powershell -ExecutionPolicy Bypass -File installer\publish.ps1 -Notes "Ce qui change" -NotesEn "What changed"
+# add -Required for an important fix: copies from 0.11 on install it without asking
 ```
 
 `publish.ps1` needs the GitHub CLI logged in to the owner account. Protect that account with two-factor
@@ -260,6 +266,25 @@ the certificate expires). Options, roughly (prices change, check before buying):
 | Self-signed | free | Only trusted on PCs where you install it yourself (e.g. your own PCs); useless for colleagues |
 
 Update integrity does not depend on this: updates are already verified by their ed25519 signature.
+
+### Microsoft Trusted Signing, step by step
+
+1. Azure account (portal.azure.com) → create a **Trusted Signing account** (Basic plan, ~10 USD / month)
+   → **Identity validation** for an individual (photo ID; can take a few days) → create a **certificate
+   profile** (Public Trust). Give your Microsoft account the role *Trusted Signing Certificate Profile Signer*.
+2. On the publishing PC: `winget install -e --id Microsoft.Azure.TrustedSigningClientTools`, the Windows SDK
+   (for `signtool.exe`) and the Azure CLI (`winget install -e --id Microsoft.AzureCLI`), then `az login` once.
+3. Create `%USERPROFILE%\.voice-typer\trusted-signing.json` (next to the update signing key, never in the repo):
+
+   ```json
+   {"Endpoint": "https://eus.codesigning.azure.net", "CodeSigningAccountName": "<account>",
+    "CertificateProfileName": "<profile>"}
+   ```
+
+   (Endpoint = the region of your account.) `installer\build.ps1` then signs the app and the installer by itself.
+
+The installer then shows your verified name instead of "Unknown publisher". SmartScreen may still warn on
+the very first downloads until the signature has built some reputation.
 
 ## Advanced settings
 

@@ -97,6 +97,13 @@ def validate(info: dict, public_key: str | None = None) -> dict:
     return {**info, "version": version, "url": url, "sha256": sha, "size": size}
 
 
+def is_required(info: dict | None) -> bool:
+    """A required update (publish.ps1 -Required): installed without asking, "skip" ignored.
+
+    Only trusted after validate(): the flag is covered by the signature."""
+    return bool(info and info.get("required") is True)
+
+
 def _open(url: str, timeout: float):
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     return urllib.request.urlopen(req, timeout=timeout)  # noqa: S310 — https only (see validate)

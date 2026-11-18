@@ -302,6 +302,7 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
             *upd,
             pystray.MenuItem(self.t("tray_open"), lambda: self.call_soon(self._show_window), default=True),
             pystray.MenuItem(self.t("tray_language"), pystray.Menu(*lang_items)),
+            pystray.MenuItem(self.t("report_btn"), lambda: self.call_soon(self._report_problem)),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem(self.t("tray_quit"), lambda: self.call_soon(self._quit)),
         )
