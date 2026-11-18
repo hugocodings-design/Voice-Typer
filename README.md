@@ -146,6 +146,13 @@ powershell -ExecutionPolicy Bypass -File installer\publish.ps1 -Notes "Ce qui ch
 # add -Required for an important fix: copies from 0.11 on install it without asking
 ```
 
+**From GitHub instead of the PC** (`.github/workflows/release.yml`): when a new `__version__` lands on `master`,
+GitHub builds the installer on Windows and publishes it, with the notes and the *required* flag of
+`installer/release-notes.json` (its `version` must match, a test checks it). It needs two repository secrets,
+added once from the publishing PC: `VT_UPDATE_SIGNING_KEY` (content of the `.pem` update key) and `RELEASES_TOKEN`
+(fine-grained token: repository Voice-Typer-Releases, Contents read and write). Without them it publishes nothing.
+Keep two-factor authentication on the GitHub account: with the key in its secrets, the account protects the updates.
+
 `publish.ps1` needs the GitHub CLI logged in to the owner account. Protect that account with two-factor
 authentication.
 

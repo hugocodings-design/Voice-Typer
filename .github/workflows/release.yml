@@ -1,0 +1,106 @@
+name: release
+
+# Publishes the update to every installed copy, from GitHub, when a NEW version number lands on master
+# (voice_typer/__init__.py). Same steps as on the publishing PC: installer\build.ps1 then installer\publish.ps1.
+# Notes and the "required" flag come from installer/release-notes.json.
+#
+# Needs two repository secrets (Settings → Secrets and variables → Actions); without them nothing is published:
+#   VT_UPDATE_SIGNING_KEY  content of %USERPROFILE%\.voice-typer\update-signing-key.pem (ed25519 update key)
+#   RELEASES_TOKEN         fine-grained token allowed to write the contents of hugocodings-design/Voice-Typer-Releases
+
+on:
+  push:
+    branches: [master]
+    paths: ["voice_typer/__init__.py", "installer/release-notes.json"]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    env:
+      HAS_KEY: ${{ secrets.VT_UPDATE_SIGNING_KEY != '' && secrets.RELEASES_TOKEN != '' }}
+      GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+    steps:
+      - name: Secrets present?
+        if: env.HAS_KEY != 'true'
+        run: echo "::warning::VT_UPDATE_SIGNING_KEY / RELEASES_TOKEN missing - nothing is published (see the top of release.yml)."
+
+      - uses: actions/checkout@v5
+        if: env.HAS_KEY == 'true'
+
+      - name: New version?
+        id: ver
+        if: env.HAS_KEY == 'true'
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path voice_typer\__init__.py -Pattern '__version__ = "(.+)"').Matches[0].Groups[1].Value
+          $notes = Get-Content installer\release-notes.json -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($notes.version -ne $v) {
+            Write-Host "::error::installer/release-notes.json is for $($notes.version), not $v: update its notes first."
+            exit 1
+          }
+          gh release view "v$v" --repo hugocodings-design/Voice-Typer-Releases *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Voice Typer $v is already published: nothing to do."
+            "publish=false" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Voice Typer $v is new: building and publishing."
+            "publish=true" >> $env:GITHUB_OUTPUT
+          }
+          $global:LASTEXITCODE = 0
+
+      - uses: actions/setup-python@v5
+        if: steps.ver.outputs.publish == 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Project environment (pinned, hashed packages)
+        if: steps.ver.outputs.publish == 'true'
+        shell: pwsh
+        run: |
+          python -m venv venv
+          venv\Scripts\python.exe -m pip install --upgrade pip
+          venv\Scripts\python.exe -m pip install --require-hashes --no-deps -r requirements.lock
+          venv\Scripts\python.exe -m pip install pytest pyinstaller
+          venv\Scripts\python.exe -m PyInstaller --version
+
+      - name: Inno Setup
+        if: steps.ver.outputs.publish == 'true'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://jrsoftware.org/download.php/is.exe -OutFile "$env:RUNNER_TEMP\is.exe"
+          Start-Process "$env:RUNNER_TEMP\is.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-" -Wait
+
+      - name: Build the installer (tests, PyInstaller, self-test, Inno Setup)
+        if: steps.ver.outputs.publish == 'true'
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File installer\build.ps1
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Sign and publish the update
+        if: steps.ver.outputs.publish == 'true'
+        shell: pwsh
+        env:
+          VT_UPDATE_SIGNING_KEY: ${{ secrets.VT_UPDATE_SIGNING_KEY }}
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "vt-signing"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Set-Content -Path (Join-Path $dir "update-signing-key.pem") -Value $env:VT_UPDATE_SIGNING_KEY -NoNewline -Encoding ascii
+          $env:VT_SIGNING_DIR = $dir
+          try {
+            $n = Get-Content installer\release-notes.json -Raw -Encoding UTF8 | ConvertFrom-Json
+            $publish = @("-ExecutionPolicy", "Bypass", "-File", "installer\publish.ps1", "-Notes", $n.fr, "-NotesEn", $n.en)
+            if ($n.required -eq $true) { $publish += "-Required" }
+            powershell @publish
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          } finally {
+            Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+          }

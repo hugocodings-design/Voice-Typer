@@ -140,3 +140,14 @@ def test_required_flag_is_signed_and_detected():
     with pytest.raises(updater.UpdateError):          # …nor added to a normal update
         updater.validate({**normal, "required": True}, pub)
     assert not updater.is_required(None)
+
+
+def test_release_notes_match_the_version():
+    """.github/workflows/release.yml publishes installer/release-notes.json with the version: keep them in sync."""
+    from pathlib import Path
+
+    from voice_typer import __version__
+
+    notes = json.loads((Path(__file__).parents[1] / "installer" / "release-notes.json").read_text(encoding="utf-8"))
+    assert notes["version"] == __version__
+    assert notes["fr"].strip() and notes["en"].strip() and isinstance(notes["required"], bool)
