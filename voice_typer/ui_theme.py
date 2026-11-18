@@ -43,7 +43,7 @@ ICONS = {  # Segoe Fluent Icons / Segoe MDL2 Assets code points
     "writing": "", "help": "",
     "home": "", "dictionary": "", "language": "", "models": "",
     "settings": "", "mic": "", "keyboard": "", "star": "",
-    "star_filled": "", "remote": "", "gpu": "", "check": "", "add": "", "delete": "",
+    "star_filled": "", "gpu": "", "check": "", "add": "", "delete": "",
 }
 
 

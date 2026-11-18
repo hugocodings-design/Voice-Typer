@@ -1,6 +1,6 @@
 {
-  "version": "0.13.0",
-  "fr": "Retour du PC boost (partage de puissance) : utiliser la puissance du PC de la maison depuis un autre PC",
-  "en": "PC boost is back (power sharing): use your home PC's power from another PC",
+  "version": "0.14.0",
+  "fr": "Retrait du PC boost : retour au contenu de la version 0.12 (version portable, aucun usage de %TEMP%)",
+  "en": "PC boost removed: back to the contents of version 0.12 (portable version, %TEMP% never used)",
   "required": false
 }

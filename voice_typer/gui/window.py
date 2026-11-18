@@ -22,7 +22,6 @@ from voice_typer.gui.shortcuts import ShortcutRecorder
 from voice_typer.gui.updates import UpdatesMixin
 from voice_typer.gui.wizard import WelcomeWizard
 from voice_typer.i18n import pretty_hotkey, tr
-from voice_typer.gui.pages.remote_page import RemotePage
 from voice_typer.mic_button import MicButton
 from voice_typer.overlay import Overlay
 from voice_typer.recorder import Recorder
@@ -30,7 +29,7 @@ from voice_typer.tray import Tray
 
 
 class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
-             RemotePage, HelpPage, ShortcutRecorder, WelcomeWizard, UpdatesMixin):
+             HelpPage, ShortcutRecorder, WelcomeWizard, UpdatesMixin):
     def __init__(self, engine: Engine):
         self.engine = engine
         self.config = engine.config
@@ -441,8 +440,6 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
             self._set_last((key, {}))
             if self.config.overlay:
                 self.overlay.flash(self.t(key), ms=3500)
-        elif kind in ("remote_status", "remote_changed", "remote_down", "host_error"):
-            self._rm_on_event(kind, payload)
         elif kind == "firewall_left":
             # Never pop up by itself (no focus stealing): asked the next time the window is shown.
             self._firewall_left = list(payload)
