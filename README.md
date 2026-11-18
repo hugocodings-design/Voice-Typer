@@ -73,6 +73,8 @@ No cloud API, no account, nothing leaves your PC.
       opens and the file's folder is shown). Nothing is sent without the user seeing it
 - [x] **Required updates** (`publish.ps1 -Required`): installed copies install it by themselves as soon as nothing
       is being dictated, even with automatic updates turned off, and "Plus tard / Ignorer" are hidden
+- [x] **PC boost** (power sharing, 0.13): use your home PC's power from the work PC over Tailscale — see
+      *Network* below
 - [x] **Portable version** (`VoiceTyper-portable-x.y.z.zip`, for PCs whose security rules — Defender ASR —
       block %TEMP%): extract it to e.g. `C:\Dev\VoiceTyper\` and run `Voice Typer.exe`; no installer, nothing
       unpacked at startup, updates applied in that same folder. No copy uses %TEMP% anymore: the app and the
@@ -249,10 +251,13 @@ access is outgoing HTTPS to download:
 - updates from the public GitHub repository `hugocodings-design/Voice-Typer-Releases`
   (`latest.json` + installer, signature checked; can be turned off in Réglages).
 
-Audio, transcripts and history stay on the PC. The "power sharing" feature (one PC transcribing for
-another, HTTPS server on port 8765) was removed in 0.9.3. On the first start after the update,
-`legacy.py` deletes its settings, its certificate / key / device-statistics files, and offers to
-delete any Windows Firewall rule that allowed Voice Typer (needs administrator rights).
+Audio, transcripts and history stay on the PC, unless you turn on the **PC boost** (page « Partage de
+puissance », off by default): the PC at work sends the audio to your PC at home (with its NVIDIA card) and
+gets the text back. The home PC runs a small HTTPS server on port 8765 (TLS with a pinned self-made
+certificate, access key, home-network / Tailscale addresses only by default); the work PC only makes
+outgoing connections and falls back to local transcription when home is unreachable. Removed in 0.9.3 for an
+IT requirement, brought back in 0.13 with that IT department's approval. A PC updated straight from 0.9.2
+does not reconnect to an old pairing (`legacy.py` deletes those settings once, before they are read).
 
 ## Code signing (optional)
 

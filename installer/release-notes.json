@@ -1,6 +1,6 @@
 {
-  "version": "0.12.0",
-  "fr": "Version portable (sans installateur) et plus aucun usage du dossier temporaire de Windows (%TEMP%)",
-  "en": "Portable version (no installer), and the Windows temporary folder (%TEMP%) is no longer used",
+  "version": "0.13.0",
+  "fr": "Retour du PC boost (partage de puissance) : utiliser la puissance du PC de la maison depuis un autre PC",
+  "en": "PC boost is back (power sharing): use your home PC's power from another PC",
   "required": false
 }

@@ -8,7 +8,7 @@ THEMES = ["system", "light", "dark"]
 PRESETS = ["f9", "right ctrl", "ctrl+windows", "ctrl+alt+space"]
 LANG_PRESETS = ["f8", "ctrl+alt+l", "ctrl+shift+l"]
 PAGES = [("home", "home"), ("dictionary", "dictionary"),
-         ("models", "models"), ("writing", "writing"), ("help", "help"),
+         ("models", "models"), ("writing", "writing"), ("remote", "remote"), ("help", "help"),
          ("settings", "settings")]
 PASTE_PRESETS = ["f9", "f10", "ctrl+shift+v", "insert"]
 REWRITE_PRESETS = ["f8", "f10", "ctrl+alt+r", "ctrl+shift+e"]

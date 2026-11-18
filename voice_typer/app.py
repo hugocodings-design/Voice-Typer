@@ -14,6 +14,7 @@ import traceback
 from voice_typer import cleanup, commands, dictionary, models
 from voice_typer.config import Config
 from voice_typer.engine_hotkeys import HotkeysMixin
+from voice_typer.engine_remote import RemoteMixin
 from voice_typer.engine_writer import WriterMixin
 from voice_typer.hotkey import Hotkey
 from voice_typer.output import beep, send_text
@@ -26,7 +27,7 @@ MAX_SECONDS = 300     # safety stop in toggle mode
 AUTO_HOLD_S = 0.4     # "auto" mode: held at least this long = push-to-talk, shorter tap = toggle
 
 
-class Engine(WriterMixin, HotkeysMixin):
+class Engine(WriterMixin, RemoteMixin, HotkeysMixin):
     def __init__(self, config: Config):
         self.config = config
         config.ensure_presets()
@@ -71,6 +72,10 @@ class Engine(WriterMixin, HotkeysMixin):
         self._active_preset: str | None = None
         self._record_started = 0.0
         self.busy = False                  # transcribing / rewriting (the floating mic button shows it)
+        # PC boost: sharing AI power between PCs (remote.py) — off unless the user turns it on
+        self.host = None                   # remote.Host when this PC shares its power (home PC)
+        self.remote = None                 # remote.Client when this PC uses another one (e.g. work PC)
+        self.remote_status: tuple[bool, object] | None = None  # (reachable, info dict | error)
         # live typing (streaming.py): words typed while speaking, guarded by _type_lock
         self._live_typer = None
         self._type_lock = threading.Lock()
@@ -148,7 +153,7 @@ class Engine(WriterMixin, HotkeysMixin):
             self._finish_recording()  # held down while speaking → push-to-talk
 
     def _start_recording(self) -> None:
-        if self.transcriber is None:
+        if self.transcriber is None and self.remote is None:
             self._emit("status", "no_model")
             return
         if self.recorder.is_recording:
@@ -251,8 +256,13 @@ class Engine(WriterMixin, HotkeysMixin):
     def _live_loop(self, started: float) -> None:
         """While recording, re-transcribe the audio so far and show it (the final pass is redone at the end)."""
         transcriber = self.transcriber
-        interval = 0.6 if transcriber and transcriber.device == "cuda" else 1.5
-        preview = transcriber.preview if transcriber else None
+        client = self.remote
+        if client is not None:
+            interval = 1.0
+            preview = lambda audio, lang: client.transcribe(audio, lang, preview=True)  # noqa: E731
+        else:
+            interval = 0.6 if transcriber and transcriber.device == "cuda" else 1.5
+            preview = transcriber.preview if transcriber else None
         show = self.config.live_preview
         last = ""
         time.sleep(0.8)
@@ -316,7 +326,7 @@ class Engine(WriterMixin, HotkeysMixin):
 
     def _transcribe_and_send_inner(self, audio, preset_id: str | None = None) -> None:
         transcriber = self.transcriber
-        if transcriber is None:
+        if transcriber is None and self.remote is None:
             return
         self._emit("transcribing")
         try:
@@ -325,7 +335,11 @@ class Engine(WriterMixin, HotkeysMixin):
             vocabulary, replacements = dictionary.for_app(self.config.vocabulary, self.config.replacements,
                                                           self.config.app_dictionaries, self._target_exe)
             hotwords = dictionary.hotwords(vocabulary)
-            text = transcriber.transcribe(audio, language, hotwords)
+            text = self._remote_transcribe(audio, language, hotwords)  # home PC first, if connected
+            if text is None:
+                if transcriber is None:
+                    raise RuntimeError("home PC unreachable and no local model")
+                text = transcriber.transcribe(audio, language, hotwords)
             text = cleanup.strip_hallucinations(text)
             if self.config.remove_fillers:
                 text = cleanup.remove_fillers(text, language)
@@ -391,7 +405,8 @@ class Engine(WriterMixin, HotkeysMixin):
     def start(self) -> None:
         self.resume_hotkey()
         self.load_model(self.config.model)
-        if self.config.writer_preload and self.preset_hotkeys:
+        self.apply_remote()
+        if self.config.writer_preload and (self.preset_hotkeys or self.host) and self.remote is None:
             from voice_typer import writer
 
             if writer.is_downloaded(self.config.writing_model):
@@ -412,6 +427,8 @@ class Engine(WriterMixin, HotkeysMixin):
         self.pause_hotkey()
         if self.recorder.is_recording:
             self.recorder.stop()
+        if self.host:
+            self.host.stop()
 
 MUTEX_NAME = "VoiceTyper.SingleInstance"
 
@@ -501,6 +518,15 @@ def selftest() -> int:
         Ed25519PublicKey.from_public_bytes(base64.b64decode(update_key.UPDATE_PUBLIC_KEY))
         ssl.create_default_context()
         assert callable(legacy.remove_power_sharing)
+        # PC boost: the home PC makes its own TLS certificate (cryptography) and serves over ssl
+        import tempfile
+        from pathlib import Path
+
+        from voice_typer import remote
+
+        ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        with tempfile.TemporaryDirectory() as tmp:
+            remote.ensure_certificate(Path(tmp) / "c.pem", Path(tmp) / "k.pem")
         from voice_typer import gpu
 
         print(f"SELFTEST OK cuda_devices={int(gpu.cuda_available())}", flush=True)
@@ -517,14 +543,18 @@ def main() -> None:
     use_private_temp()  # already done by run.pyw; also covers `python -m voice_typer`
     if "--selftest" in sys.argv:
         sys.exit(selftest())
+    from voice_typer import legacy
+
+    # BEFORE reading the settings: a PC updated straight from 0.9.2 must not silently reconnect to an old
+    # power-sharing pairing (its audio would go to another PC). Runs once (marker); PC boost settings made
+    # with 0.13+ are never touched.
+    cleaned = legacy.remove_power_sharing()
     config = Config.load()
     if _already_running(wait=15.0 if "--restart" in sys.argv else 0.0) and not _take_over(config):
         return
 
-    from voice_typer import legacy
     from voice_typer.gui import Window
 
-    cleaned = legacy.remove_power_sharing()  # once, after the update from a version with power sharing
     engine = Engine(config)
     if not cleaned["done_before"]:
         engine.cleanup_firewall_later()

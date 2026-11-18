@@ -124,6 +124,11 @@ class HomePage:
         parts.append(f"{self.t('chip_lang')} : {self.lang_name(self.config.language)}")
         if self.config.vocabulary:
             parts.append(self.t("chip_dict", n=len(self.config.vocabulary)))
+        st = self.engine.remote_status
+        if self.engine.remote is not None:
+            parts.append(self.t("chip_remote_ok") if st and st[0] else self.t("chip_remote_down"))
+        elif self.engine.host is not None:
+            parts.append(self.t("chip_host"))
         self.chips_var.set("   ·   ".join(parts))
 
     # ---- history

@@ -69,7 +69,7 @@ def test_import_rejects_paths_and_bad_types(tmp_path):
         "sounds": False,                         # ok
         "vocabulary": ["ok", 3],                 # bad item
         "replacements": [{"from": "a"}],         # missing "to"
-        "host_key": "evil", "remote_url": "https://1.2.3.4:8765",  # old power sharing: ignored
+        "host_key": "evil", "remote_url": "https://1.2.3.4:8765",  # PC boost pairing: never imported
         "language": "de",                        # valid type, normalised on apply
     }}
     path = tmp_path / "s.json"
@@ -78,7 +78,9 @@ def test_import_rejects_paths_and_bad_types(tmp_path):
     assert set(settings) == {"sounds", "language"}
     cfg = Config()
     transfer.apply_settings(cfg, settings)
-    assert cfg.sounds is False and cfg.language is None and not hasattr(cfg, "host_key")
+    assert cfg.sounds is False and cfg.language is None
+    # a settings file must never connect this PC to another computer (it would send it the audio)
+    assert cfg.host_key == "" and cfg.remote_url == "" and cfg.remote_mode == "off"
 
 
 @pytest.mark.parametrize("content,key", [

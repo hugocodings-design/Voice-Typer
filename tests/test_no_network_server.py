@@ -1,5 +1,8 @@
-"""Power sharing was removed (0.9.3): the app must never listen on a network port,
-and an update from an older version must clean up what sharing left behind."""
+"""Network ports: only the PC boost host (remote.py, on the home PC, turned on by the user) may listen.
+
+0.9.3 removed power sharing (IT requirement); 0.13 brings it back with IT approval, isolated in remote.py:
+with sharing off — the default — or in "use another PC" mode (the work PC), the app opens no listening socket.
+An update from 0.9.2 still cleans up what the old sharing left behind (legacy.py)."""
 
 import json
 import pkgutil
@@ -15,11 +18,36 @@ from voice_typer import config as config_mod, legacy
 SRC = Path(voice_typer.__file__).parent
 
 
-def test_source_has_no_server_code():
+def test_server_code_only_in_the_pc_boost_module():
     pattern = re.compile(r"\.listen\(|\.bind\(\(|HTTPServer|socketserver|\.accept\(|create_server")
     hits = [f"{f.relative_to(SRC)}: {m.group(0)}" for f in SRC.rglob("*.py")
+            if f.name != "remote.py"
             for m in pattern.finditer(f.read_text(encoding="utf-8"))]
     assert hits == []
+
+
+def test_client_mode_never_listens(monkeypatch, tmp_path):
+    """The work PC uses the home PC: outgoing connections only, no port opened."""
+    opened = []
+    monkeypatch.setattr(socket.socket, "listen", lambda self, *a: opened.append(("listen", a)))
+    monkeypatch.setattr(socket.socket, "bind", lambda self, addr: opened.append(("bind", addr)))
+    monkeypatch.setattr(config_mod, "SETTINGS_DIR", tmp_path)
+    monkeypatch.setattr(config_mod, "SETTINGS_FILE", tmp_path / "settings.json")
+    from voice_typer import app, remote, undo
+
+    monkeypatch.setattr(undo.UndoTracker, "_watch", lambda self: None)
+    monkeypatch.setattr(remote.Client, "ping", lambda self, timeout=4: {"model": "small"})
+    cfg = config_mod.Config()
+    cfg.writer_preload = False
+    cfg.remote_mode, cfg.remote_url, cfg.remote_key = "client", "https://100.64.1.2:8765", "k"
+    cfg.remote_fingerprint = "a" * 64
+    eng = app.Engine(cfg)
+    monkeypatch.setattr(eng, "load_model", lambda source: None)
+    monkeypatch.setattr(eng, "resume_hotkey", lambda: None)
+    eng.start()
+    assert eng.remote is not None and eng.host is None
+    eng.stop()
+    assert opened == []
 
 
 def test_no_listening_socket_at_runtime(monkeypatch, tmp_path):
@@ -58,24 +86,32 @@ def _old_install(tmp_path, monkeypatch):
 
 def test_update_from_power_sharing_version(tmp_path, monkeypatch):
     _old_install(tmp_path, monkeypatch)
-    cfg = config_mod.Config.load()               # old keys ignored without error
-    assert cfg.hotkey == "alt+1" and not hasattr(cfg, "remote_mode")
-    result = legacy.remove_power_sharing()
+    result = legacy.remove_power_sharing()       # app.main runs it BEFORE Config.load()
     assert sorted(result["files"]) == sorted(legacy.OLD_FILES)
     assert set(result["settings"]) == set(legacy.OLD_KEYS)
     assert not any((tmp_path / n).exists() for n in legacy.OLD_FILES)
     data = json.loads((tmp_path / "settings.json").read_text(encoding="utf-8"))
     assert data["hotkey"] == "alt+1" and not set(legacy.OLD_KEYS) & set(data)
+    cfg = config_mod.Config.load()
+    assert cfg.hotkey == "alt+1" and cfg.remote_mode == "off" and cfg.remote_url == ""
     assert legacy.remove_power_sharing()["done_before"]   # only once
+    # PC boost set up again with 0.13+: never removed afterwards
+    cfg.remote_mode, cfg.remote_url = "client", "https://100.64.0.9:8765"
+    cfg.save()
+    assert legacy.remove_power_sharing()["done_before"]
+    assert config_mod.Config.load().remote_mode == "client"
 
 
-def test_client_mode_copy_transcribes_locally(tmp_path, monkeypatch):
+def test_old_pairing_is_not_reactivated(tmp_path, monkeypatch):
+    """Updated straight from 0.9.2 (client of a home PC): stays local until the user pairs again."""
     _old_install(tmp_path, monkeypatch)
     from voice_typer import app, undo
 
     monkeypatch.setattr(undo.UndoTracker, "_watch", lambda self: None)
+    legacy.remove_power_sharing()                # same order as app.main
     eng = app.Engine(config_mod.Config.load())
-    assert not hasattr(eng, "remote") and not hasattr(eng, "apply_remote")
+    eng.apply_remote()
+    assert eng.remote is None and eng.host is None
 
 
 def test_firewall_cleanup_only_targets_the_installed_app(monkeypatch):

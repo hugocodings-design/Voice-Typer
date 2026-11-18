@@ -77,8 +77,17 @@ class WriterMixin:
         self._emit("writer_unloaded")
 
     def rewrite(self, text: str, preset: dict) -> str:
-        """Blocking: rewrite text with a preset."""
+        """Blocking: rewrite text with a preset (on the home PC when connected to one)."""
         instructions = preset.get("instructions", "")
+        if self.remote is not None:
+            from voice_typer.remote import RemoteError
+
+            try:
+                out = self.remote.rewrite(text, instructions, self.config.signature)
+                self._set_remote_status(True)
+                return out
+            except RemoteError as exc:
+                self._remote_failed(exc)
         return self.rewrite_local(text, instructions, self.config.signature)
 
     def rewrite_local(self, text: str, instructions: str, signature: str) -> str:
@@ -92,6 +101,6 @@ class WriterMixin:
                 self._emit("writer_loaded", (source, self.writer.device, time.perf_counter() - started))
             writer = self.writer
             out = writer.rewrite(text, instructions, signature)
-            if not self.config.writer_preload:
+            if not self.config.writer_preload and self.host is None:
                 self.writer = None
             return out

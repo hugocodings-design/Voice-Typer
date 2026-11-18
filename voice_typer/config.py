@@ -27,6 +27,15 @@ class Config:
     presets: list[dict] | None = None   # [{"id","name","hotkey","instructions"}], None = defaults
     signature: str = ""
     writer_preload: bool = True         # keep the writing AI loaded (instant presets)
+    # PC boost: sharing AI power between PCs (remote.py). Off by default.
+    remote_mode: str = "off"        # "off" | "host" (share this PC) | "client" (use another PC)
+    host_port: int = 8765
+    host_key: str = ""              # access key other devices need (host side)
+    remote_url: str = ""            # host address, e.g. https://100.101.102.103:8765 (client side)
+    remote_key: str = ""
+    remote_fingerprint: str = ""    # SHA-256 of the host's TLS certificate (pinned, from the code)
+    host_allow_internet: bool = False   # host: also accept public Internet addresses (off = home/Tailscale only)
+    client_id: str = ""             # random id so the host can count devices
     # Shortcuts
     hotkey: str = "ctrl+alt+space"
     mode: str = "hold"              # "hold" (push-to-talk) | "toggle" (press to start, press to stop) | "auto" (tap = toggle, hold = push-to-talk)
