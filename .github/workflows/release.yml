@@ -75,8 +75,11 @@ jobs:
         if: steps.ver.outputs.publish == 'true'
         shell: pwsh
         run: |
-          Invoke-WebRequest https://jrsoftware.org/download.php/is.exe -OutFile "$env:RUNNER_TEMP\is.exe"
-          Start-Process "$env:RUNNER_TEMP\is.exe" -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-" -Wait
+          choco install innosetup -y --no-progress
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { Write-Host "::error::ISCC.exe not found after installing Inno Setup"; exit 1 }
+          Write-Host "Inno Setup $((Get-Item $iscc).VersionInfo.ProductVersion) (installer/VoiceTyper.iss needs 6.7+)"
 
       - name: Build the installer (tests, PyInstaller, self-test, Inno Setup)
         if: steps.ver.outputs.publish == 'true'
