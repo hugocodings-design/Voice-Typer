@@ -43,7 +43,7 @@ jobs:
           $v = (Select-String -Path voice_typer\__init__.py -Pattern '__version__ = "(.+)"').Matches[0].Groups[1].Value
           $notes = Get-Content installer\release-notes.json -Raw -Encoding UTF8 | ConvertFrom-Json
           if ($notes.version -ne $v) {
-            Write-Host "::error::installer/release-notes.json is for $($notes.version), not $v: update its notes first."
+            Write-Host "::error::installer/release-notes.json is for $($notes.version), not ${v} - update its notes first."
             exit 1
           }
           gh release view "v$v" --repo hugocodings-design/Voice-Typer-Releases *> $null
