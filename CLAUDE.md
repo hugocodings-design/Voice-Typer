@@ -58,6 +58,13 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
   `UndoTracker.ignore_click` = `MicButton.owns_click` so clicks on it/its menu don't invalidate undo
 - `cleanup.py` — shared with mobile `Text.kt`: `strip_hallucinations` (always, right after Whisper) and
   `remove_fillers` (`config.remove_fillers`), both before dictionary replacements
+- `portable.py` — never %TEMP% (company ASR rules): `use_private_temp()` (first thing in run.pyw and `main()`)
+  sets TEMP/TMP/TMPDIR + `tempfile.tempdir` to `<app>\tmp` if `portable.txt` sits next to the exe (portable zip,
+  e.g. C:\Dev\VoiceTyper), else `%LOCALAPPDATA%\VoiceTyper\tmp`; the update installer inherits it (Inno unpacks
+  its helper in TMP). `installer/make_portable.py` (build.ps1) → `dist/VoiceTyper-portable-<v>.zip` (folder build
+  at the zip root + portable.txt); `sign.py --portable` adds signed `portable_url/_sha256/_size`; publish.ps1
+  uploads it. Portable updates: `updater.asset()` picks the zip, `unpack_portable` (path-traversal check, keeps the
+  marker) into tmp, `install_portable` → cmd `ping`, `robocopy new → app /E`, `rd`, restart `--updated`
 - `report.py` — « Signaler un problème » (Réglages + tray): `diagnostic.export` to Downloads, then classic Outlook
   `/c ipm.note /m "<addr>&subject=…&body=…" /a <zip>` (App Paths registry), else `mailto:` + Explorer `/select`.
   `SUPPORT_EMAIL` = the developer's address. `diagnostic.PRIVATE_FIELDS` also strips `app_dictionaries`

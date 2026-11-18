@@ -485,7 +485,7 @@ def selftest() -> int:
 
         for name in ("keyboard", "pystray", "sounddevice", "sv_ttk", "tokenizers",
                      "voice_typer.gui", "voice_typer.transcriber", "voice_typer.writer", "voice_typer.transfer",
-                     "voice_typer.instance", "voice_typer.mic_button", "voice_typer.cleanup", "voice_typer.report"):
+                     "voice_typer.instance", "voice_typer.mic_button", "voice_typer.cleanup", "voice_typer.report", "voice_typer.portable"):
             importlib.import_module(name)
         from faster_whisper.vad import get_speech_timestamps
 
@@ -512,6 +512,9 @@ def selftest() -> int:
 
 
 def main() -> None:
+    from voice_typer.portable import use_private_temp
+
+    use_private_temp()  # already done by run.pyw; also covers `python -m voice_typer`
     if "--selftest" in sys.argv:
         sys.exit(selftest())
     config = Config.load()

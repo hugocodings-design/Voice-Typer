@@ -21,6 +21,8 @@ function Fail($text) { Write-Host "`nERREUR : $text" -ForegroundColor Red; exit 
 $version = (& $py -c "import voice_typer; print(voice_typer.__version__)").Trim()
 $setup = Get-Item "dist\VoiceTyperSetup-$version.exe" -ErrorAction SilentlyContinue
 if (-not $setup) { Fail "dist\VoiceTyperSetup-$version.exe introuvable : lancez d'abord installer\build.ps1." }
+$portableZip = Get-Item "dist\VoiceTyper-portable-$version.zip" -ErrorAction SilentlyContinue
+if (-not $portableZip) { Fail "dist\VoiceTyper-portable-$version.zip introuvable : relancez installer\build.ps1." }
 & gh release view "v$version" --repo $repo *> $null
 if ($LASTEXITCODE -eq 0) { Fail "la version $version est déjà publiée : changez le numéro dans voice_typer\__init__.py." }
 if (-not $NotesEn) { $NotesEn = $Notes }
@@ -34,17 +36,19 @@ function NativeArg([string]$text) {
 Write-Host "Empreinte SHA-256 et signature ed25519…" -ForegroundColor Cyan
 $json = Join-Path $root "dist\latest.json"
 $env:PYTHONIOENCODING = "utf-8"
-$signArgs = @("installer\sign.py", "manifest", "--setup", $setup.FullName, "--version", $version, "--out", $json)
+$signArgs = @("installer\sign.py", "manifest", "--setup", $setup.FullName, "--portable", $portableZip.FullName,
+              "--version", $version, "--out", $json)
 if ($Notes) { $signArgs += @("--notes-fr", (NativeArg $Notes)) }     # PowerShell 5.1 drops empty arguments
 if ($NotesEn) { $signArgs += @("--notes-en", (NativeArg $NotesEn)) }
 if ($Required) { $signArgs += "--required"; Write-Host "Mise à jour OBLIGATOIRE." -ForegroundColor Yellow }
 & $py @signArgs
 if ($LASTEXITCODE -ne 0) { Fail "signature impossible (clé privée absente ? voir README, Update signing key)." }
-$sha = (Get-Content $json -Raw -Encoding UTF8 | ConvertFrom-Json).sha256
+$manifest = Get-Content $json -Raw -Encoding UTF8 | ConvertFrom-Json
+$sha = $manifest.sha256
 
-$body = "Voice Typer $version`n`n$Notes`n`nSHA-256 : $sha"
+$body = "Voice Typer $version`n`n$Notes`n`nSHA-256 $($setup.Name) : $sha`nSHA-256 $($portableZip.Name) : $($manifest.portable_sha256)"
 Write-Host "Envoi sur GitHub ($([math]::Round($setup.Length / 1MB)) Mo, quelques minutes)…" -ForegroundColor Cyan
-$ghArgs = @("release", "create", "v$version", $setup.FullName, $json, "--repo", $repo,
+$ghArgs = @("release", "create", "v$version", $setup.FullName, $portableZip.FullName, $json, "--repo", $repo,
             "--title", "Voice Typer $version", "--notes", (NativeArg $body), "--latest")
 if ($Draft) { $ghArgs += "--draft" }
 & gh @ghArgs

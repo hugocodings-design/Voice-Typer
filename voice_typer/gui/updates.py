@@ -4,7 +4,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
-from voice_typer import __version__, updater
+from voice_typer import __version__, portable, updater
 from voice_typer.gui import dialogs as messagebox
 
 FIRST_CHECK_MS = 20_000
@@ -176,8 +176,11 @@ class UpdatesMixin:
         self.upd_text.configure(text=self.t("upd_installing"))
         self.root.update_idletasks()
         try:
-            updater.install(path)
-        except OSError as exc:
+            if portable.is_portable():
+                updater.install_portable(path, self._update["version"])
+            else:
+                updater.install(path)
+        except (OSError, updater.UpdateError) as exc:
             self._upd_failed(str(exc))
             return
         self.root.after(400, self._quit)

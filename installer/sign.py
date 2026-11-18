@@ -58,24 +58,33 @@ def keygen() -> None:
           "plus aucune mise à jour ne pourra être publiée pour les copies installées.")
 
 
-def manifest(setup: Path, version: str, notes_fr: str, notes_en: str, out: Path, required: bool = False) -> None:
+def sha256_of(path: Path) -> str:
+    sha = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            sha.update(chunk)
+    return sha.hexdigest()
+
+
+def manifest(setup: Path, version: str, notes_fr: str, notes_en: str, out: Path, required: bool = False,
+             portable_zip: Path | None = None) -> None:
     key = load_private()
     from voice_typer.update_key import UPDATE_PUBLIC_KEY
 
     if public_b64(key) != UPDATE_PUBLIC_KEY:
         raise SystemExit("La clé privée ne correspond pas à la clé publique intégrée à l'app : refus de signer.")
-    sha = hashlib.sha256()
-    with open(setup, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            sha.update(chunk)
     data = {
         "version": version,
         "url": f"{updater.ALLOWED_PREFIX}v{version}/{setup.name}",
-        "sha256": sha.hexdigest(),
+        "sha256": sha256_of(setup),
         "size": setup.stat().st_size,
         "notes_fr": notes_fr,
         "notes_en": notes_en or notes_fr,
     }
+    if portable_zip is not None:  # for portable copies (no installer, no %TEMP%): voice_typer/portable.py
+        data["portable_url"] = f"{updater.ALLOWED_PREFIX}v{version}/{portable_zip.name}"
+        data["portable_sha256"] = sha256_of(portable_zip)
+        data["portable_size"] = portable_zip.stat().st_size
     if required:  # signed like everything else: nobody can make an update "required" without the key
         data["required"] = True
     data["signature"] = base64.b64encode(key.sign(updater.signed_bytes(data))).decode()
@@ -95,11 +104,12 @@ def main() -> None:
     m.add_argument("--notes-en", default="")
     m.add_argument("--out", type=Path, required=True)
     m.add_argument("--required", action="store_true", help="installed copies install it without asking")
+    m.add_argument("--portable", type=Path, default=None, help="the portable zip (make_portable.py)")
     a = ap.parse_args()
     if a.cmd == "keygen":
         keygen()
     else:
-        manifest(a.setup, a.version, a.notes_fr, a.notes_en, a.out, a.required)
+        manifest(a.setup, a.version, a.notes_fr, a.notes_en, a.out, a.required, a.portable)
 
 
 if __name__ == "__main__":

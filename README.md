@@ -73,6 +73,10 @@ No cloud API, no account, nothing leaves your PC.
       opens and the file's folder is shown). Nothing is sent without the user seeing it
 - [x] **Required updates** (`publish.ps1 -Required`): installed copies install it by themselves as soon as nothing
       is being dictated, even with automatic updates turned off, and "Plus tard / Ignorer" are hidden
+- [x] **Portable version** (`VoiceTyper-portable-x.y.z.zip`, for PCs whose security rules — Defender ASR —
+      block %TEMP%): extract it to e.g. `C:\Dev\VoiceTyper\` and run `Voice Typer.exe`; no installer, nothing
+      unpacked at startup, updates applied in that same folder. No copy uses %TEMP% anymore: the app and the
+      update installer use `<app>\tmp` (portable) or `%LOCALAPPDATA%\VoiceTyper\tmp` (installed)
 - [x] **Windows installer** (`VoiceTyperSetup-x.y.z.exe`, no admin rights) — see *Build the installer*
 
 ## Requirements

@@ -1,6 +1,6 @@
 {
-  "version": "0.11.0",
-  "fr": "Bouton « Signaler un problème », mises à jour obligatoires",
-  "en": "\"Report a problem\" button, required updates",
+  "version": "0.12.0",
+  "fr": "Version portable (sans installateur) et plus aucun usage du dossier temporaire de Windows (%TEMP%)",
+  "en": "Portable version (no installer), and the Windows temporary folder (%TEMP%) is no longer used",
   "required": false
 }

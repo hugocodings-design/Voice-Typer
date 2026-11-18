@@ -1,10 +1,11 @@
-# Voice Typer 0.11 — Dossier pour le département de sécurité informatique
+# Voice Typer 0.12 — Dossier pour le département de sécurité informatique
 
 **Date :** 18 novembre 2026
-**Version :** Voice Typer 0.11.0
-**Installateur :** `VoiceTyperSetup-0.11.0.exe` (605 Mo), téléchargeable sur
-`https://github.com/hugocodings-design/Voice-Typer-Releases/releases/tag/v0.11.0`
-**SHA-256 :** `e01b586d6c4e1bb6bfafb4eb6ccec5349f7773feaf360e896705ba68500538c4`
+**Version :** Voice Typer 0.12.0
+**Fichiers :** `VoiceTyperSetup-0.12.0.exe` (installateur) et `VoiceTyper-portable-0.12.0.zip` (version
+portable, recommandée si `%TEMP%` est bloqué), sur
+`https://github.com/hugocodings-design/Voice-Typer-Releases/releases/tag/v0.12.0`. Leurs empreintes SHA-256
+figurent sur cette page et dans le fichier signé `latest.json` publié avec la version.
 
 ## En bref
 
@@ -106,10 +107,30 @@ La désinstallation (Paramètres Windows → Applications) propose de supprimer 
   - un test qui vérifie que le fichier de diagnostic ne contient ni dictionnaire ni signature.
 - L'application compilée passe un auto-test au moment de la création de l'installateur.
 
+## Version 0.12 : dossier temporaire et version portable
+
+À la demande d'un service informatique dont les règles ASR bloquent `%TEMP%` :
+
+- **Voice Typer n'utilise plus jamais le dossier temporaire de Windows** (`%TEMP%`,
+  `AppData\Local\Temp`). Dès le démarrage, il utilise son propre dossier : `C:\Dev\VoiceTyper\tmp` pour la
+  version portable, `%LOCALAPPDATA%\VoiceTyper\tmp` pour la version installée. Les bibliothèques et
+  l'installateur lancé par une mise à jour utilisent aussi ce dossier.
+- **Version portable** `VoiceTyper-portable-0.12.0.zip`, publiée à côté de l'installateur : on l'extrait dans
+  `C:\Dev\VoiceTyper\` et on lance `Voice Typer.exe`. Pas d'installateur, et rien n'est décompressé au
+  démarrage : l'application est un dossier de fichiers (PyInstaller en mode « dossier », jamais « fichier
+  unique »).
+- **Mises à jour de la version portable** : le zip signé est téléchargé dans `C:\Dev\VoiceTyper\tmp`, son
+  empreinte SHA-256 vérifiée (elle est couverte par la signature ed25519), puis il est décompressé dans ce même
+  dossier. Une fois l'application fermée, `robocopy` copie les nouveaux fichiers dans `C:\Dev\VoiceTyper\`,
+  puis l'application redémarre.
+- Désinstallation de la version portable : supprimer le dossier `C:\Dev\VoiceTyper\` (et, si souhaité,
+  `%APPDATA%\VoiceTyper` et les modèles dans `%USERPROFILE%\.cache\huggingface\hub`).
+
 ## Différences depuis la version 0.9.3
 
 - Bouton micro flottant (clic pour dicter), retrait des hésitations (« euh »), ouverture et fermeture fiabilisées.
 - Bouton « Signaler un problème » (courriel préparé par la messagerie de l'utilisateur).
+- Version portable et dossier temporaire propre à l'application (0.12, voir plus haut).
 - Mises à jour obligatoires possibles (champ signé).
 - Publication des versions par GitHub Actions au lieu du poste du développeur.
 - Toujours aucun port réseau, aucune télémétrie, aucune donnée transmise.

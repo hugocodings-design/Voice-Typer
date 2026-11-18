@@ -107,6 +107,10 @@ if ($signtool) {
     Write-Host "`n(Signature de code : aucun certificat configuré, étape ignorée.)" -ForegroundColor DarkGray
 }
 
+Step "Version portable (zip, sans installateur ni %TEMP%)"
+& $py installer\make_portable.py --src "dist\Voice Typer" --version $version --out dist
+if ($LASTEXITCODE -ne 0) { Fail "make_portable.py a échoué." }
+
 Step "Installateur (Inno Setup)"
 & $iscc /Qp "/DAppVersion=$version" installer\VoiceTyper.iss
 if ($LASTEXITCODE -ne 0) { Fail "Inno Setup a échoué." }
@@ -115,3 +119,4 @@ Sign "dist\VoiceTyperSetup-$version.exe"
 $setup = Get-Item "dist\VoiceTyperSetup-$version.exe"
 $mins = [math]::Round(((Get-Date) - $started).TotalMinutes, 1)
 Write-Host "`nOK : $($setup.FullName)  ($([math]::Round($setup.Length / 1MB)) Mo, $mins min)" -ForegroundColor Green
+Write-Host "     dist\VoiceTyper-portable-$version.zip (version portable)" -ForegroundColor Green

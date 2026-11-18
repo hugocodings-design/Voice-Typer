@@ -15,6 +15,10 @@ The app reads latest.json, and if the version is newer, offers to download the i
 its SHA-256 (a tampered or truncated file is never run), then runs it silently with /UPDATE=1:
 the installer closes the app, keeps settings / history / models, and starts the new version.
 Only installed (frozen) copies update themselves; a dev checkout uses git.
+
+Portable copies (portable.py: unzipped to e.g. C:\\Dev\\VoiceTyper, for PCs whose security rules block
+%TEMP%) download the signed zip named by "portable_url" / "portable_sha256" instead, unpack it into their own
+tmp folder and copy it over the app folder once the app has quit. Nothing ever goes through %TEMP%.
 """
 
 import base64
@@ -23,16 +27,16 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import urllib.request
+import zipfile
 from pathlib import Path
 
-from voice_typer import __version__
+from voice_typer import __version__, portable
 
 REPO = "hugocodings-design/Voice-Typer-Releases"
 MANIFEST_URL = f"https://github.com/{REPO}/releases/latest/download/latest.json"
 ALLOWED_PREFIX = f"https://github.com/{REPO}/releases/download/"
-DOWNLOAD_DIR = Path(tempfile.gettempdir()) / "VoiceTyperUpdate"
+DOWNLOAD_DIR: Path | None = None   # None = <our private temp folder>\VoiceTyperUpdate (tests may set it)
 USER_AGENT = f"VoiceTyper/{__version__}"
 
 
@@ -92,9 +96,37 @@ def validate(info: dict, public_key: str | None = None) -> dict:
         raise UpdateError(f"bad manifest: {exc}") from exc
     if not url.startswith(ALLOWED_PREFIX):
         raise UpdateError("download URL outside the releases repository")
-    if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
+    if not _is_sha256(sha):
         raise UpdateError("bad sha256")
-    return {**info, "version": version, "url": url, "sha256": sha, "size": size}
+    out = {**info, "version": version, "url": url, "sha256": sha, "size": size}
+    if "portable_url" in info:
+        p_url, p_sha = str(info["portable_url"]), str(info.get("portable_sha256", "")).lower()
+        if not p_url.startswith(ALLOWED_PREFIX):
+            raise UpdateError("portable download URL outside the releases repository")
+        if not _is_sha256(p_sha):
+            raise UpdateError("bad portable sha256")
+        out.update(portable_url=p_url, portable_sha256=p_sha, portable_size=int(info.get("portable_size") or 0))
+    return out
+
+
+def _is_sha256(text: str) -> bool:
+    return len(text) == 64 and all(c in "0123456789abcdef" for c in text)
+
+
+def download_dir() -> Path:
+    return DOWNLOAD_DIR if DOWNLOAD_DIR is not None else portable.temp_dir() / "VoiceTyperUpdate"
+
+
+def asset(info: dict, portable_copy: bool | None = None) -> tuple[str, str, int, str]:
+    """(url, sha256, size, file name) of what this copy downloads: the installer, or the portable zip."""
+    if portable_copy is None:
+        portable_copy = portable.is_portable()
+    if not portable_copy:
+        return info["url"], info["sha256"], int(info.get("size") or 0), f"VoiceTyperSetup-{info['version']}.exe"
+    if not info.get("portable_url"):
+        raise UpdateError("this release has no portable package")
+    return (info["portable_url"], info["portable_sha256"], int(info.get("portable_size") or 0),
+            f"VoiceTyper-portable-{info['version']}.zip")
 
 
 def is_required(info: dict | None) -> bool:
@@ -121,15 +153,17 @@ def check(timeout: float = 10, manifest_url: str = MANIFEST_URL, public_key: str
 
 
 def download(info: dict, progress=None, cancelled=lambda: False) -> Path:
-    """Downloads the installer, verifying its SHA-256. progress(done_bytes, total_bytes)."""
-    DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    dest = DOWNLOAD_DIR / f"VoiceTyperSetup-{info['version']}.exe"
+    """Downloads the installer (or the portable zip), verifying its SHA-256. progress(done_bytes, total_bytes)."""
+    url, expected_sha, size, name = asset(info)
+    folder = download_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / name
     part = dest.with_suffix(".part")
     sha = hashlib.sha256()
     done = 0
     try:
-        with _open(info["url"], 60) as resp, open(part, "wb") as f:
-            total = int(resp.headers.get("Content-Length") or info.get("size") or 0)
+        with _open(url, 60) as resp, open(part, "wb") as f:
+            total = int(resp.headers.get("Content-Length") or size or 0)
             while True:
                 if cancelled():
                     raise UpdateError("cancelled")
@@ -147,7 +181,7 @@ def download(info: dict, progress=None, cancelled=lambda: False) -> Path:
     except Exception as exc:  # noqa: BLE001
         part.unlink(missing_ok=True)
         raise UpdateError(str(exc)) from exc
-    if sha.hexdigest() != info["sha256"]:
+    if sha.hexdigest() != expected_sha:
         part.unlink(missing_ok=True)
         raise UpdateError("checksum mismatch: the downloaded file is damaged or was altered")
     part.replace(dest)
@@ -163,14 +197,58 @@ def install(setup: Path) -> None:
     cmd = f'ping -n 6 127.0.0.1 >nul & start "" {args}'
     flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
     # Passed as one string: a list would make Python escape the quotes as \" which cmd misreads.
+    # The installer inherits our TEMP / TMP (portable.use_private_temp): Inno Setup unpacks its helper there.
     subprocess.Popen(f"cmd.exe /c {cmd}", creationflags=flags, close_fds=True,  # noqa: S603
                      cwd=os.path.dirname(setup))
 
 
+def unpack_portable(zip_path: Path, version: str) -> Path:
+    """Unpacks a verified portable zip next to it (our tmp folder). Refuses paths escaping the folder."""
+    target = zip_path.parent / f"new-{version}"
+    if target.exists():
+        import shutil
+
+        shutil.rmtree(target, ignore_errors=True)
+    target.mkdir(parents=True)
+    root = target.resolve()
+    with zipfile.ZipFile(zip_path) as z:
+        for member in z.namelist():
+            dest = (target / member).resolve()
+            if root != dest and root not in dest.parents:
+                raise UpdateError(f"unsafe path in the update package: {member}")
+        z.extractall(target)
+    if not (target / "Voice Typer.exe").is_file():
+        raise UpdateError("the update package does not contain Voice Typer.exe")
+    (target / portable.MARKER).touch()  # stays portable
+    return target
+
+
+def portable_swap_command(new_dir: Path, app: Path) -> str:
+    """cmd.exe line run once the app has quit: copy the new files over the app folder, then restart it."""
+    exe = str(app).rstrip("\\/") + "\\Voice Typer.exe"   # always a Windows path (cmd.exe line)
+    return (f'ping -n 6 127.0.0.1 >nul & robocopy "{new_dir}" "{app}" /E /R:15 /W:1 /NFL /NDL /NJH /NJS /NP >nul'
+            f' & rd /s /q "{new_dir}" & start "" "{exe}" --updated')
+
+
+def install_portable(zip_path: Path, version: str) -> None:
+    """Portable copy: unpack the update, then replace the app's files after it quits. Caller quits right after."""
+    new_dir = unpack_portable(zip_path, version)
+    cmd = portable_swap_command(new_dir, portable.app_dir())
+    flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+    subprocess.Popen(f"cmd.exe /c {cmd}", creationflags=flags, close_fds=True,  # noqa: S603
+                     cwd=str(portable.app_dir().parent))
+
+
 def cleanup() -> None:
-    """Deletes installers left from a previous update (called once the new version runs)."""
-    for f in DOWNLOAD_DIR.glob("VoiceTyperSetup-*"):
-        try:
-            f.unlink()
-        except OSError:
-            pass
+    """Deletes installers / zips left from a previous update (called once the new version runs)."""
+    folder = download_dir()
+    for pattern in ("VoiceTyperSetup-*", "VoiceTyper-portable-*"):
+        for f in folder.glob(pattern):
+            try:
+                f.unlink()
+            except OSError:
+                pass
+    import shutil
+
+    for d in folder.glob("new-*"):
+        shutil.rmtree(d, ignore_errors=True)

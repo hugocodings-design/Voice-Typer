@@ -16,6 +16,11 @@ os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# Our own temporary folder, never %TEMP% (company ASR rules can block it): before anything else runs.
+from voice_typer.portable import use_private_temp  # noqa: E402
+
+use_private_temp()
+
 from voice_typer.app import main  # noqa: E402
 
 main()
