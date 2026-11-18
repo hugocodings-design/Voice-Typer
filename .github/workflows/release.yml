@@ -79,7 +79,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { Write-Host "::error::ISCC.exe not found after installing Inno Setup"; exit 1 }
-          Write-Host "Inno Setup $((Get-Item $iscc).VersionInfo.ProductVersion) (installer/VoiceTyper.iss needs 6.7+)"
+          choco list innosetup --exact
 
       - name: Build the installer (tests, PyInstaller, self-test, Inno Setup)
         if: steps.ver.outputs.publish == 'true'
@@ -100,9 +100,10 @@ jobs:
           $env:VT_SIGNING_DIR = $dir
           try {
             $n = Get-Content installer\release-notes.json -Raw -Encoding UTF8 | ConvertFrom-Json
-            $publish = @("-ExecutionPolicy", "Bypass", "-File", "installer\publish.ps1", "-Notes", $n.fr, "-NotesEn", $n.en)
-            if ($n.required -eq $true) { $publish += "-Required" }
-            powershell @publish
+            # run publish.ps1 in this same PowerShell 7 (no extra process: the notes keep their quotes and accents)
+            $publish = @{ Notes = $n.fr; NotesEn = $n.en }
+            if ($n.required -eq $true) { $publish.Required = $true }
+            & .\installer\publish.ps1 @publish
             if ($LASTEXITCODE -ne 0) { exit 1 }
           } finally {
             Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
