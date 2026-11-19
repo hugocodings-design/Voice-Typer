@@ -335,13 +335,15 @@ STRINGS["fr"].update({
     "wr_copy_suffix": "(copie)",
     "wr_name": "Nom", "wr_hotkey": "Raccourci", "wr_remove_key": "Retirer",
     "wr_instructions": "Consignes pour l'IA",
-    "wr_instructions_hint": "Décrivez le résultat voulu. {signature} sera remplacé par votre signature.",
+    "wr_instructions_hint": "Décrivez le résultat voulu (ton, salutation, paragraphes…). La signature et l'objet se "
+                            "règlent avec les cases sous la zone : inutile de les décrire ici.",
     "wr_save": "Enregistrer", "wr_saved": "✓ Enregistré",
     "wr_delete_confirm": "Supprimer le préréglage « {name} » ?",
     "wr_reset": "Rétablir les préréglages d'origine",
     "wr_reset_confirm": "Remplacer tous vos préréglages par ceux d'origine ?",
     "wr_signature_title": "Signature",
-    "wr_signature_sub": "Ajoutée à la fin des préréglages qui contiennent {signature} (par ex. Courriel).",
+    "wr_signature_sub": "Ajoutée après la formule de politesse dans les préréglages où « Ajouter ma signature » est "
+                        "coché, sauf si vous avez dicté votre propre signature.",
     "wr_test_title": "Essayer sans micro",
     "wr_test_sub": "Tapez une dictée brute et voyez le résultat avec les consignes du préréglage sélectionné.",
     "wr_test_btn": "Tester la mise en forme", "wr_test_running": "Mise en forme…",
@@ -414,13 +416,15 @@ STRINGS["en"].update({
     "wr_new": "New", "wr_duplicate": "Duplicate", "wr_new_name": "New preset", "wr_copy_suffix": "(copy)",
     "wr_name": "Name", "wr_hotkey": "Shortcut", "wr_remove_key": "Remove",
     "wr_instructions": "Instructions for the AI",
-    "wr_instructions_hint": "Describe the result you want. {signature} is replaced by your signature.",
+    "wr_instructions_hint": "Describe the result you want (tone, greeting, paragraphs…). The signature and the "
+                            "subject are set with the boxes below the area: no need to describe them here.",
     "wr_save": "Save", "wr_saved": "✓ Saved",
     "wr_delete_confirm": "Delete the preset \"{name}\"?",
     "wr_reset": "Restore default presets",
     "wr_reset_confirm": "Replace all your presets with the default ones?",
     "wr_signature_title": "Signature",
-    "wr_signature_sub": "Added at the end of presets containing {signature} (e.g. Email).",
+    "wr_signature_sub": "Added after the closing in presets where \"Add my signature\" is checked, unless you "
+                        "dictated your own signature.",
     "wr_test_title": "Try it without a microphone",
     "wr_test_sub": "Type a raw dictation and see the result with the selected preset's instructions.",
     "wr_test_btn": "Test formatting", "wr_test_running": "Formatting…",
@@ -774,6 +778,11 @@ STRINGS["fr"].update({
     "set_mic_button": "Bouton micro flottant (clic = dicter, clic droit = menu)",
     "set_mic_button_note": "Un rond vert toujours visible, à déplacer où vous voulez : cliquez pour commencer, "
                            "recliquez pour finir. Le texte va dans l'application où vous écriviez.",
+    "wr_add_signature": "Ajouter ma signature à la fin (sauf si je l'ai dictée)",
+    "wr_subject": "Générer un objet de courriel (première ligne « Objet : … »)",
+    "wr_expand": "Ouvrir en grand",
+    "wr_expand_title": "Consignes pour l'IA — {name}",
+    "wr_expand_ok": "Valider",
     "report_btn": "Signaler un problème…",
     "report_intro": "Que s'est-il passé ? Décrivez en quelques mots ce que vous faisiez et ce qui n'a pas marché.",
     "report_privacy": "Un fichier de diagnostic sera joint : réglages et journal, sans votre historique, "
@@ -820,6 +829,11 @@ STRINGS["en"].update({
     "set_mic_button": "Floating mic button (click = dictate, right-click = menu)",
     "set_mic_button_note": "An always-visible green circle you can move anywhere: click to start, click again "
                            "to finish. The text goes to the application you were typing in.",
+    "wr_add_signature": "Add my signature at the end (unless I dictated it)",
+    "wr_subject": "Write an e-mail subject (first line \"Subject: …\")",
+    "wr_expand": "Open large",
+    "wr_expand_title": "Instructions for the AI — {name}",
+    "wr_expand_ok": "Done",
     "report_btn": "Report a problem…",
     "report_intro": "What happened? Describe in a few words what you were doing and what went wrong.",
     "report_privacy": "A diagnostic file will be attached: settings and log, without your history, audio, "

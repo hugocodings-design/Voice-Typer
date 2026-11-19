@@ -1,6 +1,6 @@
 {
-  "version": "0.14.0",
-  "fr": "Retrait du PC boost : retour au contenu de la version 0.12 (version portable, aucun usage de %TEMP%)",
-  "en": "PC boost removed: back to the contents of version 0.12 (portable version, %TEMP% never used)",
+  "version": "0.15.0",
+  "fr": "Écriture IA : signature et objet de courriel fiables (cases par préréglage), grande zone de consignes défilable",
+  "en": "AI writing: reliable signature and e-mail subject (per-preset switches), large scrollable instructions area",
   "required": false
 }

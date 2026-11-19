@@ -102,7 +102,10 @@ def test_invented_greeting_guard(out, src, expected):
 def test_default_presets_shape(ui):
     presets = default_presets(ui)
     assert {p["id"] for p in presets} == {"email", "message", "notes", "fix"}
-    assert "{signature}" in next(p for p in presets if p["id"] == "email")["instructions"]
+    by_id = {p["id"]: p for p in presets}
+    # the signature is a switch handled by code (compose.py), no longer a {signature} placeholder
+    assert by_id["email"]["add_signature"] is True and by_id["message"]["add_signature"] is False
+    assert all("{signature}" not in p["instructions"] for p in presets)
 
 
 # ---- i18n / languages -------------------------------------------------------------------

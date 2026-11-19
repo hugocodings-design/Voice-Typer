@@ -16,6 +16,17 @@ UNDO_PRESETS = ["ctrl+alt+z", "ctrl+shift+z", "f7", "pause"]
 WRITING_PRESET_KEYS =["f2", "f3", "f4", "f6", "f7", "ctrl+alt+e"]
 
 
+def _scrolls_itself(widget) -> bool:
+    """Text boxes, lists and tables that are taller inside than on screen handle the wheel themselves."""
+    if not isinstance(widget, (tk.Text, tk.Listbox, ttk.Treeview)):
+        return False
+    try:
+        top, bottom = widget.yview()
+    except (tk.TclError, ValueError, TypeError):
+        return False
+    return top > 0.0 or bottom < 1.0
+
+
 class ScrollFrame(ttk.Frame):
     """Vertically scrollable container (mouse wheel works anywhere over it)."""
 
@@ -41,5 +52,7 @@ class ScrollFrame(ttk.Frame):
             if widget is self:
                 self.canvas.yview_scroll(int(-event.delta / 120), "units")
                 return
+            if _scrolls_itself(widget):
+                return  # a text box / list with more content than it shows: it scrolls, not the page
             widget = widget.master
 

@@ -91,7 +91,11 @@ class Config:
             defaults = {p["id"]: p for p in default_presets(cfg.ui_language)}
             for p in cfg.presets:
                 if p.get("id") in defaults:
-                    p["instructions"] = defaults[p["id"]]["instructions"]
+                    d = defaults[p["id"]]
+                    p["instructions"] = d["instructions"]
+                    for k in ("add_signature", "subject"):
+                        if k in d:
+                            p[k] = d[k]
         cfg.settings_version = 3
         # French and English only (models are multilingual or French / English specialists).
         cfg.favorite_languages = ["fr", "en"]

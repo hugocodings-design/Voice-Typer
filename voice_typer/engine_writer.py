@@ -79,9 +79,13 @@ class WriterMixin:
     def rewrite(self, text: str, preset: dict) -> str:
         """Blocking: rewrite text with a preset."""
         instructions = preset.get("instructions", "")
-        return self.rewrite_local(text, instructions, self.config.signature)
+        from voice_typer.compose import preset_flags
 
-    def rewrite_local(self, text: str, instructions: str, signature: str) -> str:
+        add_signature, subject = preset_flags(preset)
+        return self.rewrite_local(text, instructions, self.config.signature, add_signature, subject)
+
+    def rewrite_local(self, text: str, instructions: str, signature: str, add_signature: bool = False,
+                      subject: bool = False) -> str:
         """Blocking: rewrite on this PC, loading the writing AI first if needed."""
         with self._writer_lock:
             if self.writer is None or self.writer.source != self.config.writing_model:
@@ -91,7 +95,7 @@ class WriterMixin:
                 self.writer = self._make_writer()
                 self._emit("writer_loaded", (source, self.writer.device, time.perf_counter() - started))
             writer = self.writer
-            out = writer.rewrite(text, instructions, signature)
+            out = writer.rewrite(text, instructions, signature, add_signature, subject)
             if not self.config.writer_preload:
                 self.writer = None
             return out

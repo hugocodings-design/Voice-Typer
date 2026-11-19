@@ -6,7 +6,7 @@ from tkinter import ttk
 
 from voice_typer.gui import dialogs as messagebox
 
-from voice_typer import ui_theme, winapp, writer
+from voice_typer import compose, ui_theme, winapp, writer
 from voice_typer.gui.common import ScrollFrame
 from voice_typer.hotkey import normalize as normalize_hotkey
 
@@ -80,11 +80,26 @@ class WritingPage:
         ttk.Label(ed, text=self.t("wr_hotkey")).pack(anchor="w")
         self.preset_key_row = ttk.Frame(ed)
         self.preset_key_row.pack(fill="x", pady=(4, 10))
-        ttk.Label(ed, text=self.t("wr_instructions")).pack(anchor="w")
-        ttk.Label(ed, text=self.t("wr_instructions_hint"), style="Muted.TLabel", wraplength=380,
-                  justify="left").pack(anchor="w")
-        self.preset_text = self._text_box(ed, 9)
-        self.preset_text.pack(fill="both", expand=True, pady=(4, 8))
+        head = ttk.Frame(ed)
+        head.pack(fill="x")
+        ttk.Label(head, text=self.t("wr_instructions")).pack(side="left")
+        ttk.Button(head, text=self.t("wr_expand"), command=self._preset_expand).pack(side="right")
+        ttk.Label(ed, text=self.t("wr_instructions_hint"), style="Muted.TLabel", wraplength=420,
+                  justify="left").pack(anchor="w", pady=(2, 0))
+        # A tall, scrollable area: the wheel scrolls the instructions, not the page (common.ScrollFrame)
+        area = ttk.Frame(ed)
+        area.pack(fill="both", expand=True, pady=(4, 6))
+        self.preset_text = self._text_box(area, 16)
+        bar_y = ttk.Scrollbar(area, orient="vertical", command=self.preset_text.yview)
+        self.preset_text.configure(yscrollcommand=bar_y.set)
+        bar_y.pack(side="right", fill="y")
+        self.preset_text.pack(side="left", fill="both", expand=True)
+        self.preset_sig_var = tk.BooleanVar(value=False)
+        self.preset_subj_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(ed, text=self.t("wr_add_signature"), style="Switch.TCheckbutton",
+                        variable=self.preset_sig_var).pack(anchor="w", pady=(2, 0))
+        ttk.Checkbutton(ed, text=self.t("wr_subject"), style="Switch.TCheckbutton",
+                        variable=self.preset_subj_var).pack(anchor="w", pady=(6, 8))
         bar = ttk.Frame(ed)
         bar.pack(fill="x")
         ttk.Button(bar, text=self.t("wr_save"), style="Accent.TButton", command=self._preset_save).pack(side="left")
@@ -324,6 +339,9 @@ class WritingPage:
         self.preset_name.insert(0, p["name"])
         self.preset_text.insert("1.0", p.get("instructions", ""))
         self.preset_text.edit_reset()
+        add_signature, subject = compose.preset_flags(p)
+        self.preset_sig_var.set(add_signature)
+        self.preset_subj_var.set(subject)
         self._keycaps(self.preset_key_row, p.get("hotkey", "")).pack(side="left")
         ttk.Button(self.preset_key_row, text=self.t("change"),
                    command=lambda: self._record_hotkey(f"preset:{p['id']}")).pack(side="left", padx=(12, 0))
@@ -337,6 +355,44 @@ class WritingPage:
         if p:
             p["name"] = self.preset_name.get().strip() or p["name"]
             p["instructions"] = self.preset_text.get("1.0", "end").strip()
+            p["add_signature"] = bool(self.preset_sig_var.get())
+            p["subject"] = bool(self.preset_subj_var.get())
+
+    def _preset_expand(self) -> None:
+        """The instructions in a large, resizable window (synced back into the editor on « Valider »)."""
+        p = self.engine.preset(self._editing_preset)
+        if not p:
+            return
+        dlg = tk.Toplevel(self.root)
+        dlg.title(self.t("wr_expand_title", name=self.preset_name.get().strip() or p["name"]))
+        dlg.transient(self.root)
+        dlg.configure(bg=self.pal["bg"])
+        w, h = int(self.root.winfo_width() * 0.85), int(self.root.winfo_height() * 0.85)
+        x = self.root.winfo_rootx() + (self.root.winfo_width() - w) // 2
+        y = self.root.winfo_rooty() + (self.root.winfo_height() - h) // 2
+        dlg.geometry(f"{max(w, 640)}x{max(h, 420)}+{max(0, x)}+{max(0, y)}")
+        box = ttk.Frame(dlg, padding=18)
+        box.pack(fill="both", expand=True)
+        ttk.Label(box, text=self.t("wr_instructions_hint"), style="Muted.TLabel", wraplength=max(w, 640) - 60,
+                  justify="left").pack(anchor="w", pady=(0, 8))
+        bottom = ttk.Frame(box)
+        bottom.pack(side="bottom", fill="x", pady=(12, 0))
+        area = ttk.Frame(box)
+        area.pack(fill="both", expand=True)
+        big = self._text_box(area, 20, self.preset_text.get("1.0", "end-1c"))
+        sb = ttk.Scrollbar(area, orient="vertical", command=big.yview)
+        big.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        big.pack(side="left", fill="both", expand=True)
+
+        def done():
+            self.preset_text.delete("1.0", "end")
+            self.preset_text.insert("1.0", big.get("1.0", "end-1c"))
+            dlg.destroy()
+
+        ttk.Button(bottom, text=self.t("cancel"), command=dlg.destroy).pack(side="right")
+        ttk.Button(bottom, text=self.t("wr_expand_ok"), style="Accent.TButton", command=done).pack(side="right", padx=6)
+        big.focus_set()
 
     def _preset_save(self) -> None:
         self._store_editor()

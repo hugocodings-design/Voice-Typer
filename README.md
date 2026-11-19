@@ -57,6 +57,9 @@ No cloud API, no account, nothing leaves your PC.
       history and models stay with each PC
 - [x] Welcome assistant on first launch (language, model suited to the PC, mic test, shortcut)
 - [x] Diagnostic export (zip without your personal texts) for troubleshooting
+- [x] **AI presets: signature and subject handled reliably** — per preset, « Ajouter ma signature » (added after
+      the closing unless you dictated your own) and « Générer un objet » (first line « Objet : … »); a tall,
+      scrollable instructions editor with an « Ouvrir en grand » window
 - [x] **Floating mic button** (from Voice Typer Mobile): a green circle you can drag anywhere — click to
       dictate, click again to finish, whatever the shortcut mode; right-click for a menu (dictate with another
       preset, « Toujours dans <app> », language, re-paste / undo the last dictation, hide). It never takes focus,
