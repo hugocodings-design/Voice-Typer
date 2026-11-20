@@ -183,7 +183,7 @@ class Writer:
         return self.tokenizer.decode(result[0].sequences_ids[0], skip_special_tokens=True).strip()
 
     def rewrite(self, text: str, instructions: str, signature: str = "", add_signature: bool = False,
-                subject: bool = False) -> str:
+                subject: bool = False, signature_blank_line: bool = False) -> str:
         """The signature and the subject are not left to the model (see compose.py): sentences about them are
         removed from the instructions, the signature is appended by code unless one was dictated, and the
         subject comes from a second, tiny request."""
@@ -200,7 +200,7 @@ class Writer:
                              shots=[(ask(EXAMPLE_RULES, EXAMPLE_IN), EXAMPLE_OUT)])
         out = _LEAKED_NOTE.sub("", out.strip().strip("«»\"").strip()).strip()
         out = _fix_invented_greeting(out, text) or text
-        out = compose.finish_signature(out, signature, add_signature)
+        out = compose.finish_signature(out, signature, add_signature, signature_blank_line)
         self.last_timings["rewrite"] = time.perf_counter() - started
         if subject:
             started = time.perf_counter()

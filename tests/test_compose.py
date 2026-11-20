@@ -36,6 +36,14 @@ def test_signature_added_after_the_closing():
     assert compose.finish_signature(body, "", True) == body                # no signature saved
 
 
+def test_optional_blank_line_before_signature():
+    body = "Bonjour Marc,\n\nLe rapport est prêt.\n\nMerci,"
+    assert compose.finish_signature(body, "Hugo Dasilva", True, blank_line=True) == body + "\n\nHugo Dasilva"
+    assert compose.finish_signature(body, "\n\nHugo Dasilva\n", True) == body + "\nHugo Dasilva"   # off by default
+    dictated = "Bonjour,\n\nC'est noté.\n\nMerci,\nHugo pour l'équipe Ventes"
+    assert compose.finish_signature(dictated, "Hugo Dasilva", True, blank_line=True) == dictated
+
+
 def test_dictated_signature_is_kept_and_not_doubled():
     for body in ("Bonjour,\n\nC'est noté.\n\nMerci,\nHugo pour l'équipe Ventes",
                  "Bonjour,\n\nC'est noté.\n\nBonne journée, Hugo",

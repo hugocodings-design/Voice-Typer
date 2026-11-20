@@ -107,13 +107,15 @@ def ends_with_signature(text: str, signature: str = "") -> bool:
     return bool(m and _CLOSING.search(m.group(1)))
 
 
-def finish_signature(text: str, signature: str, add: bool) -> str:
-    """Appends the configured signature after the closing formula, unless one is already there."""
+def finish_signature(text: str, signature: str, add: bool, blank_line: bool = False) -> str:
+    """Appends the configured signature after the closing formula, unless one is already there.
+
+    blank_line: an empty line between the closing ("Merci,") and the signature (Réglages of the signature)."""
     signature = signature.strip()
     text = text.rstrip()
     if not add or not signature or ends_with_signature(text, signature):
         return text
-    return f"{text}\n{signature}"
+    return f"{text}{chr(10) * (2 if blank_line else 1)}{signature}"
 
 
 # ---- subject ---------------------------------------------------------------------------------------

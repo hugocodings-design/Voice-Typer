@@ -1,6 +1,6 @@
 {
-  "version": "0.16.0",
-  "fr": "Plus rapide sans carte graphique (réglages Vitesse), détail du temps de chaque dictée, bulle de dictée redessinée",
-  "en": "Faster without a graphics card (Speed settings), time breakdown of each dictation, redesigned dictation pill",
+  "version": "0.17.0",
+  "fr": "Option « ligne vide avant la signature » et précision sur l'écriture en direct",
+  "en": "\"Empty line before the signature\" option, and clearer live-typing setting",
   "required": false
 }
