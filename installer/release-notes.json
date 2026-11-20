@@ -1,6 +1,6 @@
 {
-  "version": "0.18.0",
-  "fr": "Nombres écrits en chiffres (« vingt-cinq » → 25, « dix pour cent » → 10 %), nouveau modèle Français Distil (équilibré), ligne vide avant la signature au choix",
-  "en": "Numbers written as digits (\"twenty-five\" → 25, \"ten percent\" → 10%), new French Distil (balanced) model, optional empty line before the signature",
+  "version": "0.18.1",
+  "fr": "Courriels : la formule de politesse n'est plus écrite deux fois quand la signature en contient une, et la signature est toujours ajoutée",
+  "en": "Emails: the closing is no longer written twice when the signature already has one, and the signature is always added",
   "required": false
 }

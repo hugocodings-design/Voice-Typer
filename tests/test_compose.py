@@ -62,3 +62,30 @@ def test_subject_line():
         "Objet : Livraison retardée à jeudi\n\nBonjour Marc,\n\nTexte."
     assert compose.with_subject("Hello Mark,\n\nText.", "Delivery delayed") == "Subject: Delivery delayed\n\nHello Mark,\n\nText."
     assert compose.with_subject("Bonjour,", "   ") == "Bonjour,"
+
+
+SIG_WITH_CLOSING = "N'hésitez pas à m'appeler au 438-555-0100 pour toute question.\n\nMerci et à bientôt !"
+
+
+def test_closing_is_not_doubled_when_the_signature_has_one():
+    body = "Bonjour,\n\nJ'ai activé la carte SIM.\n\nMerci et à bientôt !"
+    out = compose.finish_signature(body, SIG_WITH_CLOSING, True, blank_line=True)
+    assert out == "Bonjour,\n\nJ'ai activé la carte SIM.\n\n" + SIG_WITH_CLOSING
+    assert out.count("Merci et à bientôt") == 1
+    other = compose.finish_signature(body.replace("Merci et à bientôt !", "Merci,"), SIG_WITH_CLOSING, True)
+    assert "Merci," not in other and other.endswith(SIG_WITH_CLOSING)
+    # already there (the model copied it): left once
+    assert compose.finish_signature(out, SIG_WITH_CLOSING, True, blank_line=True) == out
+
+
+def test_a_closing_alone_is_not_taken_for_a_signature():
+    body = "Bonjour,\n\nMerci de me revenir rapidement.\n\nMerci et à bientôt !"
+    assert compose.finish_signature(body, "Hugo Da Silva", True, blank_line=True) == body + "\n\nHugo Da Silva"
+    assert compose.ends_with_signature("Bonjour,\n\nC'est noté.\n\nMerci et bonne journée !") is False
+
+
+def test_closing_lines():
+    for line in ("Merci,", "Merci et à bientôt !", "Cordialement,", "Bien à vous,", "Best regards,"):
+        assert compose.is_closing_line(line)
+    for line in ("Bonne journée, Hugo", "Merci de me revenir rapidement.", "Merci pour votre aide ?"):
+        assert not compose.is_closing_line(line)

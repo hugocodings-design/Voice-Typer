@@ -85,37 +85,85 @@ def _lines(text: str) -> list[str]:
     return [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
 
 
+def is_closing_line(line: str) -> bool:
+    """A short line that is only a closing formula: "Merci,", "Merci et à bientôt !", "Bonne journée,"."""
+    line = line.strip()
+    if not line or len(line.split()) > 7 or not _CLOSING.match(line) or line.endswith(("?", ":")):
+        return False
+    rest = _CLOSING.sub(" ", line.lower())
+    rest = re.sub(r"\b(et|and|encore|beaucoup|bien|tous|toutes|à|vous|much|again|very|kind|warm|so|"
+                  r"you|a|à tous)\b", " ", rest)
+    return not re.sub(r"[\W_]+", "", rest)   # nothing left but formulas and punctuation
+
+
+def _signature_lines(signature: str) -> list[str]:
+    """The signature's own lines, without the closing formula some people put in it."""
+    return [ln for ln in _lines(signature) if not is_closing_line(ln)]
+
+
 def ends_with_signature(text: str, signature: str = "") -> bool:
     """True if the e-mail already ends with a signature: the configured one, or a name the user dictated
-    after the closing formula ("Merci,\\nHugo" / "Bonne journée,\\nHugo, pour l'équipe Ventes")."""
+    after the closing formula ("Merci,\nHugo" / "Bonne journée,\nHugo, pour l'équipe Ventes")."""
     lines = _lines(text)
     if not lines:
         return False
     tail = "\n".join(lines[-4:]).lower()
-    first_sig_line = (_lines(signature) or [""])[0].lower()
+    first_sig_line = (_signature_lines(signature) or [""])[0].lower()
     if first_sig_line and first_sig_line in tail:
         return True
     last = lines[-1]
+    if is_closing_line(last):            # "… Merci et à bientôt !" is a closing, not a signature
+        return False
     name = r"[A-ZÀ-Ý][\w'’\-]+(?:\s+[A-ZÀ-Ý][\w'’\-]+){0,3}"
     # "Merci,\nHugo" — a short capitalised line (not a sentence) right after the closing formula
-    if len(lines) >= 2 and _CLOSING.search(lines[-2]) and lines[-2].endswith((",", ".", "!")):
+    if len(lines) >= 2 and is_closing_line(lines[-2]) and lines[-2].endswith((",", ".", "!")):
         words = last.split()
-        if 1 <= len(words) <= 8 and last[:1].isupper() and not last.endswith((".", "?", ":")):
+        if 1 <= len(words) <= 8 and last[:1].isupper() and not last.endswith((".", "?", ":", "!")):
             return True
     # "Merci, Hugo" / "Bonne journée, Hugo Dasilva" on one line
     m = re.match(rf"^(.*?),\s*({name})\s*$", last)
-    return bool(m and _CLOSING.search(m.group(1)))
+    return bool(m and _CLOSING.match(m.group(1)) and len(m.group(1).split()) <= 4)
+
+
+def _drop_trailing_closings(text: str) -> str:
+    lines = text.rstrip().splitlines()
+    while lines and (not lines[-1].strip() or is_closing_line(lines[-1])):
+        lines.pop()
+    return "\n".join(lines).rstrip()
+
+
+def _dedupe_closings(text: str) -> str:
+    """The same closing twice near the end ("Merci et à bientôt !" … signature … "Merci et à bientôt !"):
+    only the last one stays."""
+    lines = text.splitlines()
+    start = max(0, len(lines) - 12)
+    seen = set()
+    for i in range(len(lines) - 1, start - 1, -1):
+        if not is_closing_line(lines[i]):
+            continue
+        key = re.sub(r"[\W_]+", " ", lines[i].lower()).strip()
+        if key in seen:
+            lines[i] = None
+        seen.add(key)
+    out = [ln for ln in lines if ln is not None]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
 
 
 def finish_signature(text: str, signature: str, add: bool, blank_line: bool = False) -> str:
     """Appends the configured signature after the closing formula, unless one is already there.
 
+    If the signature has its own closing ("N'hésitez pas à m'appeler…\nMerci et à bientôt !"), the closing the
+    AI wrote is removed first: the e-mail ends with the signature's, once.
     blank_line: an empty line between the closing ("Merci,") and the signature (Réglages of the signature)."""
     signature = signature.strip()
     text = text.rstrip()
-    if not add or not signature or ends_with_signature(text, signature):
+    if not add or not signature:
         return text
-    return f"{text}{chr(10) * (2 if blank_line else 1)}{signature}"
+    if ends_with_signature(text, signature):
+        return _dedupe_closings(text)
+    if any(is_closing_line(ln) for ln in _lines(signature)):
+        text = _drop_trailing_closings(text)
+    return _dedupe_closings(f"{text}{chr(10) * (2 if blank_line else 1)}{signature}")
 
 
 # ---- subject ---------------------------------------------------------------------------------------
