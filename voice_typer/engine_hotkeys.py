@@ -131,7 +131,8 @@ class HotkeysMixin:
             self._wait_modifiers_released()
             send_text(out, "paste", False, self.config.keep_in_clipboard)  # pasting replaces the selection
             self.last_text = out
-            self._emit("transcript", (out, time.perf_counter() - started, None, preset["name"], text))
+            self._emit("transcript", (out, time.perf_counter() - started, None, preset["name"], text,
+                                      dict(getattr(self, "last_rewrite_timings", {}) or {})))
 
         threading.Thread(target=work, daemon=True).start()
 

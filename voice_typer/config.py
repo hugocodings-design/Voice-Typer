@@ -44,6 +44,8 @@ class Config:
     trailing_space: bool = True
     keep_in_clipboard: bool = True  # leave the last transcription on the clipboard (Ctrl+V works again)
     voice_commands: bool = True     # "à la ligne", "virgule"… → formatting (see commands.py)
+    speed_mode: str = "auto"        # transcription: "auto" (fast on CPU, accurate on GPU) | "fast" | "accurate" (speed.py)
+    all_cores: bool = True          # use about one thread per physical core (CTranslate2 defaults to 4)
     remove_fillers: bool = True     # drop "euh", "hum", "um" and repeated words ("le le") — cleanup.py
     live_preview: bool = False      # show the transcription in real time while speaking
     live_typing: bool = False       # type words into the app while speaking (streaming.py)
@@ -101,6 +103,8 @@ class Config:
         cfg.favorite_languages = ["fr", "en"]
         if cfg.language not in (None, "fr", "en"):
             cfg.language = None
+        if cfg.speed_mode not in ("auto", "fast", "accurate"):
+            cfg.speed_mode = "auto"
         cfg.ensure_presets()
         return cfg
 

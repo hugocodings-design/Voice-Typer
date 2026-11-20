@@ -11,7 +11,7 @@ import threading
 import time
 import traceback
 
-from voice_typer import cleanup, commands, dictionary, models
+from voice_typer import cleanup, commands, dictionary, models, speed
 from voice_typer.config import Config
 from voice_typer.engine_hotkeys import HotkeysMixin
 from voice_typer.engine_writer import WriterMixin
@@ -100,7 +100,8 @@ class Engine(WriterMixin, HotkeysMixin):
                 path = models.resolve(source)  # downloads on first use
                 new = models.retry_while_locked(lambda: Transcriber(
                     source, path, self.config.device,
-                    self.config.compute_type, self.config.gpu_compute_type))
+                    self.config.compute_type, self.config.gpu_compute_type,
+                    cpu_threads=speed.cpu_threads(self.config.all_cores)))
                 self.transcriber = new
                 self.config.model = source
                 self.config.save()
@@ -321,11 +322,14 @@ class Engine(WriterMixin, HotkeysMixin):
         self._emit("transcribing")
         try:
             started = time.perf_counter()
+            # where the time goes, shown after the dictation (speed.format_timings)
+            timings = {"audio": audio.size / float(self.config.sample_rate)}
             language = self.config.language
             vocabulary, replacements = dictionary.for_app(self.config.vocabulary, self.config.replacements,
                                                           self.config.app_dictionaries, self._target_exe)
             hotwords = dictionary.hotwords(vocabulary)
-            text = transcriber.transcribe(audio, language, hotwords)
+            text = transcriber.transcribe(audio, language, hotwords, mode=self.config.speed_mode)
+            timings["transcribe"] = time.perf_counter() - started
             text = cleanup.strip_hallucinations(text)
             if self.config.remove_fillers:
                 text = cleanup.remove_fillers(text, language)
@@ -340,8 +344,11 @@ class Engine(WriterMixin, HotkeysMixin):
             if preset and text.strip():
                 self._emit("rewriting", preset)
                 try:
+                    self.last_rewrite_timings = {}
+                    t_rewrite = time.perf_counter()
                     text = self.rewrite(text, preset)
                     text = dictionary.apply_replacements(text, replacements)
+                    timings.update(self.last_rewrite_timings or {"rewrite": time.perf_counter() - t_rewrite})
                 except Exception as exc:  # noqa: BLE001 — never lose the dictation
                     traceback.print_exc()
                     self._emit("writer_error", f"{type(exc).__name__}: {exc}")
@@ -372,7 +379,8 @@ class Engine(WriterMixin, HotkeysMixin):
                 typed = text + (" " if text and trailing else "")
             if typed:
                 self.undo.record(typed)
-            self._emit("transcript", (text, elapsed, language, preset["name"] if preset else None, raw))
+            timings["paste"] = max(0.0, time.perf_counter() - started - elapsed)
+            self._emit("transcript", (text, elapsed, language, preset["name"] if preset else None, raw, timings))
         except Exception as exc:  # noqa: BLE001
             traceback.print_exc()
             self._emit("idle", f"Error: {exc}")

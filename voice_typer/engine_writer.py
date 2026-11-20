@@ -5,6 +5,7 @@ import time
 import traceback
 
 from voice_typer import models
+from voice_typer.speed import cpu_threads
 from voice_typer.hotkey import Hotkey
 
 
@@ -42,7 +43,8 @@ class WriterMixin:
         from voice_typer.writer import Writer
 
         return models.retry_while_locked(
-            lambda: Writer(self.config.writing_model, self.config.device, "int8", "int8_float16"))
+            lambda: Writer(self.config.writing_model, self.config.device, "int8", "int8_float16",
+                           cpu_threads=cpu_threads(self.config.all_cores)))
 
     def load_writer(self, force: bool = False) -> None:
         """Download (if needed) and load the writing AI in the background."""
@@ -96,6 +98,7 @@ class WriterMixin:
                 self._emit("writer_loaded", (source, self.writer.device, time.perf_counter() - started))
             writer = self.writer
             out = writer.rewrite(text, instructions, signature, add_signature, subject)
+            self.last_rewrite_timings = dict(getattr(writer, "last_timings", {}) or {})
             if not self.config.writer_preload:
                 self.writer = None
             return out

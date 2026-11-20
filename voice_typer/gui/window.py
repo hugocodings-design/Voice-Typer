@@ -8,7 +8,7 @@ from tkinter import ttk
 
 from voice_typer.gui import dialogs as messagebox
 
-from voice_typer import gpu, languages, models, ui_theme
+from voice_typer import gpu, languages, models, speed, ui_theme
 from voice_typer.app import Engine
 from voice_typer.config import load_history, save_history
 from voice_typer.gui.common import PAGES
@@ -358,8 +358,10 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
                 self.config.mode, "status_recording_hold")
             self._set_status(key, "rec")
             if self.config.overlay:
-                extra = f"  ·  {payload['name']}" if payload else ""
-                self.overlay.show("recording", f"{self.t('overlay_listening')}  {self._overlay_lang()}{extra}")
+                # "Courriel · FR" with a preset (the wave already says it's listening), else "Écoute…  FR"
+                label = (f"{payload['name']}  ·  {self._overlay_lang()}" if payload
+                         else f"{self.t('overlay_listening')}  {self._overlay_lang()}")
+                self.overlay.show("recording", label)
             self.tray.set_recording(True)
         elif kind == "rewriting":
             self._set_status("status_rewriting", "busy", busy=True, name=payload["name"])
@@ -382,14 +384,19 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
                 self.overlay.show("transcribing", self.t("overlay_transcribing"))
             self.tray.set_recording(False)
         elif kind == "transcript":
-            text, seconds, lang, preset_name, raw = payload
+            text, seconds, lang, preset_name, raw = payload[:5]
+            timings = payload[5] if len(payload) > 5 else {}
             self._set_ready()
             self.overlay.hide()
             tag = f"✎ {preset_name} — " if preset_name else ""
-            self._set_last(f"{tag}« {text} »  ({seconds:.1f} s)" if text else ("nothing_heard", {}))
+            detail = speed.format_timings(timings, self.config.ui_language)
+            when = f"{seconds:.1f} s" + (f" — {detail}" if detail else "")
+            self._set_last(f"{tag}« {text} »  ({when})" if text else ("nothing_heard", {}))
             if text and self.config.history_enabled:
                 item = {"time": dt.datetime.now().isoformat(timespec="seconds"),
                         "text": text, "lang": lang, "secs": round(seconds, 2)}
+                if timings:
+                    item["timings"] = {k: round(v, 2) for k, v in timings.items()}
                 if preset_name:
                     item.update(preset=preset_name, raw=raw)
                 self.history.append(item)

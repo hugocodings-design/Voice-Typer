@@ -1,6 +1,6 @@
 {
-  "version": "0.15.0",
-  "fr": "Écriture IA : signature et objet de courriel fiables (cases par préréglage), grande zone de consignes défilable",
-  "en": "AI writing: reliable signature and e-mail subject (per-preset switches), large scrollable instructions area",
+  "version": "0.16.0",
+  "fr": "Plus rapide sans carte graphique (réglages Vitesse), détail du temps de chaque dictée, bulle de dictée redessinée",
+  "en": "Faster without a graphics card (Speed settings), time breakdown of each dictation, redesigned dictation pill",
   "required": false
 }

@@ -7,7 +7,7 @@ from tkinter import filedialog, ttk
 
 from voice_typer.gui import dialogs as messagebox
 
-from voice_typer import __version__, autostart
+from voice_typer import __version__, autostart, speed
 from voice_typer.config import SETTINGS_DIR
 from voice_typer.gui.common import ScrollFrame
 from voice_typer.gui.common import UI_LANGUAGES, THEMES
@@ -107,6 +107,20 @@ class SettingsPage:
         self.accel_var = tk.StringVar()
         ttk.Label(c, textvariable=self.accel_var, style="Muted.TLabel").pack(anchor="w", pady=(8, 0))
         self._render_accel()
+
+        # Speed (speed.py)
+        c = self._card(body, self.t("spd_title"), self.t("spd_sub"), **inner_pad)
+        self.speed_var = tk.StringVar(value=self.config.speed_mode)
+        for value, key in (("auto", "spd_auto"), ("fast", "spd_fast"), ("accurate", "spd_accurate")):
+            ttk.Radiobutton(c, text=self.t(key), value=value, variable=self.speed_var,
+                            command=self._on_speed).pack(anchor="w", pady=2)
+        self.cores_var = tk.BooleanVar(value=self.config.all_cores)
+        ttk.Checkbutton(c, text=self.t("spd_cores", n=speed.cpu_threads(True)), style="Switch.TCheckbutton",
+                        variable=self.cores_var, command=self._on_cores).pack(anchor="w", pady=(10, 0))
+        ttk.Label(c, text=self.t("spd_ai_hint"), style="Muted.TLabel", wraplength=680,
+                  justify="left").pack(anchor="w", pady=(10, 0))
+        ttk.Label(c, text=self.t("spd_timing_hint"), style="Muted.TLabel", wraplength=680,
+                  justify="left").pack(anchor="w", pady=(6, 0))
 
         # Startup & history
         c = self._card(body, self.t("set_startup"), **inner_pad)
@@ -342,6 +356,21 @@ class SettingsPage:
     def _on_keepclip(self) -> None:
         self.config.keep_in_clipboard = self.keepclip_var.get()
         self.config.save()
+
+    def _on_speed(self) -> None:
+        self.config.speed_mode = self.speed_var.get()   # read at each dictation: no reload needed
+        self.config.save()
+
+    def _on_cores(self) -> None:
+        self.config.all_cores = self.cores_var.get()
+        self.config.save()
+        # the thread count is fixed when a model loads: reload the speech model, and the writing AI if loaded
+        if self.engine.transcriber is not None:
+            self.engine.reload_model()
+        if self.engine.writer is not None:
+            self.engine.unload_writer()
+            if self.config.writer_preload:
+                self.engine.load_writer()
 
     def _on_close_action(self) -> None:
         self.config.close_action = self.close_var.get()

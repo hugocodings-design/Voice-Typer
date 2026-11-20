@@ -8,10 +8,12 @@ gpu.setup_dll_paths()  # must run before CTranslate2 needs cuBLAS
 
 from faster_whisper import WhisperModel  # noqa: E402
 
+from voice_typer.speed import decode_options  # noqa: E402
+
 
 class Transcriber:
     def __init__(self, source: str, path: str, device: str = "auto",
-                 cpu_compute: str = "int8", gpu_compute: str = "float16"):
+                 cpu_compute: str = "int8", gpu_compute: str = "float16", cpu_threads: int = 0):
         self.source = source  # catalog id shown in the UI
         self.gpu_error: str | None = None
         want_gpu = device == "cuda" or (device == "auto" and gpu.cuda_available())
@@ -26,19 +28,20 @@ class Transcriber:
                 if "Unable to open" in str(exc):  # file still locked: retried by the caller, not a GPU problem
                     raise
                 self.gpu_error = str(exc)
-        self.model = WhisperModel(path, device="cpu", compute_type=cpu_compute)
+        self.model = WhisperModel(path, device="cpu", compute_type=cpu_compute, cpu_threads=cpu_threads)
         self.device = "cpu"
 
     def transcribe(self, audio: np.ndarray, language: str | None = None,
-                   hotwords: str | None = None) -> str:
+                   hotwords: str | None = None, mode: str = "accurate") -> str:
+        """mode: "fast" / "accurate" / "auto" (speed.decode_options: fast on CPU, accurate on GPU)."""
         if audio.size == 0:
             return ""
         segments, _info = self.model.transcribe(
             audio,
             language=language,
-            beam_size=5,
             vad_filter=True,
             hotwords=hotwords,
+            **decode_options(mode, self.device),
         )
         return " ".join(seg.text.strip() for seg in segments).strip()
 

@@ -57,6 +57,9 @@ No cloud API, no account, nothing leaves your PC.
       history and models stay with each PC
 - [x] Welcome assistant on first launch (language, model suited to the PC, mic test, shortcut)
 - [x] Diagnostic export (zip without your personal texts) for troubleshooting
+- [x] **Speed settings** (Réglages → Vitesse): automatic / fast / accurate transcription, all processor cores
+      for transcription and the AI; after each dictation Home shows where the time went (audio, transcription,
+      AI, subject). Cleaner dictation pill: the wave has its own zone and the text never runs under it
 - [x] **AI presets: signature and subject handled reliably** — per preset, « Ajouter ma signature » (added after
       the closing unless you dictated your own) and « Générer un objet » (first line « Objet : … »); a tall,
       scrollable instructions editor with an « Ouvrir en grand » window

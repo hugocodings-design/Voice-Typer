@@ -101,7 +101,7 @@ class FakeTranscriber:
         self.outputs = list(outputs)
         self.hotwords = []
 
-    def transcribe(self, audio, language=None, hotwords=None):
+    def transcribe(self, audio, language=None, hotwords=None, mode="accurate"):
         self.hotwords.append(hotwords)
         return self.outputs.pop(0)
 

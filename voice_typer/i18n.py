@@ -778,6 +778,16 @@ STRINGS["fr"].update({
     "set_mic_button": "Bouton micro flottant (clic = dicter, clic droit = menu)",
     "set_mic_button_note": "Un rond vert toujours visible, à déplacer où vous voulez : cliquez pour commencer, "
                            "recliquez pour finir. Le texte va dans l'application où vous écriviez.",
+    "spd_title": "Vitesse",
+    "spd_sub": "Choisissez entre rapidité et précision. Après chaque dictée, l'accueil indique où le temps est passé.",
+    "spd_auto": "Automatique : rapide sans carte graphique, précis avec une carte NVIDIA",
+    "spd_fast": "Rapide : une seule hypothèse, 2 à 3 fois plus rapide sur le processeur (presque aussi précis)",
+    "spd_accurate": "Précis : compare 5 hypothèses (plus lent sans carte graphique)",
+    "spd_cores": "Utiliser tous les cœurs du processeur ({n} au lieu de 4) pour la transcription et l'IA",
+    "spd_ai_hint": "Courriels lents ? La mise en forme par l'IA est souvent l'étape la plus longue sans carte graphique : "
+                   "dans Écriture IA, choisissez « Qwen 2.5 — 1.5B » (environ 2 fois plus rapide), et ne cochez "
+                   "« Générer un objet » que si vous en avez besoin.",
+    "spd_timing_hint": "Exemple après une dictée : « 4,1 s — audio 6,0 s · transcription 1,2 s · IA 2,6 s · objet 0,3 s ».",
     "wr_add_signature": "Ajouter ma signature à la fin (sauf si je l'ai dictée)",
     "wr_subject": "Générer un objet de courriel (première ligne « Objet : … »)",
     "wr_expand": "Ouvrir en grand",
@@ -829,6 +839,16 @@ STRINGS["en"].update({
     "set_mic_button": "Floating mic button (click = dictate, right-click = menu)",
     "set_mic_button_note": "An always-visible green circle you can move anywhere: click to start, click again "
                            "to finish. The text goes to the application you were typing in.",
+    "spd_title": "Speed",
+    "spd_sub": "Choose between speed and accuracy. After each dictation, Home shows where the time went.",
+    "spd_auto": "Automatic: fast without a graphics card, accurate with an NVIDIA card",
+    "spd_fast": "Fast: a single hypothesis, 2 to 3 times faster on the processor (almost as accurate)",
+    "spd_accurate": "Accurate: compares 5 hypotheses (slower without a graphics card)",
+    "spd_cores": "Use all processor cores ({n} instead of 4) for transcription and the AI",
+    "spd_ai_hint": "Slow e-mails? Without a graphics card the AI formatting is often the longest step: in AI writing, "
+                   "pick \"Qwen 2.5 — 1.5B\" (about 2 times faster), and only check \"Write an e-mail subject\" "
+                   "when you need it.",
+    "spd_timing_hint": "Example after a dictation: \"4.1 s — audio 6.0 s · transcription 1.2 s · AI 2.6 s · subject 0.3 s\".",
     "wr_add_signature": "Add my signature at the end (unless I dictated it)",
     "wr_subject": "Write an e-mail subject (first line \"Subject: …\")",
     "wr_expand": "Open large",

@@ -27,7 +27,7 @@ PORTABLE = (
     "hotkey", "mode", "language_hotkey", "paste_last_hotkey", "undo_hotkey", "rewrite_hotkey",
     # output
     "output", "trailing_space", "keep_in_clipboard", "voice_commands", "live_preview", "live_typing",
-    "sounds", "remove_fillers",
+    "sounds", "remove_fillers", "speed_mode", "all_cores",
     # interface
     "overlay", "mic_button", "close_action", "ui_language", "theme", "history_enabled", "auto_update",
 )

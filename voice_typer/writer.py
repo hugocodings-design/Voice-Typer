@@ -7,6 +7,7 @@ Models are CTranslate2 int8 conversions of Qwen 2.5 Instruct (strong in French a
 
 import re
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -147,8 +148,9 @@ def default_presets(ui: str) -> list[dict]:
 
 class Writer:
     def __init__(self, source: str, device: str = "auto", cpu_compute: str = "int8",
-                 gpu_compute: str = "int8_float16"):
+                 gpu_compute: str = "int8_float16", cpu_threads: int = 0):
         self.source = source
+        self.last_timings: dict = {}   # seconds of the last rewrite: {"rewrite", "subject"}
         path = download(source)
         self.tokenizer = Tokenizer.from_file(str(Path(path) / "tokenizer.json"))
         self.gpu_error: str | None = None
@@ -163,7 +165,8 @@ class Writer:
                 if "Unable to open" in str(exc):  # file still locked: retried by the caller, not a GPU problem
                     raise
                 self.gpu_error = str(exc)
-        self.generator = ctranslate2.Generator(path, device="cpu", compute_type=cpu_compute)
+        self.generator = ctranslate2.Generator(path, device="cpu", compute_type=cpu_compute,
+                                               intra_threads=cpu_threads)
         self.device = "cpu"
 
     def _generate(self, user: str, system: str, max_tokens: int = 1024,
@@ -184,8 +187,10 @@ class Writer:
         """The signature and the subject are not left to the model (see compose.py): sentences about them are
         removed from the instructions, the signature is appended by code unless one was dictated, and the
         subject comes from a second, tiny request."""
+        self.last_timings = {}
         if not text.strip():
             return text
+        started = time.perf_counter()
         rules = compose.model_instructions(instructions) or "Corrige et mets en forme la dictée."
 
         def ask(r: str, t: str) -> str:
@@ -196,8 +201,11 @@ class Writer:
         out = _LEAKED_NOTE.sub("", out.strip().strip("«»\"").strip()).strip()
         out = _fix_invented_greeting(out, text) or text
         out = compose.finish_signature(out, signature, add_signature)
+        self.last_timings["rewrite"] = time.perf_counter() - started
         if subject:
+            started = time.perf_counter()
             out = compose.with_subject(out, self._generate(f"Courriel :\n{out}", SUBJECT_SYSTEM, max_tokens=40))
+            self.last_timings["subject"] = time.perf_counter() - started
         return out
 
 
