@@ -11,7 +11,7 @@ import threading
 import time
 import traceback
 
-from voice_typer import cleanup, commands, dictionary, models, speed
+from voice_typer import cleanup, commands, dictionary, models, numerals, speed
 from voice_typer.config import Config
 from voice_typer.engine_hotkeys import HotkeysMixin
 from voice_typer.engine_writer import WriterMixin
@@ -269,6 +269,8 @@ class Engine(WriterMixin, HotkeysMixin):
                 audio = audio[-limit:]
             try:
                 text = preview(audio, self.config.language)
+                if text and self.config.numbers_as_digits:   # same text as the final pass: nothing retyped
+                    text = numerals.to_digits(text, self.config.language)
             except Exception:  # noqa: BLE001 — preview is best effort
                 traceback.print_exc()
                 return
@@ -333,6 +335,8 @@ class Engine(WriterMixin, HotkeysMixin):
             text = cleanup.strip_hallucinations(text)
             if self.config.remove_fillers:
                 text = cleanup.remove_fillers(text, language)
+            if self.config.numbers_as_digits:
+                text = numerals.to_digits(text, language)
             text = dictionary.apply_replacements(text, replacements)
             if self.config.voice_commands and commands.is_undo(text, language):
                 self._voice_undo()

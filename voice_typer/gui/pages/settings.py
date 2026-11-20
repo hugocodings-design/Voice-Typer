@@ -92,6 +92,9 @@ class SettingsPage:
         self.fillers_var = tk.BooleanVar(value=self.config.remove_fillers)
         ttk.Checkbutton(c, text=self.t("set_remove_fillers"), style="Switch.TCheckbutton",
                         variable=self.fillers_var, command=self._on_fillers).pack(anchor="w", pady=(8, 0))
+        self.numbers_var = tk.BooleanVar(value=self.config.numbers_as_digits)
+        ttk.Checkbutton(c, text=self.t("set_numbers_digits"), style="Switch.TCheckbutton",
+                        variable=self.numbers_var, command=self._on_numbers).pack(anchor="w", pady=(8, 0))
         self.micbtn_var = tk.BooleanVar(value=self.config.mic_button)
         ttk.Checkbutton(c, text=self.t("set_mic_button"), style="Switch.TCheckbutton",
                         variable=self.micbtn_var, command=self._on_mic_button).pack(anchor="w", pady=(8, 0))
@@ -378,6 +381,10 @@ class SettingsPage:
 
     def _on_fillers(self) -> None:
         self.config.remove_fillers = self.fillers_var.get()
+        self.config.save()
+
+    def _on_numbers(self) -> None:
+        self.config.numbers_as_digits = self.numbers_var.get()
         self.config.save()
 
     def _on_mic_button(self) -> None:

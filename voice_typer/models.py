@@ -52,9 +52,11 @@ GROUPS = ["fr", "multi", "en", "custom"]
 
 CATALOG: list[ModelInfo] = [
     # French-specialised: Whisper Large v3 fine-tuned on ~2,500 h of French (bofenghuang, MIT license).
-    # The "distil" versions keep the full encoder but only 2 or 16 decoder layers → much faster.
+    # The "distil" versions keep the full encoder but only 2, 4 or 16 decoder layers → much faster.
     ModelInfo("bofenghuang/whisper-large-v3-french-distil-dec2#ctranslate2", "Français Distil (rapide)",
               "fr", "1.5 GB", "★★★☆☆", "★★★★☆"),
+    ModelInfo("bofenghuang/whisper-large-v3-french-distil-dec4#ctranslate2", "Français Distil (équilibré)",
+              "fr", "1.6 GB", "★★★☆☆", "★★★★½"),
     ModelInfo("bofenghuang/whisper-large-v3-french-distil-dec16#ctranslate2", "Français Distil (précis)",
               "fr", "2.2 GB", "★★☆☆☆", "★★★★★"),
     ModelInfo("bofenghuang/whisper-large-v3-french#ctranslate2", "Français Large v3",

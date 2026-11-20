@@ -57,6 +57,10 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
   undo_last, hide), right-click while recording = cancel. The menu takes focus: the previous foreground window is
   restored (`SetForegroundWindow`) before the action. State is polled (`recorder.is_recording`, `Engine.busy`).
   `UndoTracker.ignore_click` = `MicButton.owns_click` so clicks on it/its menu don't invalidate undo
+- `numerals.py` — `to_digits(text, language)`: numbers said in words → digits (FR incl. quatre-vingt/septante/
+  « vingt et un », EN incl. "a hundred and five", years "nineteen eighty-four"); « virgule »/"point" decimals,
+  « pour cent »/"percent" → %. Keeps "un/une/one", "mille", "zéro" alone, "neuf" = new, hyphenated words. Applied
+  after fillers, before dictionary/commands, also to the live preview (`config.numbers_as_digits`, Réglages)
 - `cleanup.py` — shared with mobile `Text.kt`: `strip_hallucinations` (always, right after Whisper) and
   `remove_fillers` (`config.remove_fillers`), both before dictionary replacements
 - `portable.py` — never %TEMP% (company ASR rules): `use_private_temp()` (first thing in run.pyw and `main()`)

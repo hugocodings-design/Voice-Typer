@@ -256,6 +256,7 @@ STRINGS: dict[str, dict[str, str]] = {
 }
 
 FR_D2 = "bofenghuang/whisper-large-v3-french-distil-dec2#ctranslate2"
+FR_D4 = "bofenghuang/whisper-large-v3-french-distil-dec4#ctranslate2"
 FR_D16 = "bofenghuang/whisper-large-v3-french-distil-dec16#ctranslate2"
 FR_L3 = "bofenghuang/whisper-large-v3-french#ctranslate2"
 TURBO_C = "Zoont/faster-whisper-large-v3-turbo-int8-ct2"
@@ -263,6 +264,7 @@ TURBO_C = "Zoont/faster-whisper-large-v3-turbo-int8-ct2"
 MODEL_NOTES = {
     "fr": {
         FR_D2: "Entraîné sur le français : le plus rapide des modèles français",
+        FR_D4: "Nouveau : presque aussi rapide que « rapide », nettement plus précis",
         FR_D16: "★ Recommandé français : presque aussi précis que Large v3",
         FR_L3: "Le plus précis en français",
         "tiny": "Instantané, mais beaucoup d'erreurs",
@@ -278,6 +280,7 @@ MODEL_NOTES = {
     },
     "en": {
         FR_D2: "Trained on French: the fastest French model",
+        FR_D4: "New: almost as fast as \"fast\", clearly more accurate",
         FR_D16: "★ Recommended for French: nearly Large v3 accuracy",
         FR_L3: "Most accurate in French",
         "tiny": "Instant, but many mistakes",
@@ -777,6 +780,7 @@ STRINGS["fr"].update({
     "set_close_quit": "Quitter complètement Voice Typer",
     "set_close_ask": "Me demander",
     "set_remove_fillers": "Retirer les hésitations (euh, hum…) et les mots répétés",
+    "set_numbers_digits": "Écrire les nombres en chiffres (« vingt-cinq » → 25, « dix pour cent » → 10 %)",
     "set_mic_button": "Bouton micro flottant (clic = dicter, clic droit = menu)",
     "set_mic_button_note": "Un rond vert toujours visible, à déplacer où vous voulez : cliquez pour commencer, "
                            "recliquez pour finir. Le texte va dans l'application où vous écriviez.",
@@ -839,6 +843,7 @@ STRINGS["en"].update({
     "set_close_quit": "Quit Voice Typer completely",
     "set_close_ask": "Ask me",
     "set_remove_fillers": "Remove hesitations (um, uh…) and repeated words",
+    "set_numbers_digits": "Write numbers as digits (\"twenty-five\" → 25, \"ten percent\" → 10%)",
     "set_mic_button": "Floating mic button (click = dictate, right-click = menu)",
     "set_mic_button_note": "An always-visible green circle you can move anywhere: click to start, click again "
                            "to finish. The text goes to the application you were typing in.",
