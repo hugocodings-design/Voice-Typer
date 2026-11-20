@@ -34,3 +34,48 @@ def test_dictated_signature_not_doubled_and_no_subject_when_off():
     out = w.rewrite("dictée", RULES, "Hugo Dasilva", add_signature=True, subject=False)
     assert out.endswith("Merci,\nHugo pour l'équipe Ventes") and "Hugo Dasilva" not in out
     assert len(w.calls) == 1                                                  # no subject request
+
+
+class LangWriter(FakeWriter):
+    """Answers in French first (like the small model did), then obeys "Answer in English only"."""
+
+    def _generate(self, user, system, max_tokens=1024, shots=()):
+        self.calls.append((user, system))
+        if system in (writer.SUBJECT_SYSTEM, writer.SUBJECT_SYSTEM_EN):
+            return "Test request"
+        if "English only" in system:
+            return self.body
+        return ("Je voudrais effectuer un test.\n\nPourriez-vous me confirmer si le prix inclut la "
+                "livraison ?\n\nMerci,")
+
+
+def test_english_dictation_gets_an_english_email_and_signature():
+    w = LangWriter("Hello,\n\nI would like to do a test.\n\nThank you,")
+    out = w.rewrite("Hi, I would like to do a test.", RULES, "Hugo Da Silva\nDirecteur de comptes", True, True,
+                    signature_en="Hugo Da Silva\nAccount Manager", language="fr")
+    assert out == ("Subject: Test request\n\nHello,\n\nI would like to do a test.\n\nThank you,\n"
+                   "Hugo Da Silva\nAccount Manager")
+    assert w.calls[0][1] == writer.SYSTEM_EN and "Raw transcript" in w.calls[0][0]
+    assert writer.EN_RULES_NOTE in w.calls[0][0]
+
+
+def test_french_dictation_keeps_the_french_signature():
+    w = FakeWriter("Bonjour,\n\nC'est noté pour jeudi.\n\nMerci,")
+    out = w.rewrite("dis-lui que c'est noté pour jeudi", RULES, "Hugo Da Silva", True, False,
+                    signature_en="Hugo Da Silva (EN)", language="en")
+    assert out.endswith("Merci,\nHugo Da Silva") and w.calls[0][1] == writer.SYSTEM_FR
+
+
+def test_english_signature_falls_back_to_the_main_one():
+    w = FakeWriter("Hello,\n\nNoted for Thursday.\n\nThank you,")
+    assert w.rewrite("tell him it's noted for Thursday", RULES, "Hugo", True, False).endswith("Thank you,\nHugo")
+
+
+def test_sentences_copied_from_the_example_are_removed():
+    out = writer.drop_copied_example("Bonjour,\n\nJe voudrais faire un test.\n\nPourriez-vous me confirmer si le "
+                                     "prix inclut la livraison ?\n\nMerci,", "je voudrais faire un test",
+                                     writer.EXAMPLE_OUT)
+    assert out == "Bonjour,\n\nJe voudrais faire un test.\n\nMerci,"
+    # dictated for real: kept
+    real = "Bonjour,\n\nPourriez-vous me confirmer si le prix inclut la livraison ?\n\nMerci,"
+    assert writer.drop_copied_example(real, "demande si le prix inclut la livraison", writer.EXAMPLE_OUT) == real

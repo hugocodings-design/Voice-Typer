@@ -182,10 +182,32 @@ def is_english(text: str) -> bool:
     return bool(re.match(r"(hello|hi|dear|hey|good (morning|afternoon))\b", first))
 
 
-def with_subject(body: str, subject: str) -> str:
+_EN_WORDS = set("the and i you to is it of that for with my your would like please can we this have are be do "
+                "will hi hello thanks thank what how when where there they he she his her our just want need "
+                "could should about if not don't i'm it's let me know".split())
+_FR_WORDS = set("le la les et je tu vous de des du un une est pour que qui avec mon ma mes votre vos nous pas ce "
+                "cette bonjour merci au aux sur dans il elle sont ai fait faire veux voudrais peux pouvez "
+                "j'ai c'est s'il n'est qu'il".split())
+
+
+def detect_language(text: str, default: str = "fr") -> str:
+    """"en" or "fr" from the words of a dictation (Whisper may be forced to one language, the user speaks the
+    other; the writing AI must answer in the language actually spoken)."""
+    words = re.findall(r"[a-zà-ÿ']+", text.lower().replace("’", "'"))
+    en = sum(w in _EN_WORDS for w in words)
+    fr = sum(w in _FR_WORDS for w in words)
+    if en > fr:
+        return "en"
+    if fr > en:
+        return "fr"
+    return default if default in ("fr", "en") else "fr"
+
+
+def with_subject(body: str, subject: str, language: str | None = None) -> str:
     subject = clean_subject(subject)
     if not subject:
         return body
-    label = "Subject" if is_english(body) else "Objet"
+    english = language == "en" if language in ("fr", "en") else is_english(body)
+    label = "Subject" if english else "Objet"
     sep = ": " if label == "Subject" else " : "
     return f"{label}{sep}{subject}\n\n{body}"

@@ -1,6 +1,6 @@
 {
-  "version": "0.18.1",
-  "fr": "Courriels : la formule de politesse n'est plus écrite deux fois quand la signature en contient une, et la signature est toujours ajoutée",
-  "en": "Emails: the closing is no longer written twice when the signature already has one, and the signature is always added",
+  "version": "0.18.2",
+  "fr": "Courriels dans la langue parlée (anglais ou français), signature anglaise séparée, plus de phrases inventées copiées de l'exemple",
+  "en": "Emails in the language you speak (English or French), separate English signature, no more invented sentences copied from the example",
   "required": false
 }

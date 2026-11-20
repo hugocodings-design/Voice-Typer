@@ -796,6 +796,8 @@ STRINGS["fr"].update({
     "spd_timing_hint": "Exemple après une dictée : « 4,1 s — audio 6,0 s · transcription 1,2 s · IA 2,6 s · objet 0,3 s ».",
     "wr_add_signature": "Ajouter ma signature à la fin (sauf si je l'ai dictée)",
     "wr_sig_blank_line": "Laisser une ligne vide entre la formule de politesse et la signature",
+    "wr_signature_en": "Signature pour les courriels en anglais (facultatif ; vide = la même signature). La langue "
+                       "est celle que vous parlez, détectée à chaque dictée.",
     "wr_subject": "Générer un objet de courriel (première ligne « Objet : … »)",
     "wr_expand": "Ouvrir en grand",
     "wr_expand_title": "Consignes pour l'IA — {name}",
@@ -859,6 +861,8 @@ STRINGS["en"].update({
     "spd_timing_hint": "Example after a dictation: \"4.1 s — audio 6.0 s · transcription 1.2 s · AI 2.6 s · subject 0.3 s\".",
     "wr_add_signature": "Add my signature at the end (unless I dictated it)",
     "wr_sig_blank_line": "Leave an empty line between the closing and the signature",
+    "wr_signature_en": "Signature for emails written in English (optional; empty = the same signature). The "
+                       "language is the one you speak, detected at each dictation.",
     "wr_subject": "Write an e-mail subject (first line \"Subject: …\")",
     "wr_expand": "Open large",
     "wr_expand_title": "Instructions for the AI — {name}",

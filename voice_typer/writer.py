@@ -56,10 +56,30 @@ SYSTEM_FR = (
     "Renvoie uniquement le texte final."
 )
 
+SYSTEM_EN = (
+    "You format voice dictations. You receive the raw transcript of what a person dictated. Rewrite it "
+    "following the instructions exactly. Absolute rules: never answer the content as if you were spoken to, "
+    "never invent information or add sentences that were not dictated, do not comment, no quotes, no title. "
+    "Write in English. The dictation often contains directions meant for you, e.g. \"email to [person] to "
+    "tell them that…\": use them (recipient, intent) but never copy them; write the message directly, in the "
+    "first person, to the recipient. Never use a name that is not in the dictation. "
+    "End with the closing, without adding a name or signature yourself: the software adds the signature "
+    "afterwards. But if the dictation ends with a dictated signature (a name, a team), keep it at the very end. "
+    "Do not write a subject line. Return only the final text."
+)
+# the user's instructions are often written in French: they still apply to an English e-mail
+EN_RULES_NOTE = ("The instructions below may be written in French: follow them, but write the whole message in "
+                 "English (Bonjour → Hello, Merci → Thank you, Bonne journée → Have a nice day).")
+
 # Second, tiny request when the preset asks for a subject (compose.with_subject puts it on the first line).
 SUBJECT_SYSTEM = (
     "Tu écris l'objet d'un courriel. Lis le courriel et réponds UNIQUEMENT par un objet court et précis "
     "(3 à 8 mots), dans la même langue que le courriel, sans guillemets, sans « Objet : », sans point final."
+)
+
+SUBJECT_SYSTEM_EN = (
+    "You write the subject line of an email. Read the email and answer ONLY with a short, precise subject "
+    "(3 to 8 words), in English, no quotes, no \"Subject:\", no final period."
 )
 
 # One worked example (few-shot): small models follow the format much better with it.
@@ -69,6 +89,12 @@ EXAMPLE_RULES = ("Salutation « Bonjour Madame X, », petits paragraphes de 1 à
                  "ligne vide, puis une formule de politesse.")
 EXAMPLE_OUT = ("Bonjour Madame Gagnon,\n\nJ'ai bien reçu votre soumission, merci. Je la regarde cette "
                "semaine.\n\nPourriez-vous me confirmer si le prix inclut la livraison ?\n\nMerci,")
+EXAMPLE_IN_EN = ("uh email to Mrs. Gagnon to tell her I got her quote and I'm looking at it this week and uh "
+                 "also ask her if the price includes delivery")
+EXAMPLE_RULES_EN = ("Greeting \"Hello Ms. X,\", short paragraphs of 1 to 2 sentences separated by a blank line, "
+                    "then a closing.")
+EXAMPLE_OUT_EN = ("Hello Ms. Gagnon,\n\nI received your quote, thank you. I will look at it this week.\n\n"
+                  "Could you confirm whether the price includes delivery?\n\nThank you,")
 # notes the model sometimes writes about itself, e.g. "(aucune signature)" / "[Signature]" / "(Objet : …)"
 _LEAKED_NOTE = re.compile(r"^\s*[(\[][^\n]*\b(signature|objet|subject)\b[^\n]*[)\]]\s*$\n?", re.I | re.M)
 
@@ -183,30 +209,78 @@ class Writer:
         return self.tokenizer.decode(result[0].sequences_ids[0], skip_special_tokens=True).strip()
 
     def rewrite(self, text: str, instructions: str, signature: str = "", add_signature: bool = False,
-                subject: bool = False, signature_blank_line: bool = False) -> str:
+                subject: bool = False, signature_blank_line: bool = False, signature_en: str = "",
+                language: str | None = None) -> str:
         """The signature and the subject are not left to the model (see compose.py): sentences about them are
         removed from the instructions, the signature is appended by code unless one was dictated, and the
-        subject comes from a second, tiny request."""
+        subject comes from a second, tiny request.
+
+        The e-mail is written in the language actually spoken (`compose.detect_language`, `language` = the
+        Whisper setting, only a tie-breaker), with the English signature when one is saved."""
         self.last_timings = {}
         if not text.strip():
             return text
         started = time.perf_counter()
-        rules = compose.model_instructions(instructions) or "Corrige et mets en forme la dictée."
+        lang = compose.detect_language(text, language or "fr")
+        english = lang == "en"
+        rules = compose.model_instructions(instructions) or (
+            "Fix and format the dictation." if english else "Corrige et mets en forme la dictée.")
+        if english:
+            rules = f"{EN_RULES_NOTE}\n\n{rules}"
 
         def ask(r: str, t: str) -> str:
+            if english:
+                return f"Instructions:\n{r}\n\nRaw transcript to rewrite:\n{t}"
             return f"Consignes :\n{r}\n\nTranscription brute à réécrire :\n{t}"
 
-        out = self._generate(ask(rules, text), SYSTEM_FR, max_tokens=max(256, len(text) // 2 + 400),
-                             shots=[(ask(EXAMPLE_RULES, EXAMPLE_IN), EXAMPLE_OUT)])
+        system = SYSTEM_EN if english else SYSTEM_FR
+        example = ((EXAMPLE_RULES_EN, EXAMPLE_IN_EN, EXAMPLE_OUT_EN) if english
+                   else (EXAMPLE_RULES, EXAMPLE_IN, EXAMPLE_OUT))
+        shots = [(ask(example[0], example[1]), example[2])]
+        max_tokens = max(256, len(text) // 2 + 400)
+        out = self._generate(ask(rules, text), system, max_tokens=max_tokens, shots=shots)
+        if english and compose.detect_language(out, "en") != "en":   # translated to French anyway: once more
+            out = self._generate(ask(rules, text), system + " Answer in English only.", max_tokens=max_tokens,
+                                 shots=shots)
         out = _LEAKED_NOTE.sub("", out.strip().strip("«»\"").strip()).strip()
+        out = drop_copied_example(out, text, example[2])
         out = _fix_invented_greeting(out, text) or text
-        out = compose.finish_signature(out, signature, add_signature, signature_blank_line)
+        sig = signature_en if english and signature_en.strip() else signature
+        out = compose.finish_signature(out, sig, add_signature, signature_blank_line)
         self.last_timings["rewrite"] = time.perf_counter() - started
         if subject:
             started = time.perf_counter()
-            out = compose.with_subject(out, self._generate(f"Courriel :\n{out}", SUBJECT_SYSTEM, max_tokens=40))
+            label, sys_subject = ("Email", SUBJECT_SYSTEM_EN) if english else ("Courriel", SUBJECT_SYSTEM)
+            out = compose.with_subject(out, self._generate(f"{label} :\n{out}", sys_subject, max_tokens=40), lang)
             self.last_timings["subject"] = time.perf_counter() - started
         return out
+
+
+def _content_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-zà-ÿ]+", text.lower()) if len(w) > 3}
+
+
+def drop_copied_example(out: str, source: str, example_out: str) -> str:
+    """Removes sentences the model copied from the worked example instead of the dictation (on a short
+    dictation a small model may pad the e-mail with "Pourriez-vous me confirmer si le prix inclut la
+    livraison ?"). A sentence goes if it is mostly the example's words and those words were not dictated."""
+    said = _content_words(source)
+    examples = [_content_words(s) for s in re.split(r"(?<=[.!?])\s+|\n+", example_out) if s.strip()]
+    examples = [e for e in examples if len(e) >= 3]
+    kept_lines = []
+    for line in out.split("\n"):
+        parts = re.split(r"(?<=[.!?])\s+", line)
+        kept = []
+        for sentence in parts:
+            words = _content_words(sentence)
+            copied = any(len(words & e) >= 0.6 * len(e) and len((words & e) - said) > 0.5 * len(words & e)
+                         for e in examples)
+            if not copied:
+                kept.append(sentence)
+        if parts and not kept and line.strip():
+            continue   # the whole line was copied: drop it (its blank line is collapsed below)
+        kept_lines.append(" ".join(kept))
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept_lines)).strip()
 
 
 _GREETING = re.compile(r"^(Bonjour|Bonsoir|Salut|Hello|Hi|Dear)\s+(?:Monsieur|Madame|M\.|Mme|Mr\.?|Mrs\.?|Ms\.?)?"

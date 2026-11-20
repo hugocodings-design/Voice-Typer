@@ -98,7 +98,8 @@ class WriterMixin:
                 self._emit("writer_loaded", (source, self.writer.device, time.perf_counter() - started))
             writer = self.writer
             out = writer.rewrite(text, instructions, signature, add_signature, subject,
-                                 signature_blank_line=self.config.signature_blank_line)
+                                 signature_blank_line=self.config.signature_blank_line,
+                                 signature_en=self.config.signature_en, language=self.config.language)
             self.last_rewrite_timings = dict(getattr(writer, "last_timings", {}) or {})
             if not self.config.writer_preload:
                 self.writer = None

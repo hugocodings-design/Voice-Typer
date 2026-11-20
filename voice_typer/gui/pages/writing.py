@@ -155,6 +155,11 @@ class WritingPage:
         self.signature_box = self._text_box(c, 4, self.config.signature)
         self.signature_box.pack(fill="x")
         self.signature_box.bind("<FocusOut>", lambda _e: self._save_signature())
+        ttk.Label(c, text=self.t("wr_signature_en"), style="Muted.TLabel", wraplength=680,
+                  justify="left").pack(anchor="w", pady=(12, 4))
+        self.signature_en_box = self._text_box(c, 4, self.config.signature_en)
+        self.signature_en_box.pack(fill="x")
+        self.signature_en_box.bind("<FocusOut>", lambda _e: self._save_signature())
         self.sig_blank_var = tk.BooleanVar(value=self.config.signature_blank_line)
         ttk.Checkbutton(c, text=self.t("wr_sig_blank_line"), style="Switch.TCheckbutton", variable=self.sig_blank_var,
                         command=self._on_sig_blank_line).pack(anchor="w", pady=(10, 0))
@@ -306,6 +311,8 @@ class WritingPage:
     def _save_signature(self) -> None:
         if hasattr(self, "signature_box"):
             self.config.signature = self.signature_box.get("1.0", "end").strip()
+            if hasattr(self, "signature_en_box"):
+                self.config.signature_en = self.signature_en_box.get("1.0", "end").strip()
             self.config.save()
 
     # ---- presets

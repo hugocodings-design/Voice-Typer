@@ -89,3 +89,10 @@ def test_closing_lines():
         assert compose.is_closing_line(line)
     for line in ("Bonne journée, Hugo", "Merci de me revenir rapidement.", "Merci pour votre aide ?"):
         assert not compose.is_closing_line(line)
+
+
+def test_detect_language():
+    assert compose.detect_language("Hi, I would like to do a test.") == "en"
+    assert compose.detect_language("Bonjour, je voudrais faire un test.") == "fr"
+    assert compose.detect_language("OK", "en") == "en"
+    assert compose.with_subject("Bonjour,\n\nTest", "Essai", "en").startswith("Subject: Essai")

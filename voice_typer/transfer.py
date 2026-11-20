@@ -22,7 +22,7 @@ PORTABLE = (
     # dictionary
     "vocabulary", "replacements", "app_dictionaries",
     # AI writing
-    "writing_model", "presets", "signature", "signature_blank_line", "writer_preload", "rewrite_preset", "app_presets",
+    "writing_model", "presets", "signature", "signature_en", "signature_blank_line", "writer_preload", "rewrite_preset", "app_presets",
     # shortcuts
     "hotkey", "mode", "language_hotkey", "paste_last_hotkey", "undo_hotkey", "rewrite_hotkey",
     # output
