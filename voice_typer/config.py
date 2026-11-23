@@ -26,7 +26,10 @@ class Config:
     writing_model: str = "jncraton/Qwen2.5-3B-Instruct-ct2-int8"
     presets: list[dict] | None = None   # [{"id","name","hotkey","instructions"}], None = defaults
     signature: str = ""
-    signature_en: str = ""          # used for e-mails written in English ("" = the same signature)
+    signature_en: str = ""
+    home_enabled: bool = False      # « PC à la maison »: dictations processed by Voice Typer Home (home.py)
+    home_url: str = ""              # its Tailscale Funnel address, e.g. https://home-pc.tail1234.ts.net
+    home_key: str = ""              # the key Voice Typer Home shows at start (never exported)""          # used for e-mails written in English ("" = the same signature)
     signature_blank_line: bool = False  # empty line between the closing ("Merci,") and the signature
     writer_preload: bool = True         # keep the writing AI loaded (instant presets)
     # Shortcuts

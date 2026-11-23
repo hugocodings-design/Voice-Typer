@@ -1,6 +1,6 @@
 {
-  "version": "0.18.2",
-  "fr": "Courriels dans la langue parlée (anglais ou français), signature anglaise séparée, plus de phrases inventées copiées de l'exemple",
-  "en": "Emails in the language you speak (English or French), separate English signature, no more invented sentences copied from the example",
+  "version": "0.19.0",
+  "fr": "Nouveau : « PC à la maison » (Réglages) — faites faire la dictée et l'écriture IA par votre ordinateur de la maison via Tailscale Funnel, sans rien installer au travail",
+  "en": "New: \"Home PC\" (Settings) — let your home computer do the dictation and AI writing through Tailscale Funnel, with nothing to install at work",
   "required": false
 }

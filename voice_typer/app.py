@@ -11,7 +11,7 @@ import threading
 import time
 import traceback
 
-from voice_typer import cleanup, commands, dictionary, models, numerals, speed
+from voice_typer import cleanup, commands, dictionary, home, models, numerals, speed
 from voice_typer.config import Config
 from voice_typer.engine_hotkeys import HotkeysMixin
 from voice_typer.engine_writer import WriterMixin
@@ -317,6 +317,34 @@ class Engine(WriterMixin, HotkeysMixin):
             self.busy = False
             self.undo.resume()
 
+    # ---- « PC à la maison » (home.py): only outbound HTTPS, local models as fallback
+    def home_client(self):
+        if not self.config.home_enabled:
+            return None
+        try:
+            return home.HomeClient(self.config.home_url, self.config.home_key)
+        except home.HomeError:
+            return None
+
+    def _home_result(self, ok: bool, reason: str = "") -> None:
+        """Tells the window when the home PC stops (or starts again) answering — once, not every dictation."""
+        state = "ok" if ok else "down"
+        if state != getattr(self, "_home_state", "ok"):
+            self._emit("home_back" if ok else "home_down", reason)
+        self._home_state = state
+
+    def _transcribe_audio(self, transcriber, audio, language, hotwords, timings: dict) -> str:
+        client = self.home_client()
+        if client is not None:
+            try:
+                text = client.transcribe(audio, self.config.sample_rate, language, hotwords, self.config.speed_mode)
+                timings["home"] = 1.0
+                self._home_result(True)
+                return text
+            except home.HomeError as exc:
+                self._home_result(False, str(exc))
+        return transcriber.transcribe(audio, language, hotwords, mode=self.config.speed_mode)
+
     def _transcribe_and_send_inner(self, audio, preset_id: str | None = None) -> None:
         transcriber = self.transcriber
         if transcriber is None:
@@ -330,7 +358,7 @@ class Engine(WriterMixin, HotkeysMixin):
             vocabulary, replacements = dictionary.for_app(self.config.vocabulary, self.config.replacements,
                                                           self.config.app_dictionaries, self._target_exe)
             hotwords = dictionary.hotwords(vocabulary)
-            text = transcriber.transcribe(audio, language, hotwords, mode=self.config.speed_mode)
+            text = self._transcribe_audio(transcriber, audio, language, hotwords, timings)
             timings["transcribe"] = time.perf_counter() - started
             text = cleanup.strip_hallucinations(text)
             if self.config.remove_fillers:

@@ -316,3 +316,29 @@ def test_shortcut_without_model_reports_it(keyed):
     eng._on_down(None)
     assert not eng.recorder.is_recording
     assert ("status", "no_model") in _drain(eng)
+
+
+# ------------------------------------------------------------------ engine: « PC à la maison » (home.py)
+def test_home_pc_is_used_then_local_fallback(engine, monkeypatch):
+    from voice_typer import home
+
+    eng, screen = engine
+    eng.config.home_enabled, eng.config.home_url, eng.config.home_key = True, "home-pc.tail1.ts.net", "k" * 40
+    eng.transcriber = FakeTranscriber(["Fait ici."])
+    answers = ["Fait à la maison."]
+
+    def fake_transcribe(self, audio, sr, language, hotwords, mode):
+        assert self.url == "https://home-pc.tail1.ts.net" and sr == 16000
+        if answers:
+            return answers.pop(0)
+        raise home.HomeError("unreachable")
+
+    monkeypatch.setattr(home.HomeClient, "transcribe", fake_transcribe)
+    audio = np.zeros(16000, dtype=np.float32)
+    eng._transcribe_and_send(audio)
+    events = _drain(eng)
+    transcript = [p for k, p in events if k == "transcript"][0]
+    assert transcript[5].get("home")                          # shown as "PC à la maison" on Home
+    eng._transcribe_and_send(audio)                           # home PC off: done on this PC, said once
+    assert "".join(screen) == "Fait à la maison. Fait ici. "
+    assert ("home_down", "unreachable") in _drain(eng)

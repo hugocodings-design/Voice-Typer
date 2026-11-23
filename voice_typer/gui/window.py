@@ -436,6 +436,11 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
             self._set_last((f"undo_no_{payload}", {}))
             if self.config.overlay:
                 self.overlay.flash(self.t(f"undo_no_{payload}"), ms=3200)
+        elif kind in ("home_down", "home_back"):
+            reason = self.t(f"home_err_{payload}") if payload else ""
+            self._set_last((kind, {"reason": reason}))
+            if self.config.overlay:
+                self.overlay.flash(self.t(kind, reason=reason), ms=3500)
         elif kind in ("mic_fallback", "mic_back"):
             msg = self.t(kind, name=payload or "")
             self._set_last((kind, {"name": payload or ""}))

@@ -49,4 +49,6 @@ def format_timings(t: dict, lang: str = "fr") -> str:
         if value is None or (key != "audio" and value < 0.05):
             continue
         parts.append(f"{labels[key]} {value:.1f}".replace(".", dec) + " s")
+    if t.get("home"):
+        parts.append("PC à la maison" if lang == "fr" else "home PC")
     return " · ".join(parts)

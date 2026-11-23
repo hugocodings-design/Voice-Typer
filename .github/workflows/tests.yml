@@ -19,6 +19,6 @@ jobs:
           python -m pip install --require-hashes --no-deps -r requirements.lock
           python -m pip install pytest pyflakes
       - name: Lint (undefined names, unused imports)
-        run: python -m pyflakes voice_typer tests
+        run: python -m pyflakes voice_typer tests home_server
       - name: Unit tests
         run: python -m pytest -q

@@ -84,6 +84,19 @@ class WriterMixin:
         from voice_typer.compose import preset_flags
 
         add_signature, subject = preset_flags(preset)
+        client = self.home_client()
+        if client is not None:   # « PC à la maison »: same rules, run on the home PC's graphics card
+            from voice_typer import home
+
+            try:
+                out, timings = client.rewrite(text, instructions, self.config.signature, add_signature, subject,
+                                              self.config.signature_blank_line, self.config.signature_en,
+                                              self.config.language)
+                self.last_rewrite_timings = timings
+                self._home_result(True)
+                return out
+            except home.HomeError as exc:
+                self._home_result(False, str(exc))
         return self.rewrite_local(text, instructions, self.config.signature, add_signature, subject)
 
     def rewrite_local(self, text: str, instructions: str, signature: str, add_signature: bool = False,

@@ -1,6 +1,7 @@
 """Page Réglages."""
 
 import os
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, ttk
@@ -124,6 +125,32 @@ class SettingsPage:
                   justify="left").pack(anchor="w", pady=(10, 0))
         ttk.Label(c, text=self.t("spd_timing_hint"), style="Muted.TLabel", wraplength=680,
                   justify="left").pack(anchor="w", pady=(6, 0))
+
+        # Home PC (home.py → home_server on the user's own computer, through Tailscale Funnel)
+        c = self._card(body, self.t("home_title"), self.t("home_sub"), **inner_pad)
+        self.home_var = tk.BooleanVar(value=self.config.home_enabled)
+        ttk.Checkbutton(c, text=self.t("home_enable"), style="Switch.TCheckbutton", variable=self.home_var,
+                        command=self._on_home).pack(anchor="w", pady=(8, 0))
+        grid = ttk.Frame(c)
+        grid.pack(fill="x", pady=(10, 0))
+        ttk.Label(grid, text=self.t("home_url")).grid(row=0, column=0, sticky="w", pady=4)
+        self.home_url_var = tk.StringVar(value=self.config.home_url)
+        url_entry = ttk.Entry(grid, textvariable=self.home_url_var, width=48)
+        url_entry.grid(row=0, column=1, sticky="w", padx=16, pady=4)
+        url_entry.bind("<FocusOut>", lambda _e: self._save_home())
+        ttk.Label(grid, text=self.t("home_key")).grid(row=1, column=0, sticky="w", pady=4)
+        self.home_key_var = tk.StringVar(value=self.config.home_key)
+        key_entry = ttk.Entry(grid, textvariable=self.home_key_var, width=48, show="•")
+        key_entry.grid(row=1, column=1, sticky="w", padx=16, pady=4)
+        key_entry.bind("<FocusOut>", lambda _e: self._save_home())
+        row = ttk.Frame(c)
+        row.pack(fill="x", pady=(8, 0))
+        self.home_test_btn = ttk.Button(row, text=self.t("home_test"), command=self._test_home)
+        self.home_test_btn.pack(side="left")
+        self.home_test_info = ttk.Label(row, text="", style="Muted.TLabel", wraplength=520, justify="left")
+        self.home_test_info.pack(side="left", padx=10)
+        ttk.Label(c, text=self.t("home_note"), style="Muted.TLabel", wraplength=680,
+                  justify="left").pack(anchor="w", pady=(8, 0))
 
         # Startup & history
         c = self._card(body, self.t("set_startup"), **inner_pad)
@@ -382,6 +409,39 @@ class SettingsPage:
     def _on_fillers(self) -> None:
         self.config.remove_fillers = self.fillers_var.get()
         self.config.save()
+
+    def _save_home(self) -> None:
+        self.config.home_url = self.home_url_var.get().strip()
+        self.config.home_key = self.home_key_var.get().strip()
+        self.config.save()
+
+    def _on_home(self) -> None:
+        self._save_home()
+        self.config.home_enabled = self.home_var.get()
+        self.config.save()
+
+    def _test_home(self) -> None:
+        from voice_typer import home
+
+        self._save_home()
+        self.home_test_btn.state(["disabled"])
+        self.home_test_info.configure(text=self.t("home_testing"))
+        url, key = self.config.home_url, self.config.home_key
+
+        def work():
+            try:
+                info = home.HomeClient(url, key).ping()
+                msg = self.t("home_ok", whisper=info.get("whisper") or "?", writer=info.get("writer") or "-",
+                             where=self.t("where_gpu" if info.get("device") == "cuda" else "where_cpu"))
+            except home.HomeError as exc:
+                msg = self.t("home_fail", reason=self.t(f"home_err_{exc}"))
+
+            def show():
+                self.home_test_btn.state(["!disabled"])
+                self.home_test_info.configure(text=msg)
+            self.call_soon(show)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _on_numbers(self) -> None:
         self.config.numbers_as_digits = self.numbers_var.get()
