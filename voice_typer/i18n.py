@@ -771,6 +771,11 @@ STRINGS["fr"].update({
     "set_mic_button": "Bouton micro flottant (clic = dicter, clic droit = menu)",
     "set_mic_button_note": "Un rond vert toujours visible, à déplacer où vous voulez : cliquez pour commencer, "
                            "recliquez pour finir. Le texte va dans l'application où vous écriviez.",
+    "home_status_ok": "PC à la maison : connecté — {where}",
+    "home_status_local": "Voice Typer Home tourne sur ce PC : ses modèles sont utilisés ({where}), sans double chargement",
+    "home_status_down": "PC à la maison : injoignable ({reason}) — les dictées sont faites sur ce PC",
+    "home_status_ai_cpu": " · attention : l'IA d'écriture y tourne sur le processeur (lent)",
+    "home_ai_cpu": "PC à la maison : l'IA tourne sur son processeur (carte graphique pleine) — plus lent",
     "home_title": "PC à la maison",
     "home_sub": "Faites faire la transcription et l'écriture IA par votre ordinateur de la maison (carte graphique NVIDIA) : 2 à 3 secondes au lieu de 10 à 15. Ce PC n'ouvre aucun port : il envoie seulement la dictée, chiffrée, à votre adresse Tailscale Funnel.",
     "home_enable": "Utiliser mon PC à la maison (sinon, ou s'il ne répond pas : ce PC)",
@@ -858,6 +863,11 @@ STRINGS["en"].update({
     "set_mic_button": "Floating mic button (click = dictate, right-click = menu)",
     "set_mic_button_note": "An always-visible green circle you can move anywhere: click to start, click again "
                            "to finish. The text goes to the application you were typing in.",
+    "home_status_ok": "Home PC: connected — {where}",
+    "home_status_local": "Voice Typer Home runs on this PC: its models are used ({where}), no double loading",
+    "home_status_down": "Home PC: unreachable ({reason}) — dictations are done on this PC",
+    "home_status_ai_cpu": " · note: its writing AI runs on the processor (slow)",
+    "home_ai_cpu": "Home PC: the AI runs on its processor (graphics card full) — slower",
     "home_title": "Home PC",
     "home_sub": "Let your home computer (NVIDIA graphics card) do the transcription and AI writing: 2 to 3 seconds instead of 10 to 15. This PC opens no port: it only sends the dictation, encrypted, to your Tailscale Funnel address.",
     "home_enable": "Use my home PC (otherwise, or if it doesn't answer: this PC)",

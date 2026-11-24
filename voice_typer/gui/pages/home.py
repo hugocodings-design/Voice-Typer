@@ -27,8 +27,12 @@ class HomePage:
         self.progress = ttk.Progressbar(top, mode="indeterminate", length=160)
         self.chips_var = tk.StringVar()
         ttk.Label(hero, textvariable=self.chips_var, style="Muted.TLabel").pack(anchor="w", pady=(8, 0))
+        self.home_status_var = tk.StringVar()
+        self.home_status_lbl = ttk.Label(hero, textvariable=self.home_status_var, style="Muted.TLabel",
+                                         wraplength=720, justify="left")
         self.last_var = tk.StringVar()
         ttk.Label(hero, textvariable=self.last_var, wraplength=720, justify="left").pack(anchor="w", pady=(6, 0))
+        self._render_home_status()
 
         row = self._columns(page)
         lang = self._card(row, self.t("home_lang_title"), self.t("home_lang_sub"), col=0, wrap=330)
@@ -197,3 +201,25 @@ class HomePage:
         m.add_command(label=self.t("delete"), command=self._history_delete)
         m.add_command(label=self.t("history_clear"), command=self._history_clear)
         self._popup(m, event)
+
+    def _render_home_status(self) -> None:
+        """« PC à la maison : connecté — carte graphique » under the status (nothing when the option is off)."""
+        if not hasattr(self, "home_status_var"):
+            return
+        info = getattr(self, "_home_info", None) or self.engine.home_info
+        state = info.get("state", "off")
+        if state == "off":
+            self.home_status_lbl.pack_forget()
+            return
+        where = self.t("where_gpu" if info.get("device") == "cuda" else "where_cpu")
+        if state == "ok" and info.get("local"):
+            text = self.t("home_status_local", where=where)
+        elif state == "ok":
+            text = self.t("home_status_ok", where=where)
+        else:
+            reason = info.get("reason", "")
+            text = self.t("home_status_down", reason=self.t(f"home_err_{reason}") if reason else "")
+        if state == "ok" and info.get("writer_device") and info.get("writer_device") != "cuda":
+            text += self.t("home_status_ai_cpu")
+        self.home_status_var.set(text)
+        self.home_status_lbl.pack(anchor="w", pady=(6, 0), before=self.home_status_lbl.master.winfo_children()[-1])

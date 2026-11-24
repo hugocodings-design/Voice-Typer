@@ -209,3 +209,72 @@ def test_journal_never_holds_dictations(tmp_path):
         h.flush()
     text = (tmp_path / "home.log").read_text(encoding="utf-8")
     assert "dictée" in text and "Bonjour" not in text
+
+
+class FakeEngine:
+    """Just enough of Engine for HomeMixin."""
+
+    def __init__(self, cfg):
+        from voice_typer.engine_home import HomeMixin
+
+        self.__class__ = type("E", (FakeEngine, HomeMixin), {})
+        self.config, self.events = cfg, []
+        self.transcriber = type("T", (), {"device": "cuda"})()
+        self.writer = type("W", (), {"device": "cuda"})()
+        self.loading_source = None
+        self.loaded = []
+        self._home_init()
+
+    def _emit(self, kind, payload=None):
+        self.events.append((kind, payload))
+
+    def load_model(self, source, device=None):
+        self.loaded.append((source, device))
+
+    def unload_writer(self):
+        self.writer = None
+
+
+def test_home_pc_uses_its_own_voice_typer_home(monkeypatch):
+    """On the home PC: Voice Typer finds Voice Typer Home (key file) and stops using the graphics card."""
+    from voice_typer import engine_home
+    from voice_typer.config import Config
+
+    monkeypatch.setattr(engine_home, "local_home_key", lambda: KEY)
+    monkeypatch.setattr(home.HomeClient, "ping", lambda self: {"device": "cuda", "writer_device": "cuda"})
+    eng = FakeEngine(Config())
+    eng._check_home()
+    assert eng.home_client().url == engine_home.LOCAL_URL
+    assert eng.model_device() == "cpu" and eng.loaded == [(eng.config.model, "cpu")] and eng.writer is None
+    assert ("home_status", {"state": "ok", "local": True, "device": "cuda", "writer_device": "cuda"}) in eng.events
+
+
+def test_status_of_the_configured_home_pc(monkeypatch):
+    from voice_typer import engine_home
+    from voice_typer.config import Config
+
+    cfg = Config()
+    cfg.home_enabled, cfg.home_url, cfg.home_key = True, "hugo.tail1.ts.net", KEY
+    monkeypatch.setattr(engine_home, "local_home_key", lambda: "")
+
+    def down(self):
+        raise home.HomeError("unreachable")
+
+    monkeypatch.setattr(home.HomeClient, "ping", down)
+    eng = FakeEngine(cfg)
+    eng._check_home()
+    assert eng.home_info == {"state": "down", "reason": "unreachable", "local": False}
+    assert eng.loaded == []                                      # a remote home PC never moves local models
+    eng._home_result(True, writer_device="cpu")                 # a dictation went through, AI on its processor
+    assert eng.home_info["state"] == "ok" and eng.home_info["writer_device"] == "cpu"
+    assert eng.model_device() is None
+
+
+def test_nothing_happens_without_home(monkeypatch):
+    from voice_typer import engine_home
+    from voice_typer.config import Config
+
+    monkeypatch.setattr(engine_home, "local_home_key", lambda: "")
+    eng = FakeEngine(Config())
+    eng._check_home()
+    assert eng.home_client() is None and eng.home_info == {"state": "off"} and eng.events == []

@@ -93,7 +93,11 @@ class WriterMixin:
                                               self.config.signature_blank_line, self.config.signature_en,
                                               self.config.language, self.config.writing_model)
                 self.last_rewrite_timings = {**timings, "home_ai": 1.0}   # Home shows "IA … (maison)"
-                self._home_result(True)
+                device = str(client.last_answer.get("device") or "")
+                self._home_result(True, writer_device=device or None)
+                if device and device != "cuda" and not getattr(self, "_warned_home_cpu", False):
+                    self._warned_home_cpu = True   # once per session: the home graphics card is full
+                    self._emit("home_ai_cpu")
                 return out
             except home.HomeError as exc:
                 self._home_result(False, str(exc))

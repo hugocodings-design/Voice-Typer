@@ -13,6 +13,7 @@ import traceback
 
 from voice_typer import cleanup, commands, dictionary, home, models, numerals, speed
 from voice_typer.config import Config
+from voice_typer.engine_home import HomeMixin
 from voice_typer.engine_hotkeys import HotkeysMixin
 from voice_typer.engine_writer import WriterMixin
 from voice_typer.hotkey import Hotkey
@@ -26,7 +27,7 @@ MAX_SECONDS = 300     # safety stop in toggle mode
 AUTO_HOLD_S = 0.4     # "auto" mode: held at least this long = push-to-talk, shorter tap = toggle
 
 
-class Engine(WriterMixin, HotkeysMixin):
+class Engine(WriterMixin, HotkeysMixin, HomeMixin):
     def __init__(self, config: Config):
         self.config = config
         config.ensure_presets()
@@ -72,6 +73,7 @@ class Engine(WriterMixin, HotkeysMixin):
         self._record_started = 0.0
         self.busy = False                  # transcribing / rewriting (the floating mic button shows it)
         self._type_lock = threading.Lock()
+        self._home_init()
 
     def _emit(self, kind: str, payload: object = None) -> None:
         self.events.put((kind, payload))
@@ -82,7 +84,7 @@ class Engine(WriterMixin, HotkeysMixin):
         source = self.transcriber.source if self.transcriber else self.config.model
         self.load_model(source)
 
-    def load_model(self, source: str) -> None:
+    def load_model(self, source: str, device: str | None = None) -> None:
         """Download (if needed) and load a model in the background.
 
         The current model keeps working until the new one is ready, and stays if loading fails.
@@ -96,8 +98,9 @@ class Engine(WriterMixin, HotkeysMixin):
             try:
                 started = time.perf_counter()
                 path = models.resolve(source)  # downloads on first use
+                where = device or self.model_device() or self.config.device
                 new = models.retry_while_locked(lambda: Transcriber(
-                    source, path, self.config.device,
+                    source, path, where,
                     self.config.compute_type, self.config.gpu_compute_type,
                     cpu_threads=speed.cpu_threads(self.config.all_cores)))
                 self.transcriber = new
@@ -252,22 +255,7 @@ class Engine(WriterMixin, HotkeysMixin):
             self.busy = False
             self.undo.resume()
 
-    # ---- « PC à la maison » (home.py): only outbound HTTPS, local models as fallback
-    def home_client(self):
-        if not self.config.home_enabled:
-            return None
-        try:
-            return home.HomeClient(self.config.home_url, self.config.home_key)
-        except home.HomeError:
-            return None
-
-    def _home_result(self, ok: bool, reason: str = "") -> None:
-        """Tells the window when the home PC stops (or starts again) answering — once, not every dictation."""
-        state = "ok" if ok else "down"
-        if state != getattr(self, "_home_state", "ok"):
-            self._emit("home_back" if ok else "home_down", reason)
-        self._home_state = state
-
+    # ---- « PC à la maison » (engine_home.py): home PC first, local models as fallback
     def _transcribe_audio(self, transcriber, audio, language, hotwords, timings: dict) -> str:
         client = self.home_client()
         if client is not None:
@@ -346,8 +334,9 @@ class Engine(WriterMixin, HotkeysMixin):
     # ---- lifecycle ----------------------------------------------------------------------
     def start(self) -> None:
         self.resume_hotkey()
+        self.start_home_watch()   # first: Voice Typer Home on this PC keeps the graphics card for itself
         self.load_model(self.config.model)
-        if self.config.writer_preload and self.preset_hotkeys:
+        if self.config.writer_preload and self.preset_hotkeys and not self._local_home:
             from voice_typer import writer
 
             if writer.is_downloaded(self.config.writing_model):
@@ -365,6 +354,7 @@ class Engine(WriterMixin, HotkeysMixin):
         threading.Thread(target=work, daemon=True).start()
 
     def stop(self) -> None:
+        self.stop_home_watch()
         self.pause_hotkey()
         if self.recorder.is_recording:
             self.recorder.stop()

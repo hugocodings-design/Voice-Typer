@@ -66,6 +66,7 @@ class HomeClient:
     def __init__(self, url: str, key: str):
         self.url = normalize_url(url)
         self.key = (key or "").strip()
+        self.last_answer: dict = {}      # the whole JSON answer of the last request (model, device…)
         if not self.url or not self.key:
             raise HomeError("not_configured")
 
@@ -77,7 +78,9 @@ class HomeClient:
             req.add_header(k, v)
         try:
             with _open(req, timeout) as resp:
-                return json.loads(resp.read(2_000_000).decode("utf-8"))
+                answer = json.loads(resp.read(2_000_000).decode("utf-8"))
+                self.last_answer = answer if isinstance(answer, dict) else {}
+                return self.last_answer
         except urllib.error.HTTPError as exc:
             reason = {401: "bad_key", 403: "bad_key", 429: "locked", 413: "too_long", 500: "http_500",
                       503: "http_503"}.get(exc.code, "bad_answer")

@@ -392,11 +392,13 @@ class SettingsPage:
         self.config.home_url = self.home_url_var.get().strip()
         self.config.home_key = self.home_key_var.get().strip()
         self.config.save()
+        self.engine.check_home_now()
 
     def _on_home(self) -> None:
         self._save_home()
         self.config.home_enabled = self.home_var.get()
         self.config.save()
+        self.engine.check_home_now()
 
     def _test_home(self) -> None:
         from voice_typer import home

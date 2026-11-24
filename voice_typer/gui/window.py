@@ -432,6 +432,13 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
             self._set_last((f"undo_no_{payload}", {}))
             if self.config.overlay:
                 self.overlay.flash(self.t(f"undo_no_{payload}"), ms=3200)
+        elif kind == "home_status":
+            self._home_info = payload
+            self._render_home_status()
+        elif kind == "home_ai_cpu":
+            self._set_last(("home_ai_cpu", {}))
+            if self.config.overlay:
+                self.overlay.flash(self.t("home_ai_cpu"), ms=5000)
         elif kind in ("home_down", "home_back"):
             reason = self.t(f"home_err_{payload}") if payload else ""
             self._set_last((kind, {"reason": reason}))
