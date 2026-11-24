@@ -105,7 +105,8 @@ def test_api_without_sockets():
     assert server.handle(m, g, "POST", "/v1/transcribe", _h(), too_long)[0] == 413
     req = json.dumps({"text": "salut", "writing_model": "qwen-3b"}).encode()
     status, out = server.handle(m, g, "POST", "/v1/rewrite", _h(), req)
-    assert status == 200 and out == {"text": "SALUT\nHugo", "timings": {"rewrite": 0.4}, "model": "qwen-3b"}
+    assert status == 200 and out == {"text": "SALUT\nHugo", "timings": {"rewrite": 0.4}, "model": "qwen-3b",
+                                    "device": "cuda"}
     assert server.handle(m, g, "POST", "/v1/rewrite", _h(), b"not json")[0] == 400
     assert server.handle(m, g, "GET", "/etc/passwd", _h(), b"")[0] == 404
 
@@ -171,3 +172,40 @@ def test_work_package_still_has_no_server_code():
     assert not (src / "home_server").exists()
     code = "".join(p.read_text(encoding="utf-8") for p in src.rglob("*.py"))
     assert "import home_server" not in code and "from home_server" not in code
+
+
+def test_tray_texts():
+    from home_server import tray_app
+
+    lines = tray_app.status_lines({"whisper": ("small", "cuda", None),
+                                   "writer": ("jncraton/Qwen2.5-3B-Instruct-ct2-int8", "cpu", None)})
+    assert lines == ["Whisper : small — carte graphique", "IA d'écriture : Qwen2.5-3B-Instruct — PROCESSEUR (lent)"]
+    assert "chargement de large-v3" in tray_app.status_lines({"whisper": ("", "", "large-v3")})[0]
+    assert tray_app.load_message("writer", "q", "cuda", "") is None
+    assert "processeur" in tray_app.load_message("writer", "q", "cpu", "")
+    assert "impossible" in tray_app.load_message("whisper", "x", "", "boom")
+    assert tray_app.autostart_command().endswith('run_home.pyw"') and "pythonw" in tray_app.autostart_command()
+
+
+def test_load_events_reach_the_tray():
+    m = fake_models(ready=False)
+    seen = []
+    m.on_event = lambda *a: seen.append(a)
+    m.loading["writer"] = "qwen-3b"
+    m._load("writer", "qwen-3b")
+    assert seen == [("writer", "qwen-3b", "cuda", "")]
+    assert m.status()["writer"] == ("qwen-3b", "cuda", None)
+
+
+def test_journal_never_holds_dictations(tmp_path):
+    from home_server import tray_app
+
+    log = tray_app.setup_log(tmp_path)
+    m = fake_models()
+    m.log = log.info
+    body = home.encode_audio(np.zeros(1600, dtype=np.float32))
+    server.handle(m, server.Guard(KEY), "POST", "/v1/transcribe", _h(**{"X-VT-Options": _opts(model="small")}), body)
+    for h in log.handlers:
+        h.flush()
+    text = (tmp_path / "home.log").read_text(encoding="utf-8")
+    assert "dictée" in text and "Bonjour" not in text

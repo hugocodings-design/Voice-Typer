@@ -76,6 +76,7 @@ class Models:
         self.names = {k: "" for k in self.KINDS}
         self.loading = {k: None for k in self.KINDS}
         self.failed: dict[str, str] = {}
+        self.on_event = None               # fn(kind, source, device, error) after each load (tray notifications)
         self.state = threading.Lock()
         self.load_lock = threading.Lock()  # one model loads at a time
         self.gpu = threading.Lock()        # one job at a time on the graphics card
@@ -154,6 +155,15 @@ class Models:
                     self.log(f"  prêt sur {where} ({time.perf_counter() - started:.0f} s)")
                 if self.loading[kind] == source:
                     self.loading[kind] = None
+            if self.on_event:
+                try:
+                    self.on_event(kind, source, getattr(obj, "device", ""), self.failed.get(source, ""))
+                except Exception:  # noqa: BLE001 — a notification must never break loading
+                    pass
+
+    def status(self) -> dict:
+        """{kind: (name, device, loading)} for the tray menu and /v1/ping."""
+        return {k: (self.names[k], getattr(self.objs[k], "device", ""), self.loading[k]) for k in self.KINDS}
 
     @property
     def device(self) -> str:
@@ -216,6 +226,7 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
     if method == "GET" and path == "/v1/ping":
         return 200, {"ok": True, "version": version, "whisper": models.names["whisper"],
                      "writer": models.names["writer"], "device": models.device,
+                     "writer_device": getattr(models.objs["writer"], "device", ""),
                      "loading": [v for v in models.loading.values() if v]}
     if method != "POST" or path not in ("/v1/transcribe", "/v1/rewrite"):
         return 404, {"error": "not_found"}
@@ -258,7 +269,8 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
         text, timings = models.rewrite(writer, req)
         models.log(f"{time.strftime('%H:%M:%S')}  écriture IA {models.names['writer']}  "
                    f"{time.perf_counter() - started:.1f} s")
-        return 200, {"text": text, "timings": timings, "model": models.names["writer"]}
+        return 200, {"text": text, "timings": timings, "model": models.names["writer"],
+                     "device": getattr(writer, "device", "")}
     except (ValueError, UnicodeDecodeError):
         return 400, {"error": "bad_request"}
 
