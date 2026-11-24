@@ -28,13 +28,22 @@ transcription et l'écriture IA, puis renvoie le texte : 2 à 3 secondes au lieu
 
 1. Dans le dossier du projet (là où se trouve `Start Voice Typer.bat`), récupérez la dernière version
    (`git pull`).
-2. Double-cliquez sur **`Start Voice Typer Home.bat`**. La fenêtre affiche la **clé**. Laissez-la ouverte.
+2. Double-cliquez sur **`Start Voice Typer Home.bat`**. Une **icône bleue** apparaît près de l'horloge (sous la
+   petite flèche ^ au besoin). Clic droit dessus :
+   - les modèles chargés et où ils tournent (« carte graphique » = rapide, « PROCESSEUR » = lent);
+   - **Copier la clé** : à coller dans Réglages → PC à la maison sur vos autres ordinateurs;
+   - **Ouvrir le journal**, **Démarrer avec Windows** (cochez-le une fois), **Quitter**.
+   Une notification Windows vous prévient si un modèle ne peut pas être chargé ou tourne sur le processeur.
+   (`Start Voice Typer Home.bat --console` : l'ancienne fenêtre noire, pour voir chaque ligne.)
 3. Il utilise **les modèles choisis sur l'ordinateur qui dicte** (Whisper et IA d'écriture) : la première fois
    qu'un modèle est demandé, il le télécharge et le charge (la dictée est alors faite sur l'autre PC), ensuite
    il le garde en mémoire. Un modèle qui n'est pas dans les listes de Voice Typer (ex. un dossier importé sur
    l'autre PC) est remplacé par celui choisi sur ce PC.
-4. La fenêtre affiche une ligne par dictée : « dictée … 0,4 s », « écriture IA … 1,8 s ». Une ligne
+4. Le journal (clic droit → Ouvrir le journal) a une ligne par dictée : « dictée … 0,4 s », « écriture IA … 1,8 s ». Une ligne
    « modèle en chargement → fait sur l'autre PC » veut dire que l'autre PC l'a faite lui-même.
+
+Voice Typer sur ce même PC le détecte tout seul et utilise ses modèles (pas de double chargement sur la carte
+graphique, donc plus d'erreur « out of memory »).
 
 La clé est gardée dans `%APPDATA%\VoiceTyperHome\key.txt`. Pour en créer une nouvelle (si elle a fuité) :
 `Start Voice Typer Home.bat --new-key`, puis mettez la nouvelle clé au travail.
@@ -42,7 +51,8 @@ La clé est gardée dans `%APPDATA%\VoiceTyperHome\key.txt`. Pour en créer une 
 ## 3. Au travail
 
 Réglages → **PC à la maison** : collez l'adresse et la clé, cliquez sur **Tester la connexion**, puis activez
-« Utiliser mon PC à la maison ». Après chaque dictée, l'accueil indique « PC à la maison » quand elle y a été
+« Utiliser mon PC à la maison ». L'accueil affiche en permanence « PC à la maison : connecté — la carte
+graphique » ou « injoignable ». Après chaque dictée, l'accueil indique « PC à la maison » quand elle y a été
 faite : « transcription 0,6 s (maison) · IA 1,8 s (maison) » — chaque étape faite à la maison est marquée.
 
 ## Sécurité

@@ -197,15 +197,23 @@ class Writer:
 
     def _generate(self, user: str, system: str, max_tokens: int = 1024,
                   shots: list[tuple[str, str]] = ()) -> str:
-        prompt = f"<|im_start|>system\n{system}<|im_end|>\n"
+        # The system prompt and the worked example are the same for every dictation: given as a "static prompt",
+        # CTranslate2 processes them once and keeps the result (≈1,000 tokens not re-read each time — seconds
+        # saved on a processor). Only the user's dictation is new.
+        static = f"<|im_start|>system\n{system}<|im_end|>\n"
         for q, a in shots:
-            prompt += f"<|im_start|>user\n{q}<|im_end|>\n<|im_start|>assistant\n{a}<|im_end|>\n"
-        prompt += f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n"
-        tokens = self.tokenizer.encode(prompt, add_special_tokens=False).tokens
-        result = self.generator.generate_batch(
-            [tokens], max_length=max_tokens, sampling_topk=1, repetition_penalty=1.05,
-            include_prompt_in_result=False, end_token=["<|im_end|>", "<|endoftext|>"],
-        )
+            static += f"<|im_start|>user\n{q}<|im_end|>\n<|im_start|>assistant\n{a}<|im_end|>\n"
+        turn = f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n"
+        encode = self.tokenizer.encode
+        options = dict(max_length=max_tokens, sampling_topk=1, repetition_penalty=1.05,
+                       include_prompt_in_result=False, end_token=["<|im_end|>", "<|endoftext|>"])
+        try:
+            result = self.generator.generate_batch(
+                [encode(turn, add_special_tokens=False).tokens],
+                static_prompt=encode(static, add_special_tokens=False).tokens, cache_static_prompt=True, **options)
+        except TypeError:  # older CTranslate2 without static prompts: the whole prompt each time
+            result = self.generator.generate_batch([encode(static + turn, add_special_tokens=False).tokens],
+                                                   **options)
         return self.tokenizer.decode(result[0].sequences_ids[0], skip_special_tokens=True).strip()
 
     def rewrite(self, text: str, instructions: str, signature: str = "", add_signature: bool = False,

@@ -1,6 +1,6 @@
 {
-  "version": "0.19.1",
-  "fr": "PC à la maison : il utilise le modèle choisi sur chaque ordinateur, et l'accueil indique chaque étape faite à la maison (transcription, IA)",
-  "en": "Home PC: it uses the model selected on each computer, and Home shows each step done at home (transcription, AI)",
+  "version": "0.20.0",
+  "fr": "PC à la maison : état affiché sur l'accueil, alerte si l'IA tourne sur le processeur, plus de double chargement sur le PC de la maison ; courriels plus rapides ; aperçu et écriture en direct retirés",
+  "en": "Home PC: status shown on Home, warning when the AI runs on the processor, no more double loading on the home PC; faster emails; live preview and live typing removed",
   "required": false
 }

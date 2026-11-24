@@ -79,3 +79,48 @@ def test_sentences_copied_from_the_example_are_removed():
     # dictated for real: kept
     real = "Bonjour,\n\nPourriez-vous me confirmer si le prix inclut la livraison ?\n\nMerci,"
     assert writer.drop_copied_example(real, "demande si le prix inclut la livraison", writer.EXAMPLE_OUT) == real
+
+
+class _Tok:
+    class _Enc:
+        def __init__(self, text):
+            self.tokens = text.split()
+            self.ids = list(range(len(self.tokens)))
+
+    def encode(self, text, add_special_tokens=False):
+        return self._Enc(text)
+
+    def decode(self, ids, skip_special_tokens=True):
+        return "Bonjour,"
+
+
+def test_system_prompt_and_example_are_cached():
+    calls = []
+
+    class Gen:
+        def generate_batch(self, batch, **kw):
+            calls.append((batch, kw))
+            return [type("R", (), {"sequences_ids": [[1]]})()]
+
+    w = writer.Writer.__new__(writer.Writer)
+    w.tokenizer, w.generator = _Tok(), Gen()
+    assert w._generate("dictée", "SYSTEM", shots=[("q", "a")]) == "Bonjour,"
+    batch, kw = calls[0]
+    assert kw["cache_static_prompt"] and "SYSTEM" in " ".join(kw["static_prompt"])
+    assert "SYSTEM" not in " ".join(batch[0]) and "dictée" in " ".join(batch[0])   # only the new part
+
+
+def test_old_ctranslate2_without_static_prompt_still_works():
+    calls = []
+
+    class OldGen:
+        def generate_batch(self, batch, **kw):
+            if "static_prompt" in kw:
+                raise TypeError("unexpected keyword")
+            calls.append(batch)
+            return [type("R", (), {"sequences_ids": [[1]]})()]
+
+    w = writer.Writer.__new__(writer.Writer)
+    w.tokenizer, w.generator = _Tok(), OldGen()
+    assert w._generate("dictée", "SYSTEM") == "Bonjour,"
+    assert "SYSTEM" in " ".join(calls[0][0]) and "dictée" in " ".join(calls[0][0])
