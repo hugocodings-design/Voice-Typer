@@ -2,7 +2,6 @@
 
 import argparse
 import sys
-import threading
 
 from home_server.server import Models, home_dir, load_or_create_key, make_server
 
@@ -28,7 +27,10 @@ def main() -> None:
     print(f"   Clé     : {key}")
     print(" Gardez cette fenêtre ouverte. Ctrl+C pour arrêter.")
     print("=" * 70)
-    threading.Thread(target=models.load, daemon=True).start()   # answers "loading" until ready
+    models.configure()
+    print(f" Modèles de ce PC (utilisés si l'autre PC n'en précise pas) : {models.defaults['whisper']}, "
+          f"{models.defaults['writer']}")
+    models.preload()   # in the background: answers "loading" until ready
     try:
         server.serve_forever()
     except KeyboardInterrupt:

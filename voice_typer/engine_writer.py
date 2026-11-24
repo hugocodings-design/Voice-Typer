@@ -91,8 +91,8 @@ class WriterMixin:
             try:
                 out, timings = client.rewrite(text, instructions, self.config.signature, add_signature, subject,
                                               self.config.signature_blank_line, self.config.signature_en,
-                                              self.config.language)
-                self.last_rewrite_timings = timings
+                                              self.config.language, self.config.writing_model)
+                self.last_rewrite_timings = {**timings, "home_ai": 1.0}   # Home shows "IA … (maison)"
                 self._home_result(True)
                 return out
             except home.HomeError as exc:

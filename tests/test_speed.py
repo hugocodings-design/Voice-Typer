@@ -37,3 +37,11 @@ def test_settings_validation_and_portability(tmp_path, monkeypatch):
     cfg = config_mod.Config.load()
     assert cfg.speed_mode == "auto" and cfg.all_cores is True
     assert {"speed_mode", "all_cores"} <= set(PORTABLE)
+
+
+def test_timings_say_which_steps_ran_at_home():
+    from voice_typer.speed import format_timings
+
+    t = {"audio": 4.0, "transcribe": 0.6, "rewrite": 1.8, "home": 1.0, "home_ai": 1.0}
+    assert format_timings(t, "fr") == "audio 4,0 s · transcription 0,6 s (maison) · IA 1,8 s (maison)"
+    assert format_timings({**t, "home_ai": None}, "en") == "audio 4.0 s · transcription 0.6 s (home) · AI 1.8 s"

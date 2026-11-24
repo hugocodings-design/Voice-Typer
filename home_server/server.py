@@ -56,60 +56,121 @@ def load_or_create_key(folder: Path | None = None) -> str:
 
 
 class Models:
-    """Whisper + writing AI, loaded from this PC's own Voice Typer settings (same models you chose there)."""
+    """Whisper + writing AI on this PC's graphics card, in the models each computer asks for.
 
-    def __init__(self):
-        self.transcriber = None
-        self.writer = None
-        self.whisper_name = ""
-        self.writer_name = ""
-        self.error = ""
-        self.gpu = threading.Lock()   # one job at a time on the graphics card
+    Each request names the model selected on the computer that sent it ("small", "Français Distil"…). It is
+    loaded here the first time (downloaded if needed) and then kept: one Whisper model and one writing model in
+    memory at a time (8 GB card). While a model loads, requests get "loading" (503) and the other computer
+    does that dictation itself, so nobody waits. Only models from Voice Typer's lists, or imported on THIS PC,
+    are accepted; anything else (e.g. a folder on the other computer) uses this PC's own choice instead.
+    """
 
-    def load(self, log=print) -> None:
-        from voice_typer import models, speed
+    KINDS = ("whisper", "writer")
+
+    def __init__(self, builders=None, defaults=None, allowed=None, log=print):
+        self.log = log
+        self._builders = builders          # {"whisper": fn(source), "writer": fn(source)} — None = real ones
+        self.defaults = dict(defaults or {})
+        self._allowed = allowed            # {"whisper": set, "writer": set} — None = from the catalogs
+        self.objs = {k: None for k in self.KINDS}
+        self.names = {k: "" for k in self.KINDS}
+        self.loading = {k: None for k in self.KINDS}
+        self.failed: dict[str, str] = {}
+        self.state = threading.Lock()
+        self.load_lock = threading.Lock()  # one model loads at a time
+        self.gpu = threading.Lock()        # one job at a time on the graphics card
+
+    # ---- configuration from this PC's Voice Typer settings
+    def configure(self) -> None:
+        from voice_typer import models, writer
         from voice_typer.config import Config
-        from voice_typer.transcriber import Transcriber
 
         cfg = Config.load()
-        source = cfg.model or "large-v3-turbo"
-        log(f"Chargement de Whisper : {source} …")
-        path = models.resolve(source)
-        self.transcriber = models.retry_while_locked(lambda: Transcriber(
-            source, path, cfg.device, cfg.compute_type, cfg.gpu_compute_type,
-            cpu_threads=speed.cpu_threads(cfg.all_cores)))
-        self.whisper_name = source
-        log(f"  prêt sur {'la carte graphique' if self.transcriber.device == 'cuda' else 'le processeur'}")
-        if cfg.writing_model:
-            try:
-                from voice_typer.writer import Writer
+        custom = {c.get("source") for c in cfg.custom_models if isinstance(c, dict)}
+        self.defaults = {"whisper": cfg.model or "large-v3-turbo", "writer": cfg.writing_model or writer.DEFAULT_LLM}
+        self._allowed = {"whisper": {m.source for m in models.CATALOG} | custom | {self.defaults["whisper"]},
+                         "writer": {m.source for m in writer.LLM_CATALOG} | {self.defaults["writer"]}}
+        self._cfg = cfg
 
-                log(f"Chargement de l'IA d'écriture : {cfg.writing_model} …")
-                self.writer = models.retry_while_locked(lambda: Writer(
-                    cfg.writing_model, cfg.device, "int8", "int8_float16",
-                    cpu_threads=speed.cpu_threads(cfg.all_cores)))
-                self.writer_name = cfg.writing_model
-                log("  prête")
-            except Exception as exc:  # noqa: BLE001 — transcription still works without it
-                self.error = f"IA d'écriture : {exc}"
-                log(f"  impossible : {exc}")
+    def _build(self, kind: str, source: str):
+        if self._builders:
+            return self._builders[kind](source)
+        from voice_typer import models, speed
+
+        cfg = self._cfg
+        threads = speed.cpu_threads(cfg.all_cores)
+        if kind == "whisper":
+            from voice_typer.transcriber import Transcriber
+
+            path = models.resolve(source)
+            return models.retry_while_locked(lambda: Transcriber(
+                source, path, cfg.device, cfg.compute_type, cfg.gpu_compute_type, cpu_threads=threads))
+        from voice_typer.writer import Writer
+
+        return models.retry_while_locked(lambda: Writer(source, cfg.device, "int8", "int8_float16",
+                                                        cpu_threads=threads))
+
+    def preload(self) -> None:
+        for kind in self.KINDS:
+            if self.defaults.get(kind):
+                self.get(kind, None)
+
+    # ---- the model for a request: ready object, or None while it loads
+    def choose(self, kind: str, source: str | None) -> str:
+        allowed = (self._allowed or {}).get(kind)
+        if not source or (allowed is not None and source not in allowed) or source in self.failed:
+            return self.defaults.get(kind, "")
+        return source
+
+    def get(self, kind: str, source: str | None):
+        source = self.choose(kind, source)
+        with self.state:
+            if self.names[kind] == source and self.objs[kind] is not None:
+                return self.objs[kind]
+            if self.loading[kind] != source:
+                self.loading[kind] = source
+                threading.Thread(target=self._load, args=(kind, source), daemon=True).start()
+        return None
+
+    def _load(self, kind: str, source: str) -> None:
+        with self.load_lock:
+            if self.loading[kind] != source:
+                return                         # another model was asked for meanwhile
+            label = "Whisper" if kind == "whisper" else "IA d'écriture"
+            self.log(f"Chargement {label} : {source} … (les dictations sont faites sur l'autre PC en attendant)")
+            with self.gpu:                     # free the previous one first: the card has 8 GB
+                self.objs[kind], self.names[kind] = None, ""
+            started = time.perf_counter()
+            try:
+                obj = self._build(kind, source)
+            except Exception as exc:  # noqa: BLE001 — that model won't be asked for again; our own is used
+                self.failed[source] = str(exc)
+                self.log(f"  impossible : {exc} → modèle de ce PC utilisé à la place")
+                obj = None
+            with self.state:
+                if obj is not None:
+                    self.objs[kind], self.names[kind] = obj, source
+                    where = "la carte graphique" if getattr(obj, "device", "") == "cuda" else "le processeur"
+                    self.log(f"  prêt sur {where} ({time.perf_counter() - started:.0f} s)")
+                if self.loading[kind] == source:
+                    self.loading[kind] = None
 
     @property
     def device(self) -> str:
-        return getattr(self.transcriber, "device", "")
+        return getattr(self.objs["whisper"], "device", "")
 
-    def transcribe(self, audio, language, hotwords, mode) -> str:
+    def transcribe(self, transcriber, audio, language, hotwords, mode) -> str:
         with self.gpu:
-            return self.transcriber.transcribe(audio, language, hotwords, mode=mode)
+            return transcriber.transcribe(audio, language, hotwords, mode=mode)
 
-    def rewrite(self, req: dict) -> tuple[str, dict]:
+    def rewrite(self, writer, req: dict) -> tuple[str, dict]:
         with self.gpu:
-            out = self.writer.rewrite(
+            out = writer.rewrite(
                 req["text"], req.get("instructions", ""), req.get("signature", ""),
                 bool(req.get("add_signature")), bool(req.get("subject")),
                 signature_blank_line=bool(req.get("signature_blank_line")),
                 signature_en=req.get("signature_en", "") or "", language=req.get("language"))
-            return out, dict(getattr(self.writer, "last_timings", {}) or {})
+            return out, dict(getattr(writer, "last_timings", {}) or {})
 
 
 class Guard:
@@ -153,16 +214,15 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
     if auth != "ok":
         return (429 if auth == "locked" else 401), {"error": auth}
     if method == "GET" and path == "/v1/ping":
-        return 200, {"ok": True, "version": version, "whisper": models.whisper_name,
-                     "writer": models.writer_name, "device": models.device}
+        return 200, {"ok": True, "version": version, "whisper": models.names["whisper"],
+                     "writer": models.names["writer"], "device": models.device,
+                     "loading": [v for v in models.loading.values() if v]}
     if method != "POST" or path not in ("/v1/transcribe", "/v1/rewrite"):
         return 404, {"error": "not_found"}
     if len(body) > MAX_BODY:
         return 413, {"error": "too_long"}
     try:
         if path == "/v1/transcribe":
-            if models.transcriber is None:
-                return 503, {"error": "loading"}
             opts = json.loads(headers.get("X-VT-Options") or "{}")
             if not isinstance(opts, dict) or opts.get("sample_rate", SAMPLE_RATE) != SAMPLE_RATE:
                 return 400, {"error": "bad_options"}
@@ -173,12 +233,15 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
                 audio = home.decode_audio(body, MAX_AUDIO_SECONDS * SAMPLE_RATE * 2)
             except ValueError:
                 return 413, {"error": "too_long"}
+            transcriber = models.get("whisper", _str_or_none(opts.get("model")))
+            if transcriber is None:
+                return 503, {"error": "loading"}
             started = time.perf_counter()
-            text = models.transcribe(audio, language, (hotwords or "")[:2000] or None, mode)
-            return 200, {"text": text, "seconds": round(time.perf_counter() - started, 3)}
+            text = models.transcribe(transcriber, audio, language, (hotwords or "")[:2000] or None, mode)
+            seconds = time.perf_counter() - started
+            models.log(f"{time.strftime('%H:%M:%S')}  dictée     {models.names['whisper']}  {seconds:.1f} s")
+            return 200, {"text": text, "seconds": round(seconds, 3), "model": models.names["whisper"]}
         # /v1/rewrite
-        if models.writer is None:
-            return 503, {"error": "no_writer"}
         if len(body) > MAX_TEXT:
             return 413, {"error": "too_long"}
         req = json.loads(body.decode("utf-8"))
@@ -188,8 +251,14 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
             if not isinstance(req.get(k, ""), str):
                 return 400, {"error": "bad_request"}
         _str_or_none(req.get("language"), {"fr", "en"})
-        text, timings = models.rewrite(req)
-        return 200, {"text": text, "timings": timings}
+        writer = models.get("writer", _str_or_none(req.get("writing_model")))
+        if writer is None:
+            return 503, {"error": "loading"}
+        started = time.perf_counter()
+        text, timings = models.rewrite(writer, req)
+        models.log(f"{time.strftime('%H:%M:%S')}  écriture IA {models.names['writer']}  "
+                   f"{time.perf_counter() - started:.1f} s")
+        return 200, {"text": text, "timings": timings, "model": models.names["writer"]}
     except (ValueError, UnicodeDecodeError):
         return 400, {"error": "bad_request"}
 
@@ -227,7 +296,11 @@ def make_server(models: Models, key: str, port: int, version: str = "", host: st
         def do_POST(self):  # noqa: N802
             self._run("POST")
 
-        def log_message(self, fmt, *args):  # one short line per request, never the content
-            print(f"{time.strftime('%H:%M:%S')} {self.command} {self.path.split('?')[0]} → {args[1] if len(args) > 1 else ''}")
+        def log_message(self, fmt, *args):  # refused / not-ready requests only, never the content
+            status = str(args[1]) if len(args) > 1 else ""
+            if status != "200":
+                reason = {"401": "clé refusée", "429": "bloqué (trop de mauvaises clés)",
+                          "503": "modèle en chargement → fait sur l'autre PC"}.get(status, status)
+                print(f"{time.strftime('%H:%M:%S')}  {self.path.split('?')[0]}  {reason}")
 
     return ThreadingHTTPServer((host, port), Handler)

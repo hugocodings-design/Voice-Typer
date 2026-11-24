@@ -337,7 +337,8 @@ class Engine(WriterMixin, HotkeysMixin):
         client = self.home_client()
         if client is not None:
             try:
-                text = client.transcribe(audio, self.config.sample_rate, language, hotwords, self.config.speed_mode)
+                text = client.transcribe(audio, self.config.sample_rate, language, hotwords, self.config.speed_mode,
+                                         self.config.model)
                 timings["home"] = 1.0
                 self._home_result(True)
                 return text

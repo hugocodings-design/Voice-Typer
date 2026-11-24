@@ -29,7 +29,12 @@ transcription et l'écriture IA, puis renvoie le texte : 2 à 3 secondes au lieu
 1. Dans le dossier du projet (là où se trouve `Start Voice Typer.bat`), récupérez la dernière version
    (`git pull`).
 2. Double-cliquez sur **`Start Voice Typer Home.bat`**. La fenêtre affiche la **clé**. Laissez-la ouverte.
-3. Il utilise les modèles choisis dans Voice Typer sur ce PC (Whisper et IA d'écriture).
+3. Il utilise **les modèles choisis sur l'ordinateur qui dicte** (Whisper et IA d'écriture) : la première fois
+   qu'un modèle est demandé, il le télécharge et le charge (la dictée est alors faite sur l'autre PC), ensuite
+   il le garde en mémoire. Un modèle qui n'est pas dans les listes de Voice Typer (ex. un dossier importé sur
+   l'autre PC) est remplacé par celui choisi sur ce PC.
+4. La fenêtre affiche une ligne par dictée : « dictée … 0,4 s », « écriture IA … 1,8 s ». Une ligne
+   « modèle en chargement → fait sur l'autre PC » veut dire que l'autre PC l'a faite lui-même.
 
 La clé est gardée dans `%APPDATA%\VoiceTyperHome\key.txt`. Pour en créer une nouvelle (si elle a fuité) :
 `Start Voice Typer Home.bat --new-key`, puis mettez la nouvelle clé au travail.
@@ -38,7 +43,7 @@ La clé est gardée dans `%APPDATA%\VoiceTyperHome\key.txt`. Pour en créer une 
 
 Réglages → **PC à la maison** : collez l'adresse et la clé, cliquez sur **Tester la connexion**, puis activez
 « Utiliser mon PC à la maison ». Après chaque dictée, l'accueil indique « PC à la maison » quand elle y a été
-faite.
+faite : « transcription 0,6 s (maison) · IA 1,8 s (maison) » — chaque étape faite à la maison est marquée.
 
 ## Sécurité
 

@@ -28,7 +28,7 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
   (key never exported, url+key stripped from diagnostics). Server = top-level `home_server/` (NOT in
   `voice_typer`, excluded in the .spec): stdlib ThreadingHTTPServer on 127.0.0.1:8765 behind Tailscale Funnel,
   `Guard` (constant-time key, 10 bad keys/min → 1 min lock), `handle()` socket-free API (/v1/ping, /v1/transcribe,
-  /v1/rewrite), models from the home PC's own settings.json, one GPU job at a time, nothing written to disk.
+  /v1/rewrite), per-request models (0.19.1): the client sends `config.model` / `config.writing_model`, `Models.get()` loads it in the background (503 "loading" meanwhile → client does it locally), one Whisper + one writer kept (8 GB), only catalog / home-imported sources else the home PC's own choice (`choose`), one GPU job at a time, nothing written to disk; `timings` `home` / `home_ai` → "(maison)" per step.
   Started from source with `Start Voice Typer Home.bat`; guide `docs/HOME.md`
 - `transfer.py` — settings export/import (Réglages → Transférer vers un autre PC). Allowlist `PORTABLE` (user's work and taste only: never mic, update state, history, local model folders); `read_export` validates types, `apply_settings` merges `custom_models` (keeps this PC's local folders). Import saves then `Window._restart()` → new process with `--restart`, which waits up to 15 s for the single-instance mutex (`app.MUTEX_NAME`)
 - `voice_typer/gui/` — tkinter window polling `engine.events`; never call tkinter from worker threads. `window.py` = `Window` built from page mixins (`pages/*.py`), `wizard.py` (first-run assistant, `config.first_run_done`), `shortcuts.py` (recorder + conflict check `_taken_hotkeys`)

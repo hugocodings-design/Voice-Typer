@@ -91,9 +91,10 @@ class HomeClient:
         return self._request("/v1/ping", None, CONNECT_TIMEOUT + 4)
 
     def transcribe(self, audio: np.ndarray, sample_rate: int, language: str | None, hotwords: str | None,
-                   mode: str) -> str:
+                   mode: str, model: str | None = None) -> str:
+        """model: the Whisper model selected on this PC — the home PC loads the same one."""
         options = json.dumps({"language": language, "hotwords": hotwords or None, "mode": mode,
-                              "sample_rate": sample_rate})
+                              "sample_rate": sample_rate, "model": model or None})
         seconds = audio.size / float(sample_rate)
         out = self._request("/v1/transcribe", encode_audio(audio), CONNECT_TIMEOUT + 10 + seconds,
                             {"Content-Type": "application/octet-stream", "X-VT-Options": options})
@@ -102,8 +103,10 @@ class HomeClient:
         return out["text"]
 
     def rewrite(self, text: str, instructions: str, signature: str, add_signature: bool, subject: bool,
-                signature_blank_line: bool, signature_en: str, language: str | None) -> tuple[str, dict]:
-        payload = {"text": text, "instructions": instructions, "signature": signature,
+                signature_blank_line: bool, signature_en: str, language: str | None,
+                writing_model: str | None = None) -> tuple[str, dict]:
+        payload = {"writing_model": writing_model or None, "text": text, "instructions": instructions,
+                   "signature": signature,
                    "add_signature": add_signature, "subject": subject,
                    "signature_blank_line": signature_blank_line, "signature_en": signature_en,
                    "language": language}

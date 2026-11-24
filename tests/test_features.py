@@ -327,8 +327,8 @@ def test_home_pc_is_used_then_local_fallback(engine, monkeypatch):
     eng.transcriber = FakeTranscriber(["Fait ici."])
     answers = ["Fait à la maison."]
 
-    def fake_transcribe(self, audio, sr, language, hotwords, mode):
-        assert self.url == "https://home-pc.tail1.ts.net" and sr == 16000
+    def fake_transcribe(self, audio, sr, language, hotwords, mode, model=None):
+        assert self.url == "https://home-pc.tail1.ts.net" and sr == 16000 and model == eng.config.model
         if answers:
             return answers.pop(0)
         raise home.HomeError("unreachable")
