@@ -203,6 +203,47 @@ def detect_language(text: str, default: str = "fr") -> str:
     return default if default in ("fr", "en") else "fr"
 
 
+_GREETING_LINE = re.compile(r"^(bonjour|bonsoir|salut|allô|hello|hi|hey|dear|good (morning|afternoon))\b", re.I)
+_GENERIC = {
+    "suivi", "information", "informations", "demande", "question", "questions", "mise à jour", "message",
+    "courriel", "bonjour", "merci", "objet", "test", "rappel", "urgent", "important", "re", "info", "nouvelles",
+    "follow up", "follow-up", "request", "update", "email", "hello", "thanks", "thank you", "reminder", "subject",
+}
+
+
+def subject_source(body: str) -> str:
+    """What the subject is about: the e-mail without its greeting, closing and signature."""
+    lines = [ln.rstrip() for ln in body.strip().splitlines()]
+    while lines and (not lines[0].strip() or _GREETING_LINE.match(lines[0].strip())):
+        lines.pop(0)
+    for i in range(len(lines) - 1, max(-1, len(lines) - 10), -1):   # cut at the last closing ("Merci,")
+        if is_closing_line(lines[i]):
+            lines = lines[:i]
+            break
+    return "\n".join(lines).strip()
+
+
+def _stems(text: str) -> set[str]:
+    return {w[:5] for w in re.findall(r"[a-zà-ÿ0-9]+", text.lower()) if len(w) > 3}
+
+
+def subject_ok(subject: str, source: str, examples: tuple[str, ...] = ()) -> bool:
+    """A subject worth keeping: 3 to 14 words, not generic ("Suivi", "Demande"), about THIS e-mail (most of its
+    words come from it — not invented, not copied from the worked examples)."""
+    words = subject.split()
+    if not 3 <= len(words) <= 14:
+        return False
+    if re.sub(r"[^\w\s-]", "", subject.lower()).strip() in _GENERIC:
+        return False
+    stems = _stems(subject)
+    if not stems:
+        return False
+    known = _stems(source)
+    if len(stems & known) * 2 < len(stems):
+        return False
+    return not any(subject.strip().lower() == e.lower() for e in examples)
+
+
 def with_subject(body: str, subject: str, language: str | None = None) -> str:
     subject = clean_subject(subject)
     if not subject:

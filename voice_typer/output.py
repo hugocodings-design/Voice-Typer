@@ -1,7 +1,6 @@
 """Send transcribed text to the focused application."""
 
 import ctypes
-import threading
 import time
 from ctypes import wintypes
 
@@ -115,13 +114,7 @@ def copy_selection(timeout: float = 0.6) -> str:
 
 
 def beep(start: bool) -> None:
-    """Short, non-blocking feedback sound."""
-    def play():
-        try:
-            import winsound
+    """Short, non-blocking feedback sound (sounds.py: a real tone, never winsound.Beep)."""
+    from voice_typer import sounds
 
-            winsound.Beep(880 if start else 620, 70)
-        except Exception:  # noqa: BLE001
-            pass
-
-    threading.Thread(target=play, daemon=True).start()
+    sounds.play(start)

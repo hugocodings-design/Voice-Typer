@@ -73,14 +73,48 @@ EN_RULES_NOTE = ("The instructions below may be written in French: follow them, 
 
 # Second, tiny request when the preset asks for a subject (compose.with_subject puts it on the first line).
 SUBJECT_SYSTEM = (
-    "Tu écris l'objet d'un courriel. Lis le courriel et réponds UNIQUEMENT par un objet court et précis "
-    "(3 à 8 mots), dans la même langue que le courriel, sans guillemets, sans « Objet : », sans point final."
+    "Tu écris l'objet d'un courriel professionnel, comme le ferait son auteur. Réponds UNIQUEMENT par l'objet : "
+    "une ligne de 4 à 10 mots, en français, sans guillemets, sans « Objet : », sans point final. "
+    "L'objet doit dire précisément de quoi parle le courriel : reprends les éléments concrets qui s'y trouvent "
+    "(nom du client ou de l'entreprise, produit, numéro, date, montant) et l'action attendue ou la nouvelle. "
+    "Jamais d'objet vague comme « Suivi », « Demande », « Information » ou « Question ». "
+    "N'invente rien : seulement ce qui est dans le courriel ou dans la dictée."
 )
 
 SUBJECT_SYSTEM_EN = (
-    "You write the subject line of an email. Read the email and answer ONLY with a short, precise subject "
-    "(3 to 8 words), in English, no quotes, no \"Subject:\", no final period."
+    "You write the subject line of a professional email, as its author would. Answer ONLY with the subject: one "
+    "line of 4 to 10 words, in English, no quotes, no \"Subject:\", no final period. The subject must say exactly "
+    "what the email is about: use the concrete details it contains (client or company name, product, number, "
+    "date, amount) and the expected action or the news. Never a vague subject like \"Follow-up\", \"Request\", "
+    "\"Information\" or \"Question\". Invent nothing: only what is in the email or the dictation."
 )
+
+# Worked examples for the subject (invented businesses): what a precise subject looks like.
+SUBJECT_SHOTS_FR = [
+    ("Courriel :\nJ'ai bien reçu votre soumission pour les trois terminaux de la boutique Fleurs Lina. Je la regarde "
+     "cette semaine. Pourriez-vous me confirmer si le prix inclut la livraison ?",
+     "Soumission 3 terminaux Fleurs Lina : livraison incluse ?"),
+    ("Courriel :\nLe terminal du Café du Port ne se connecte plus depuis ce matin. J'ai redémarré l'appareil sans "
+     "succès. Est-ce possible d'envoyer un technicien demain avant midi ?",
+     "Café du Port : terminal hors ligne, technicien demain matin"),
+    ("Courriel :\nLe changement de propriétaire du Garage Morin est en cours. J'attends que le nouveau propriétaire "
+     "remplisse le formulaire, puis je vous l'envoie.",
+     "Garage Morin : changement de propriétaire, formulaire en attente"),
+]
+SUBJECT_SHOTS_EN = [
+    ("Email:\nI received your quote for the three terminals at Lina's Flowers. I'll review it this week. Could "
+     "you confirm whether the price includes delivery?",
+     "Quote for 3 terminals at Lina's Flowers: delivery included?"),
+    ("Email:\nThe terminal at Harbor Café has been offline since this morning. I restarted it without success. "
+     "Could you send a technician tomorrow before noon?",
+     "Harbor Café terminal offline: technician needed tomorrow morning"),
+]
+SUBJECT_RETRY = {
+    "fr": "L'objet « {s} » est trop vague ou ne correspond pas au courriel. Donne un objet plus précis qui nomme le "
+          "sujet exact (nom, produit, action), 4 à 10 mots.",
+    "en": "The subject \"{s}\" is too vague or doesn't match the email. Give a more precise subject naming the exact "
+          "topic (name, product, action), 4 to 10 words.",
+}
 
 # One worked example (few-shot): small models follow the format much better with it.
 EXAMPLE_IN = ("euh courriel à madame Gagnon pour lui dire que j'ai bien reçu sa soumission et que je "
@@ -258,10 +292,27 @@ class Writer:
         self.last_timings["rewrite"] = time.perf_counter() - started
         if subject:
             started = time.perf_counter()
-            label, sys_subject = ("Email", SUBJECT_SYSTEM_EN) if english else ("Courriel", SUBJECT_SYSTEM)
-            out = compose.with_subject(out, self._generate(f"{label} :\n{out}", sys_subject, max_tokens=40), lang)
+            out = compose.with_subject(out, self.subject_for(out, text, english), lang)
             self.last_timings["subject"] = time.perf_counter() - started
         return out
+
+    def subject_for(self, body: str, dictation: str, english: bool) -> str:
+        """A precise subject: the e-mail's content (no greeting/signature) + the dictation for context, worked
+        examples, and one more try when the first answer is too short, generic or off-topic."""
+        core = compose.subject_source(body) or body
+        system, shots = (SUBJECT_SYSTEM_EN, SUBJECT_SHOTS_EN) if english else (SUBJECT_SYSTEM, SUBJECT_SHOTS_FR)
+        label, said = ("Email:", "What I dictated") if english else ("Courriel :", "Ce que j'ai dicté")
+        ask = f"{label}\n{core}\n\n{said} : {dictation.strip()[:1500]}"
+        examples = tuple(a for _q, a in shots)
+        source = f"{core}\n{dictation}"
+        first = compose.clean_subject(self._generate(ask, system, max_tokens=48, shots=shots))
+        if compose.subject_ok(first, source, examples):
+            return first
+        retry = SUBJECT_RETRY["en" if english else "fr"].format(s=first)
+        second = compose.clean_subject(self._generate(f"{ask}\n\n{retry}", system, max_tokens=48, shots=shots))
+        if compose.subject_ok(second, source, examples):
+            return second
+        return max((first, second), key=lambda s: (s not in examples, min(len(s.split()), 10)))
 
 
 def _content_words(text: str) -> set[str]:

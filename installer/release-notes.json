@@ -1,6 +1,6 @@
 {
   "version": "0.20.1",
-  "fr": "Accueil défilant (historique accessible), temps séparé entre le PC à la maison et le réseau, Écriture IA indique le PC à la maison, IA locale libérée tant qu'il répond",
-  "en": "Scrollable Home (history reachable), time split between the home PC and the network, AI writing shows the home PC, local AI freed while it answers",
+  "fr": "Sons de début et de fin corrigés (plus de grésillements), objets de courriel plus précis, accueil défilant, temps PC à la maison / réseau séparés, Écriture IA indique le PC à la maison",
+  "en": "Start/stop sounds fixed (no more crackling), more precise email subjects, scrollable Home, home PC / network time split, AI writing shows the home PC",
   "required": false
 }

@@ -124,3 +124,34 @@ def test_old_ctranslate2_without_static_prompt_still_works():
     w.tokenizer, w.generator = _Tok(), OldGen()
     assert w._generate("dictée", "SYSTEM") == "Bonjour,"
     assert "SYSTEM" in " ".join(calls[0][0]) and "dictée" in " ".join(calls[0][0])
+
+
+class SubjectWriter(FakeWriter):
+    def __init__(self, body, subjects):
+        super().__init__(body)
+        self.subjects = list(subjects)
+
+    def _generate(self, user, system, max_tokens=1024, shots=()):
+        self.calls.append((user, system, shots))
+        return self.subjects.pop(0) if system == writer.SUBJECT_SYSTEM else self.body
+
+
+def test_vague_subject_gets_a_second_more_precise_try():
+    body = ("Bonjour,\n\nLe terminal du Garage Tremblay ne se connecte plus depuis ce matin.\n\n"
+            "Merci,")
+    w = SubjectWriter(body, ["Suivi", "Garage Tremblay : terminal hors ligne depuis ce matin"])
+    out = w.rewrite("courriel au support le terminal du garage Tremblay ne se connecte plus depuis ce matin",
+                    "Mets en forme.", "Hugo", True, True)
+    assert out.startswith("Objet : Garage Tremblay : terminal hors ligne depuis ce matin\n\n")
+    first_ask = w.calls[1][0]
+    assert "Bonjour" not in first_ask and "Hugo" not in first_ask          # greeting / signature left out
+    assert "garage Tremblay ne se connecte" in first_ask                   # the dictation gives the context
+    assert w.calls[1][2] == writer.SUBJECT_SHOTS_FR                         # worked examples
+    assert "trop vague" in w.calls[2][0]
+
+
+def test_good_subject_needs_one_request_only():
+    body = "Bonjour,\n\nLa livraison des 4 terminaux pour Fleurs Lina est reportée à jeudi.\n\nMerci,"
+    w = SubjectWriter(body, ["Fleurs Lina : livraison des 4 terminaux reportée à jeudi"])
+    w.rewrite("dis que la livraison des 4 terminaux pour Fleurs Lina est reportée à jeudi", "x", "", False, True)
+    assert len(w.calls) == 2

@@ -96,3 +96,19 @@ def test_detect_language():
     assert compose.detect_language("Bonjour, je voudrais faire un test.") == "fr"
     assert compose.detect_language("OK", "en") == "en"
     assert compose.with_subject("Bonjour,\n\nTest", "Essai", "en").startswith("Subject: Essai")
+
+
+def test_subject_source_keeps_only_the_content():
+    body = ("Bonjour Carole,\n\nLe changement de propriétaire est en cours.\n\nJ'attends le formulaire.\n\n"
+            "Merci et à bientôt !\nHugo Da Silva\nDirecteur de comptes")
+    assert compose.subject_source(body) == "Le changement de propriétaire est en cours.\n\nJ'attends le formulaire."
+
+
+def test_subject_quality_check():
+    src = "Le terminal du Café Lina ne se connecte plus depuis ce matin. Pouvez-vous envoyer un technicien ?"
+    assert compose.subject_ok("Café Lina : terminal hors ligne, technicien demandé", src)
+    assert not compose.subject_ok("Suivi", src)                                   # too short / generic
+    assert not compose.subject_ok("Demande d'information", src)                   # 2 words
+    assert not compose.subject_ok("Soumission pour trois terminaux livraison incluse", src)   # not this email
+    assert not compose.subject_ok("Café Lina : terminal hors ligne, technicien demandé", src,
+                                  examples=("Café Lina : terminal hors ligne, technicien demandé",))
