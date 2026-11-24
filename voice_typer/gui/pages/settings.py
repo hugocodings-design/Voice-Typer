@@ -117,7 +117,7 @@ class SettingsPage:
                   justify="left").pack(anchor="w", pady=(6, 0))
 
         # Home PC (home.py → home_server on the user's own computer, through Tailscale Funnel)
-        c = self._card(body, self.t("home_title"), self.t("home_sub"), **inner_pad)
+        c = self._card(body, self.t("home_title"), self.t("home_sub"), wrap=680, **inner_pad)
         self.home_var = tk.BooleanVar(value=self.config.home_enabled)
         ttk.Checkbutton(c, text=self.t("home_enable"), style="Switch.TCheckbutton", variable=self.home_var,
                         command=self._on_home).pack(anchor="w", pady=(8, 0))
@@ -413,6 +413,9 @@ class SettingsPage:
                 info = home.HomeClient(url, key).ping()
                 msg = self.t("home_ok", whisper=info.get("whisper") or "?", writer=info.get("writer") or "-",
                              where=self.t("where_gpu" if info.get("device") == "cuda" else "where_cpu"))
+                wd = info.get("writer_device")
+                if wd and wd != "cuda":   # the slow case: its writing AI landed on the processor
+                    msg += self.t("home_status_ai_cpu")
             except home.HomeError as exc:
                 msg = self.t("home_fail", reason=self.t(f"home_err_{exc}"))
 
