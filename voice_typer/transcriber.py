@@ -44,13 +44,3 @@ class Transcriber:
             **decode_options(mode, self.device),
         )
         return " ".join(seg.text.strip() for seg in segments).strip()
-
-    def preview(self, audio: np.ndarray, language: str | None = None) -> str:
-        """Fast, lower-quality pass for the live preview (greedy, no VAD). The final text is redone."""
-        if audio.size < 8000:  # < 0.5 s
-            return ""
-        segments, _info = self.model.transcribe(
-            audio, language=language, beam_size=1, vad_filter=False,
-            condition_on_previous_text=False, without_timestamps=True,
-        )
-        return " ".join(seg.text.strip() for seg in segments).strip()

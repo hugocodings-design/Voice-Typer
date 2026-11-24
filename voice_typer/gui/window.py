@@ -148,7 +148,7 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
     def _build(self) -> None:
         self._stop_mic_test()
         for child in self.root.winfo_children():
-            if not isinstance(child, tk.Toplevel):  # keep the overlay, live caption and assistant windows
+            if not isinstance(child, tk.Toplevel):  # keep the overlay and assistant windows
                 child.destroy()
         self.mode, self.pal = ui_theme.apply(self.root, self.config.theme)
         pal = self.pal
@@ -374,11 +374,7 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
             self._set_last(self.t("wr_error", err=str(payload)[:300]))
             if self._page == "writing":
                 messagebox.showerror(self.t("wr_load_error_title"), str(payload)[:500], parent=self.root)
-        elif kind == "live":
-            if self.config.overlay:
-                self.overlay.set_live(payload)
         elif kind == "transcribing":
-            self.overlay.hide_live()
             self._set_status("status_transcribing", "busy", busy=True)
             if self.config.overlay:
                 self.overlay.show("transcribing", self.t("overlay_transcribing"))

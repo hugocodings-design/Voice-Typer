@@ -104,8 +104,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "set_sounds": "Petit son au début et à la fin de la dictée",
         "set_output": "Écriture du texte",
         "out_paste": "Coller d'un coup (rapide, recommandé)",
-        "out_type": "Taper lettre par lettre à la fin de la dictée (si le collage ne marche pas dans une app ; pour "
-                    "voir les mots pendant que vous parlez : « Écrire au fur et à mesure » plus bas)",
+        "out_type": "Taper lettre par lettre (si le collage ne marche pas dans une application)",
         "set_trailing_space": "Ajouter un espace après chaque dictée",
         "set_accel": "Accélération",
         "accel_auto": "Automatique : carte graphique NVIDIA si disponible (recommandé)",
@@ -225,8 +224,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "set_sounds": "Short sound at the start and end of dictation",
         "set_output": "Writing the text",
         "out_paste": "Paste all at once (fast, recommended)",
-        "out_type": "Type letter by letter at the end of the dictation (if pasting doesn't work in an app; to see "
-                    "the words while you speak: \"Type as I speak\" below)",
+        "out_type": "Type letter by letter (if pasting doesn't work in an application)",
         "set_trailing_space": "Add a space after each dictation",
         "set_accel": "Acceleration",
         "accel_auto": "Automatic: NVIDIA GPU if available (recommended)",
@@ -512,9 +510,8 @@ STRINGS["fr"].update({
     "ap_add": "Associer une application…", "ap_dlg_app": "Application",
     "ap_dlg_hint": "Choisissez dans la liste ou tapez le nom du programme (ex. « thunderbird.exe »). "
                    "Le Gestionnaire des tâches → Détails affiche le nom de chaque programme.",
-    "set_live": "Afficher la transcription en temps réel pendant que je parle",
-    "set_live_note": "Le texte apparaît dans l'indicateur flottant. Plus fluide avec une carte graphique NVIDIA ; "
-                     "sur processeur seul, l'aperçu est plus lent et utilise plus le processeur.",
+
+
 })
 STRINGS["en"].update({
     "nav_help": "Help & commands", "title_help": "Help & commands",
@@ -546,9 +543,8 @@ STRINGS["en"].update({
     "ap_add": "Link an application…", "ap_dlg_app": "Application",
     "ap_dlg_hint": "Pick from the list or type the program name (e.g. \"thunderbird.exe\"). "
                    "Task Manager → Details shows each program's name.",
-    "set_live": "Show the transcription in real time while I speak",
-    "set_live_note": "Text appears in the floating indicator. Smoothest with an NVIDIA graphics card; on a CPU "
-                     "only, the preview is slower and uses more processor.",
+
+
 })
 
 
@@ -707,22 +703,13 @@ STRINGS["en"].update({
 })
 
 
-# Live typing (streaming.py)
 STRINGS["fr"].update({
-    "set_live_typing": "Écrire au fur et à mesure que je parle (là où se trouve le curseur)",
-    "set_live_typing_note": "Les mots s'écrivent dès qu'ils sont sûrs ; quand vous relâchez, la fin est corrigée avec la "
-                            "transcription complète. Ne cliquez pas ailleurs pendant la dictée. Avec un raccourci qui contient "
-                            "Ctrl ou Alt, l'écriture attend que ces touches soient relâchées : une touche seule (F1, F9…) ou le "
-                            "mode « Appuyer pour commencer » est plus fluide. Les préréglages IA (F2…) écrivent toujours à la fin. "
-                            "Très fluide avec une carte graphique NVIDIA.",
+
+
 })
 STRINGS["en"].update({
-    "set_live_typing": "Type as I speak (where the cursor is)",
-    "set_live_typing_note": "Words are typed as soon as they are certain; when you release, the end is corrected with the "
-                            "full transcription. Don't click elsewhere while dictating. With a shortcut containing Ctrl or "
-                            "Alt, typing waits until those keys are released: a single key (F1, F9…) or the \"press to "
-                            "start\" mode is smoother. AI presets (F2…) still type at the end. Smoothest with an NVIDIA "
-                            "graphics card.",
+
+
 })
 
 # Settings export / import (transfer.py)

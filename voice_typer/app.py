@@ -71,8 +71,6 @@ class Engine(WriterMixin, HotkeysMixin):
         self._active_preset: str | None = None
         self._record_started = 0.0
         self.busy = False                  # transcribing / rewriting (the floating mic button shows it)
-        # live typing (streaming.py): words typed while speaking, guarded by _type_lock
-        self._live_typer = None
         self._type_lock = threading.Lock()
 
     def _emit(self, kind: str, payload: object = None) -> None:
@@ -161,21 +159,12 @@ class Engine(WriterMixin, HotkeysMixin):
             self._emit("idle", f"Micro : {exc}")
             return
         self._check_microphone()
-        self.undo.suspend()   # live typing / Ctrl+V are ours: they don't invalidate the last dictation
+        self.undo.suspend()   # our own typing / Ctrl+V doesn't invalidate the last dictation
         if self.config.sounds:
             beep(True)
         self._record_started = time.monotonic()
         self._arm_escape()
         self._emit("recording", self.preset(self._active_preset))
-        with self._type_lock:
-            # AI presets rewrite the whole text at the end: typing it live would make no sense
-            self._live_typer = None
-            if self.config.live_typing and self._active_preset is None:
-                from voice_typer.streaming import LiveTyper
-
-                self._live_typer = LiveTyper()
-        if self.config.live_preview or self._live_typer is not None:
-            threading.Thread(target=self._live_loop, args=(self._record_started,), daemon=True).start()
         if self.config.mode in ("toggle", "auto"):
             threading.Thread(target=self._safety_stop, args=(self._record_started,), daemon=True).start()
 
@@ -215,11 +204,6 @@ class Engine(WriterMixin, HotkeysMixin):
         if not self.recorder.is_recording:
             return
         self.recorder.stop()
-        with self._type_lock:  # erase what was typed live
-            typer, self._live_typer = self._live_typer, None
-            if typer is not None and typer.typed:
-                self._wait_modifiers_released()
-                self._erase(len(typer.typed))
         self.undo.resume()
         if self.config.sounds:
             beep(False)
@@ -233,55 +217,6 @@ class Engine(WriterMixin, HotkeysMixin):
         for _ in range(n):
             keyboard.send("backspace")
             time.sleep(0.002)
-
-    def _live_type(self, text: str, started: float, from_start: bool = True) -> None:
-        """Type the newly confirmed words (skipped while Ctrl/Alt/… of the shortcut are held:
-        Ctrl + letters would trigger the app's shortcuts; they are typed once released)."""
-        import keyboard
-
-        with self._type_lock:
-            typer = self._live_typer
-            if typer is None or self._record_started != started or not self.recorder.is_recording:
-                return
-            if any(k.modifiers_held() for k in self._all_hotkeys()):
-                return
-            new = typer.update(text, from_start)
-            if new:
-                keyboard.write(new)
-
-    def _live_loop(self, started: float) -> None:
-        """While recording, re-transcribe the audio so far and show it (the final pass is redone at the end)."""
-        transcriber = self.transcriber
-        interval = 0.6 if transcriber and transcriber.device == "cuda" else 1.5
-        preview = transcriber.preview if transcriber else None
-        show = self.config.live_preview
-        last = ""
-        time.sleep(0.8)
-        while self.recorder.is_recording and self._record_started == started and preview:
-            t0 = time.perf_counter()
-            audio = self.recorder.snapshot()
-            from_start = True
-            if self._live_typer is not None:  # fixed window: each pass stays fast on long dictations
-                from voice_typer.streaming import WINDOW_S
-
-                limit = WINDOW_S * self.config.sample_rate
-                from_start = audio.size <= limit
-                audio = audio[-limit:]
-            try:
-                text = preview(audio, self.config.language)
-                if text and self.config.numbers_as_digits:   # same text as the final pass: nothing retyped
-                    text = numerals.to_digits(text, self.config.language)
-            except Exception:  # noqa: BLE001 — preview is best effort
-                traceback.print_exc()
-                return
-            if text and text != last and self.recorder.is_recording and self._record_started == started:
-                last = text
-                if show:
-                    self._emit("live", text)
-            if text and self._live_typer is not None:
-                self._live_type(text, started, from_start)
-            # never use more than ~half the time transcribing (keeps a CPU-only PC responsive)
-            time.sleep(max(interval, time.perf_counter() - t0))
 
     def _safety_stop(self, started: float) -> None:
         time.sleep(MAX_SECONDS)
@@ -390,26 +325,10 @@ class Engine(WriterMixin, HotkeysMixin):
             self._wait_modifiers_released()
             if text:
                 self.last_text = text
+            trailing = self.config.trailing_space and preset is None
             with self._type_lock:
-                typer, self._live_typer = self._live_typer, None
-            if typer is not None and typer.typed:
-                # words were typed while speaking: fix only the end that differs from the final text
-                import keyboard
-
-                final = text + (" " if text and self.config.trailing_space else "")
-                back, rest = typer.finish(final)
-                self._erase(back)
-                if rest:
-                    keyboard.write(rest)
-                if self.config.keep_in_clipboard and text:
-                    from voice_typer import clipboard
-
-                    clipboard.set_text(text)
-                typed = final
-            else:
-                trailing = self.config.trailing_space and preset is None
                 send_text(text, self.config.output, trailing, self.config.keep_in_clipboard)
-                typed = text + (" " if text and trailing else "")
+            typed = text + (" " if text and trailing else "")
             if typed:
                 self.undo.record(typed)
             timings["paste"] = max(0.0, time.perf_counter() - started - elapsed)
@@ -419,12 +338,8 @@ class Engine(WriterMixin, HotkeysMixin):
             self._emit("idle", f"Error: {exc}")
 
     def _voice_undo(self) -> None:
-        """« efface ça » said alone: remove what was typed live for it, then the previous dictation."""
+        """« efface ça » said alone: remove the previous dictation."""
         self._wait_modifiers_released()
-        with self._type_lock:
-            typer, self._live_typer = self._live_typer, None
-        if typer is not None and typer.typed:
-            self._erase(len(typer.typed))
         self._undo_now()
         self._emit("idle", None)
 

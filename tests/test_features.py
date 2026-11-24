@@ -131,7 +131,7 @@ def engine(monkeypatch, tmp_path):
         text + (" " if trailing else "")))
     monkeypatch.setattr(output, "send_text", app.send_text)
     cfg = config_mod.Config()
-    cfg.sounds = cfg.live_typing = cfg.live_preview = False
+    cfg.sounds = False
     eng = app.Engine(cfg)
     eng._wait_modifiers_released = lambda timeout=3.0: None
     return eng, screen

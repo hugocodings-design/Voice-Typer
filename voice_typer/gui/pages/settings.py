@@ -43,16 +43,6 @@ class SettingsPage:
         self.overlay_var = tk.BooleanVar(value=self.config.overlay)
         ttk.Checkbutton(c, text=self.t("set_overlay"), style="Switch.TCheckbutton", variable=self.overlay_var,
                         command=self._on_overlay).pack(anchor="w", pady=(10, 0))
-        self.live_var = tk.BooleanVar(value=self.config.live_preview)
-        ttk.Checkbutton(c, text=self.t("set_live"), style="Switch.TCheckbutton", variable=self.live_var,
-                        command=self._on_live).pack(anchor="w", pady=(8, 0))
-        ttk.Label(c, text=self.t("set_live_note"), style="Muted.TLabel", wraplength=680,
-                  justify="left").pack(anchor="w", padx=(46, 0))
-        self.live_typing_var = tk.BooleanVar(value=self.config.live_typing)
-        ttk.Checkbutton(c, text=self.t("set_live_typing"), style="Switch.TCheckbutton",
-                        variable=self.live_typing_var, command=self._on_live_typing).pack(anchor="w", pady=(8, 0))
-        ttk.Label(c, text=self.t("set_live_typing_note"), style="Muted.TLabel", wraplength=680,
-                  justify="left").pack(anchor="w", padx=(46, 0))
 
         # Microphone
         c = self._card(body, self.t("set_mic"), self.t("set_mic_sub"), **inner_pad)
@@ -314,18 +304,6 @@ class SettingsPage:
         transfer.apply_settings(self.config, settings)
         self.config.save()
         self._restart()
-
-    def _on_live_typing(self) -> None:
-        self.config.live_typing = self.live_typing_var.get()
-        self.config.save()
-
-    def _on_live(self) -> None:
-        self.config.live_preview = self.live_var.get()
-        self.config.save()
-        if self.config.live_preview and not self.config.overlay:  # the preview lives in the indicator
-            self.config.overlay = True
-            self.overlay_var.set(True)
-            self.config.save()
 
     def _on_overlay(self) -> None:
         self.config.overlay = self.overlay_var.get()

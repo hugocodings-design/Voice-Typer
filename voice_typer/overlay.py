@@ -42,7 +42,6 @@ def _click_through(win: tk.Toplevel) -> None:
 
 class Overlay:
     W, H = 360, 52
-    CAP_W = 640
     WAVE_W = 150          # wave zone on the right of the pill (recording only)
     TEXT_X = 46
 
@@ -93,20 +92,6 @@ class Overlay:
 
         _click_through(top)
 
-        # Live transcription caption, above the pill (same click-through, never-focused window)
-        cap = self.caption = tk.Toplevel(root)
-        cap.overrideredirect(True)
-        # Position must be set before the first map, or later moves of this window are ignored.
-        cap.geometry(f"{self.CAP_W}x40+{(sw - self.CAP_W) // 2}+{sh - self.H - 140}")
-        cap.attributes("-topmost", True)
-        cap.attributes("-alpha", 0.0)
-        cap.configure(bg=BG, highlightthickness=1, highlightbackground=EDGE)
-        tk.Frame(cap, bg=GREEN, width=4).pack(side="left", fill="y")  # green accent stripe
-        self.caption_label = tk.Label(cap, text="", bg=BG, fg=FG, font=("Segoe UI", 12), justify="left",
-                                      wraplength=self.CAP_W - 36, anchor="w", padx=14, pady=10)
-        self.caption_label.pack(side="left", fill="both", expand=True)
-        self._caption_shown = False
-        _click_through(cap)
 
     def flash(self, label: str, ms: int = 1300) -> None:
         """Briefly show an info message (e.g. the new language), unless dictation is in progress."""
@@ -151,28 +136,6 @@ class Overlay:
     def hide(self) -> None:
         self.state = "hidden"
         self.top.attributes("-alpha", 0.0)
-        self.hide_live()
-
-    def set_live(self, text: str) -> None:
-        """Show the live transcription above the pill (last ~3 lines)."""
-        if len(text) > 260:
-            text = "…" + text[-260:].split(" ", 1)[-1]
-        self.caption_label.configure(text=text)
-        cap = self.caption
-        cap.update_idletasks()
-        h = self.caption_label.winfo_reqheight()
-        sw, sh = cap.winfo_screenwidth(), cap.winfo_screenheight()
-        cap.geometry(f"{self.CAP_W}x{h}+{(sw - self.CAP_W) // 2}+{sh - self.H - 80 - h - 10}")
-        if not self._caption_shown:
-            cap.attributes("-alpha", 0.92)
-            cap.attributes("-topmost", True)
-            self._caption_shown = True
-
-    def hide_live(self) -> None:
-        if self._caption_shown:
-            self.caption.attributes("-alpha", 0.0)
-            self._caption_shown = False
-            self.caption_label.configure(text="")
 
     def _animate(self) -> None:
         if self.state == "hidden":

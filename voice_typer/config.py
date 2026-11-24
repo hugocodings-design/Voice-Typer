@@ -53,8 +53,6 @@ class Config:
     all_cores: bool = True          # use about one thread per physical core (CTranslate2 defaults to 4)
     numbers_as_digits: bool = True  # "vingt-cinq" → "25", "trois virgule cinq pour cent" → "3,5 %" — numerals.py
     remove_fillers: bool = True     # drop "euh", "hum", "um" and repeated words ("le le") — cleanup.py
-    live_preview: bool = False      # show the transcription in real time while speaking
-    live_typing: bool = False       # type words into the app while speaking (streaming.py)
     rewrite_hotkey: str = ""        # rewrite the selected text with a preset ("" = off)
     rewrite_preset: str = "fix"     # preset id used by rewrite_hotkey
     app_presets: list[dict] = field(default_factory=list)  # [{"app": "outlook.exe", "preset": "email"}]
