@@ -227,5 +227,11 @@ class HomePage:
             text = self.t("home_status_down", reason=self.t(f"home_err_{reason}") if reason else "")
         if state == "ok" and info.get("writer_device") and info.get("writer_device") != "cuda":
             text += self.t("home_status_ai_cpu")
+        used, total = info.get("vram_used"), info.get("vram_total")
+        if state == "ok" and used and total:
+            full = used / total >= 0.92
+            dec = "," if self.config.ui_language == "fr" else "."
+            text += self.t("home_status_vram_full" if full else "home_status_vram",
+                           used=f"{used / 1024:.1f}".replace(".", dec), total=f"{total / 1024:.1f}".replace(".", dec))
         self.home_status_var.set(text)
         self.home_status_lbl.pack(anchor="w", pady=(6, 0), before=self.home_status_lbl.master.winfo_children()[-1])

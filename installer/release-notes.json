@@ -1,6 +1,6 @@
 {
-  "version": "0.20.1",
-  "fr": "Sons de début et de fin corrigés (plus de grésillements), objets de courriel plus précis, accueil défilant, temps PC à la maison / réseau séparés, Écriture IA indique le PC à la maison",
-  "en": "Start/stop sounds fixed (no more crackling), more precise email subjects, scrollable Home, home PC / network time split, AI writing shows the home PC",
+  "version": "0.20.2",
+  "fr": "PC à la maison : la mémoire de sa carte graphique est affichée sur l'accueil, avec une alerte quand elle est pleine (cause de lenteur)",
+  "en": "Home PC: its graphics card memory is shown on Home, with a warning when it is full (a cause of slowness)",
   "required": false
 }

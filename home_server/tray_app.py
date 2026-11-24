@@ -51,6 +51,29 @@ def status_lines(status: dict) -> list[str]:
     return out
 
 
+def health_lines(vram: tuple[int, int] | None, last_speed: tuple[float, float] | None, device: str) -> list[str]:
+    """Menu lines about speed: graphics memory, and the last dictation when it was abnormally slow."""
+    from home_server import gpu_memory
+
+    out = []
+    if vram:
+        out.append(gpu_memory.describe(*vram))
+    if last_speed and device == "cuda":
+        seconds, audio = last_speed
+        if audio > 1 and seconds / audio > gpu_memory.SLOW_RATIO:
+            out.append(f"Dernière dictée lente : {seconds:.1f} s pour {audio:.1f} s d'audio".replace(".", ","))
+    return out
+
+
+def full_message(vram: tuple[int, int]) -> str:
+    from home_server import gpu_memory
+
+    used, total = vram
+    return (f"Mémoire graphique pleine ({gpu_memory.gb(used)} / {gpu_memory.gb(total)} Go) : tout devient très lent. "
+            "Fermez Voice Typer et les jeux / navigateurs sur ce PC, ou choisissez des modèles plus légers "
+            "(Large v3 Turbo compact, Qwen 1.5B).")
+
+
 def short(source: str) -> str:
     return source.split("/")[-1].split("#")[0].replace("-ct2-int8", "")
 
@@ -153,7 +176,8 @@ def run(port: int = 8765) -> None:
     icon = None
 
     def menu():
-        items = [pystray.MenuItem(line, None, enabled=False) for line in status_lines(models.status())]
+        lines = status_lines(models.status()) + health_lines(models.vram.get(), models.last_speed, models.device)
+        items = [pystray.MenuItem(line, None, enabled=False) for line in lines]
         items += [
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Copier la clé", lambda: threading.Thread(target=_copy, args=(key,)).start()),
@@ -189,10 +213,22 @@ def run(port: int = 8765) -> None:
     icon = pystray.Icon("VoiceTyperHome", _icon_image(BLUE), "Voice Typer Home", menu())
     threading.Thread(target=server.serve_forever, daemon=True).start()
     models.preload()
-    def keep_menu_fresh():   # "chargement de …" lines change while models load
+    def keep_menu_fresh():   # "chargement de …" lines change while models load; warn once when the card fills
+        from home_server import gpu_memory
+
+        warned = False
         while True:
             time.sleep(5)
             refresh()
+            vram = models.vram.get()
+            full = bool(vram) and gpu_memory.is_full(*vram)
+            if full and not warned and icon:
+                log.info(full_message(vram))
+                try:
+                    icon.notify(full_message(vram), "Voice Typer Home")
+                except Exception:  # noqa: BLE001
+                    pass
+            warned = full
 
     threading.Thread(target=keep_menu_fresh, daemon=True).start()
     icon.run()

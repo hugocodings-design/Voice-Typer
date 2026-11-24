@@ -77,6 +77,10 @@ class Models:
         self.loading = {k: None for k in self.KINDS}
         self.failed: dict[str, str] = {}
         self.on_event = None               # fn(kind, source, device, error) after each load (tray notifications)
+        from home_server.gpu_memory import Monitor
+
+        self.vram = Monitor()              # graphics card memory (full = the driver spills = very slow)
+        self.last_speed: tuple[float, float] | None = None   # (seconds, audio seconds) of the last dictation
         self.state = threading.Lock()
         self.load_lock = threading.Lock()  # one model loads at a time
         self.gpu = threading.Lock()        # one job at a time on the graphics card
@@ -165,6 +169,11 @@ class Models:
         """{kind: (name, device, loading)} for the tray menu and /v1/ping."""
         return {k: (self.names[k], getattr(self.objs[k], "device", ""), self.loading[k]) for k in self.KINDS}
 
+    def vram_info(self) -> dict:
+        """{"vram_used_mb", "vram_total_mb"} for /v1/ping (nothing without nvidia-smi)."""
+        value = self.vram.get()
+        return {"vram_used_mb": value[0], "vram_total_mb": value[1]} if value else {}
+
     @property
     def device(self) -> str:
         return getattr(self.objs["whisper"], "device", "")
@@ -227,7 +236,7 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
         return 200, {"ok": True, "version": version, "whisper": models.names["whisper"],
                      "writer": models.names["writer"], "device": models.device,
                      "writer_device": getattr(models.objs["writer"], "device", ""),
-                     "loading": [v for v in models.loading.values() if v]}
+                     "loading": [v for v in models.loading.values() if v], **models.vram_info()}
     if method != "POST" or path not in ("/v1/transcribe", "/v1/rewrite"):
         return 404, {"error": "not_found"}
     if len(body) > MAX_BODY:
@@ -250,6 +259,7 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
             started = time.perf_counter()
             text = models.transcribe(transcriber, audio, language, (hotwords or "")[:2000] or None, mode)
             seconds = time.perf_counter() - started
+            models.last_speed = (seconds, audio.size / SAMPLE_RATE)
             models.log(f"{time.strftime('%H:%M:%S')}  dictée     {models.names['whisper']}  {seconds:.1f} s")
             return 200, {"text": text, "seconds": round(seconds, 3), "model": models.names["whisper"]}
         # /v1/rewrite

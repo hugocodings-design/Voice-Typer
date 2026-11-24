@@ -297,3 +297,46 @@ def test_laptop_reloads_its_ai_when_home_stops_answering(monkeypatch):
     eng.load_writer = lambda: loads.append(1)
     eng._home_result(False, "unreachable")
     assert loads == [1]                                          # ready for the next email, on this PC
+
+
+def test_graphics_memory_reading():
+    from home_server import gpu_memory
+
+    assert gpu_memory.parse("7890, 8192\n") == (7890, 8192)
+    assert gpu_memory.parse("garbage") is None
+    assert gpu_memory.is_full(7700, 8192) and not gpu_memory.is_full(5000, 8192)
+    assert gpu_memory.describe(8090, 8192) == "Mémoire graphique : 7,9 / 8,0 Go — PLEINE (lent)"
+    assert gpu_memory.describe(5222, 8192) == "Mémoire graphique : 5,1 / 8,0 Go"
+    calls, now = [], [0.0]
+    mon = gpu_memory.Monitor(reader=lambda: calls.append(1) or (1, 2), every=10, clock=lambda: now[0])
+    mon.get(), mon.get()
+    now[0] = 11
+    mon.get()
+    assert len(calls) == 2                                       # read at most every 10 s
+
+
+def test_ping_reports_graphics_memory_and_tray_warns():
+    from home_server import tray_app
+
+    m = fake_models()
+    m.vram.reader, m.vram._at = (lambda: (8000, 8192)), -1e9
+    status, out = server.handle(m, server.Guard(KEY), "GET", "/v1/ping", _h(), b"")
+    assert out["vram_used_mb"] == 8000 and out["vram_total_mb"] == 8192
+    lines = tray_app.health_lines((8000, 8192), (5.5, 6.2), "cuda")
+    assert "PLEINE" in lines[0] and "Dernière dictée lente : 5,5 s pour 6,2 s" in lines[1]
+    assert tray_app.health_lines((3000, 8192), (0.4, 6.2), "cuda") == ["Mémoire graphique : 2,9 / 8,0 Go"]
+    assert "Large v3 Turbo compact" in tray_app.full_message((8000, 8192))
+
+
+def test_laptop_gets_the_home_graphics_memory(monkeypatch):
+    from voice_typer import engine_home
+    from voice_typer.config import Config
+
+    cfg = Config()
+    cfg.home_enabled, cfg.home_url, cfg.home_key = True, "hugo.tail1.ts.net", KEY
+    monkeypatch.setattr(engine_home, "local_home_key", lambda: "")
+    monkeypatch.setattr(home.HomeClient, "ping", lambda self: {"device": "cuda", "vram_used_mb": 8000,
+                                                               "vram_total_mb": 8192})
+    eng = FakeEngine(cfg)
+    eng._check_home()
+    assert eng.home_info["vram_used"] == 8000 and eng.home_info["vram_total"] == 8192

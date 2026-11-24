@@ -48,6 +48,10 @@ graphique, donc plus d'erreur « out of memory »).
 La clé est gardée dans `%APPDATA%\VoiceTyperHome\key.txt`. Pour en créer une nouvelle (si elle a fuité) :
 `Start Voice Typer Home.bat --new-key`, puis mettez la nouvelle clé au travail.
 
+Le menu de l'icône bleue montre aussi la **mémoire graphique** (ex. « 5,1 / 8,0 Go »). Si elle est **pleine**,
+la carte déborde dans la mémoire ordinaire et tout devient 10 à 15 fois plus lent : fermez le Voice Typer normal,
+les jeux et navigateurs sur ce PC, ou choisissez des modèles plus légers (Large v3 Turbo compact, Qwen 1.5B).
+
 ## 3. Au travail
 
 Réglages → **PC à la maison** : collez l'adresse et la clé, cliquez sur **Tester la connexion**, puis activez

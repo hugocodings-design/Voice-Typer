@@ -29,6 +29,14 @@ def local_home_key() -> str:
         return ""
 
 
+def _vram(info: dict) -> dict:
+    """Graphics card memory of the home PC from its /v1/ping answer (MiB)."""
+    used, total = info.get("vram_used_mb"), info.get("vram_total_mb")
+    if isinstance(used, int) and isinstance(total, int) and total > 0:
+        return {"vram_used": used, "vram_total": total}
+    return {}
+
+
 class HomeMixin:
     home_info: dict = {"state": "off"}
 
@@ -96,7 +104,7 @@ class HomeMixin:
                     client = home.HomeClient(self.config.home_url, self.config.home_key)
                     info = client.ping()
                     self._set_home_info(state="ok", local=False, device=info.get("device", ""),
-                                        writer_device=info.get("writer_device", ""))
+                                        writer_device=info.get("writer_device", ""), **_vram(info))
                 except home.HomeError as exc:
                     self._set_home_info(state="down", reason=str(exc), local=False)
                 return
@@ -113,7 +121,7 @@ class HomeMixin:
                 return
             self._local_home = True
             self._set_home_info(state="ok", local=True, device=info.get("device", ""),
-                                writer_device=info.get("writer_device", ""))
+                                writer_device=info.get("writer_device", ""), **_vram(info))
             self._share_gpu_with_home()
 
     def _share_gpu_with_home(self) -> None:
