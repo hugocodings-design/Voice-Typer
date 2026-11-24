@@ -48,7 +48,25 @@ def format_timings(t: dict, lang: str = "fr") -> str:
         value = t.get(key)
         if value is None or (key != "audio" and value < 0.05):
             continue
-        part = f"{labels[key]} {value:.1f}".replace(".", dec) + " s"
-        at_home = (key == "transcribe" and t.get("home")) or (key in ("rewrite", "subject") and t.get("home_ai"))
-        parts.append(part + ((" (maison)" if lang == "fr" else " (home)") if at_home else ""))
+        def s(v):
+            return f"{v:.1f}".replace(".", dec) + " s"
+
+        part = f"{labels[key]} {s(value)}"
+        home_word, net_word = ("maison", "réseau") if lang == "fr" else ("home", "network")
+        if key == "transcribe" and t.get("home"):
+            compute = t.get("home_compute")
+            if isinstance(compute, (int, float)) and value >= compute:
+                # where the time goes: on the home PC's graphics card, or on the way (internet, Funnel)
+                part += f" ({home_word} : {s(compute)} + {net_word} {s(value - compute)})" if lang == "fr" else \
+                    f" ({home_word}: {s(compute)} + {net_word} {s(value - compute)})"
+            else:
+                part += f" ({home_word})"
+        elif key in ("rewrite", "subject") and t.get("home_ai"):
+            net = t.get("home_ai_net")
+            last_ai = "subject" if t.get("subject", 0) >= 0.05 else "rewrite"
+            if key == last_ai and isinstance(net, (int, float)) and net >= 0.05:
+                part += f" ({home_word}, + {net_word} {s(net)})"
+            else:
+                part += f" ({home_word})"
+        parts.append(part)
     return " · ".join(parts)

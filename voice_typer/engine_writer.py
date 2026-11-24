@@ -89,10 +89,13 @@ class WriterMixin:
             from voice_typer import home
 
             try:
+                sent = time.perf_counter()
                 out, timings = client.rewrite(text, instructions, self.config.signature, add_signature, subject,
                                               self.config.signature_blank_line, self.config.signature_en,
                                               self.config.language, self.config.writing_model)
-                self.last_rewrite_timings = {**timings, "home_ai": 1.0}   # Home shows "IA … (maison)"
+                total = time.perf_counter() - sent
+                net = max(0.0, total - sum(v for k, v in timings.items() if k in ("rewrite", "subject")))
+                self.last_rewrite_timings = {**timings, "home_ai": 1.0, "home_ai_net": net}   # "IA … (maison)"
                 device = str(client.last_answer.get("device") or "")
                 self._home_result(True, writer_device=device or None)
                 if device and device != "cuda" and not getattr(self, "_warned_home_cpu", False):

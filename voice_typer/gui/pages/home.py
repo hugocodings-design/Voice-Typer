@@ -8,6 +8,7 @@ from voice_typer.gui import dialogs as messagebox
 
 from voice_typer import clipboard, languages
 from voice_typer.config import save_history
+from voice_typer.gui.common import ScrollFrame
 
 
 class HomePage:
@@ -15,8 +16,12 @@ class HomePage:
     def _page_home(self, page: ttk.Frame) -> None:
         pal = self.pal
         self._page_header(page, "home")
+        # the whole page scrolls (the history used to be reachable only by enlarging the window)
+        scroll = ScrollFrame(page, pal["bg"])
+        scroll.pack(fill="both", expand=True)
+        body = scroll.inner
 
-        hero = self._card(page)
+        hero = self._card(body, padx=(0, 14))
         top = ttk.Frame(hero)
         top.pack(fill="x")
         self.dot = tk.Canvas(top, width=16, height=16, highlightthickness=0, bg=pal["card"])
@@ -34,7 +39,8 @@ class HomePage:
         ttk.Label(hero, textvariable=self.last_var, wraplength=720, justify="left").pack(anchor="w", pady=(6, 0))
         self._render_home_status()
 
-        row = self._columns(page)
+        row = self._columns(body)
+        row.pack_configure(padx=(0, 14))
         lang = self._card(row, self.t("home_lang_title"), self.t("home_lang_sub"), col=0, wrap=330)
         self.lang_buttons = ttk.Frame(lang)
         self.lang_buttons.pack(anchor="w", fill="x")
@@ -87,10 +93,10 @@ class HomePage:
         presets_lbl.bind("<Button-1>", lambda _e: self._show_page("writing"))
         self._render_home_presets()
 
-        hist = self._card(page, self.t("history_title"), fill="both", expand=True)
+        hist = self._card(body, self.t("history_title"), padx=(0, 14))
         wrap = ttk.Frame(hist)
         wrap.pack(fill="both", expand=True)
-        self.hist_tree = ttk.Treeview(wrap, columns=("time", "lang", "text"), show="headings", height=5)
+        self.hist_tree = ttk.Treeview(wrap, columns=("time", "lang", "text"), show="headings", height=8)
         for col, key, width, stretch in (("time", "col_time", 110, False), ("lang", "col_lang", 70, False),
                                          ("text", "col_text", 400, True)):
             self.hist_tree.heading(col, text=self.t(key), anchor="w")

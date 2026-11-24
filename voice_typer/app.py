@@ -263,6 +263,9 @@ class Engine(WriterMixin, HotkeysMixin, HomeMixin):
                 text = client.transcribe(audio, self.config.sample_rate, language, hotwords, self.config.speed_mode,
                                          self.config.model)
                 timings["home"] = 1.0
+                seconds = client.last_answer.get("seconds")
+                if isinstance(seconds, (int, float)):
+                    timings["home_compute"] = float(seconds)   # on the home PC; the rest is the network
                 self._home_result(True)
                 return text
             except home.HomeError as exc:

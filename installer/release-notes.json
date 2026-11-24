@@ -1,6 +1,6 @@
 {
   "version": "0.20.1",
-  "fr": "Écriture IA : indique quand les courriels sont écrits par le PC à la maison ; la copie locale de l'IA n'occupe plus la mémoire tant que la maison répond",
-  "en": "AI writing: shows when emails are written by the home PC; the local AI copy no longer takes memory while home answers",
+  "fr": "Accueil défilant (historique accessible), temps séparé entre le PC à la maison et le réseau, Écriture IA indique le PC à la maison, IA locale libérée tant qu'il répond",
+  "en": "Scrollable Home (history reachable), time split between the home PC and the network, AI writing shows the home PC, local AI freed while it answers",
   "required": false
 }

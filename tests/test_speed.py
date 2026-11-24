@@ -45,3 +45,13 @@ def test_timings_say_which_steps_ran_at_home():
     t = {"audio": 4.0, "transcribe": 0.6, "rewrite": 1.8, "home": 1.0, "home_ai": 1.0}
     assert format_timings(t, "fr") == "audio 4,0 s · transcription 0,6 s (maison) · IA 1,8 s (maison)"
     assert format_timings({**t, "home_ai": None}, "en") == "audio 4.0 s · transcription 0.6 s (home) · AI 1.8 s"
+
+
+def test_timings_split_home_pc_and_network():
+    from voice_typer.speed import format_timings
+
+    t = {"audio": 9.5, "transcribe": 6.1, "home": 1.0, "home_compute": 0.8,
+         "rewrite": 2.2, "home_ai": 1.0, "home_ai_net": 0.5}
+    assert format_timings(t, "fr") == ("audio 9,5 s · transcription 6,1 s (maison : 0,8 s + réseau 5,3 s) · "
+                                       "IA 2,2 s (maison, + réseau 0,5 s)")
+    assert "(home: 0.8 s + network 5.3 s)" in format_timings(t, "en")
