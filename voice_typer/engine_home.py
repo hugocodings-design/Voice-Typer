@@ -53,8 +53,24 @@ class HomeMixin:
 
     def _set_home_info(self, **info) -> None:
         if info != self.home_info:
+            before = self.home_info.get("state")
             self.home_info = info
             self._emit("home_status", dict(info))
+            if info.get("state") != before and not info.get("local"):
+                self._home_writer_policy(info.get("state"))
+
+    def _home_writer_policy(self, state: str | None) -> None:
+        """The writing AI kept in memory on THIS PC is only the fallback when a home PC writes the emails:
+        free it while the home PC answers (≈3 GB of memory, and the processor), load it back when it stops."""
+        if not self.config.home_enabled:
+            return
+        if state == "ok" and self.writer is not None and not self.writer_loading:
+            self.unload_writer()
+        elif state == "down" and self.config.writer_preload and self.writer is None and self.preset_hotkeys:
+            from voice_typer import writer
+
+            if writer.is_downloaded(self.config.writing_model):
+                self.load_writer()
 
     def _home_result(self, ok: bool, reason: str = "", writer_device: str | None = None) -> None:
         """After each dictation: tell the window when the home PC stops (or starts again) answering — once."""

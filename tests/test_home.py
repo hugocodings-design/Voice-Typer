@@ -222,6 +222,8 @@ class FakeEngine:
         self.transcriber = type("T", (), {"device": "cuda"})()
         self.writer = type("W", (), {"device": "cuda"})()
         self.loading_source = None
+        self.writer_loading = False
+        self.preset_hotkeys = {"email": object()}
         self.loaded = []
         self._home_init()
 
@@ -267,6 +269,7 @@ def test_status_of_the_configured_home_pc(monkeypatch):
     assert eng.loaded == []                                      # a remote home PC never moves local models
     eng._home_result(True, writer_device="cpu")                 # a dictation went through, AI on its processor
     assert eng.home_info["state"] == "ok" and eng.home_info["writer_device"] == "cpu"
+    assert eng.writer is None                                   # the laptop's own AI copy is freed meanwhile
     assert eng.model_device() is None
 
 
@@ -278,3 +281,19 @@ def test_nothing_happens_without_home(monkeypatch):
     eng = FakeEngine(Config())
     eng._check_home()
     assert eng.home_client() is None and eng.home_info == {"state": "off"} and eng.events == []
+
+
+def test_laptop_reloads_its_ai_when_home_stops_answering(monkeypatch):
+    from voice_typer import engine_home, writer as writer_mod
+    from voice_typer.config import Config
+
+    cfg = Config()
+    cfg.home_enabled, cfg.home_url, cfg.home_key, cfg.writer_preload = True, "hugo.tail1.ts.net", KEY, True
+    monkeypatch.setattr(engine_home, "local_home_key", lambda: "")
+    monkeypatch.setattr(writer_mod, "is_downloaded", lambda source: True)
+    eng = FakeEngine(cfg)
+    eng.writer = None
+    loads = []
+    eng.load_writer = lambda: loads.append(1)
+    eng._home_result(False, "unreachable")
+    assert loads == [1]                                          # ready for the next email, on this PC

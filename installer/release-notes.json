@@ -1,6 +1,6 @@
 {
-  "version": "0.20.0",
-  "fr": "PC à la maison : état affiché sur l'accueil, alerte si l'IA tourne sur le processeur, plus de double chargement sur le PC de la maison ; courriels plus rapides ; aperçu et écriture en direct retirés",
-  "en": "Home PC: status shown on Home, warning when the AI runs on the processor, no more double loading on the home PC; faster emails; live preview and live typing removed",
+  "version": "0.20.1",
+  "fr": "Écriture IA : indique quand les courriels sont écrits par le PC à la maison ; la copie locale de l'IA n'occupe plus la mémoire tant que la maison répond",
+  "en": "AI writing: shows when emails are written by the home PC; the local AI copy no longer takes memory while home answers",
   "required": false
 }

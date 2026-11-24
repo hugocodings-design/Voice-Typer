@@ -280,6 +280,11 @@ class WritingPage:
             text = self.t("wr_st_disk")
         else:
             text = self.t("wr_st_missing", size=info.size)
+        home = eng.home_info
+        if home.get("state") == "ok" and not home.get("local"):
+            # « PC à la maison » answers: emails are written there; this PC's copy is only the fallback
+            where = self.t("where_gpu" if home.get("writer_device", home.get("device")) == "cuda" else "where_cpu")
+            text = self.t("wr_st_home", where=where) + "\n" + self.t("wr_st_local_fallback", local=text)
         self.llm_status.set(text)
         self.llm_btn.configure(state="disabled" if eng.writer_loading else "normal")
 

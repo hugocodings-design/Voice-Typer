@@ -435,6 +435,7 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
         elif kind == "home_status":
             self._home_info = payload
             self._render_home_status()
+            self._render_llm_status()
         elif kind == "home_ai_cpu":
             self._set_last(("home_ai_cpu", {}))
             if self.config.overlay:

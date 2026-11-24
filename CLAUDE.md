@@ -37,7 +37,7 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
   Voice Typer Home found via `%APPDATA%\VoiceTyperHome\key.txt` + ping `http://127.0.0.1:8765` (`_local_home`:
   local Whisper reloaded on CPU, preloaded writer dropped — one GPU copy); `start_home_watch()` (local check first,
   before `load_model`) then ping every 60 s → `home_info` / `home_status` event → line on Home
-  (`_render_home_status`); rewrite answers carry `device` → one-time `home_ai_cpu` warning
+  (`_render_home_status`); rewrite answers carry `device` → one-time `home_ai_cpu` warning; with a configured home PC the local writer is not preloaded, freed when home turns ok and reloaded (if `writer_preload`) when it turns down (`_home_writer_policy`); Écriture IA status says « écrits par le PC à la maison » + local copy = fallback
 - Live preview / live typing were REMOVED (0.20): they could only run on the local CPU (never the home PC) and
   fought the final pass; `streaming.py`, `Transcriber.preview` and the overlay caption are gone
 - `writer._generate` passes system prompt + few-shot example as CTranslate2 `static_prompt` (cached), only the

@@ -336,7 +336,8 @@ class Engine(WriterMixin, HotkeysMixin, HomeMixin):
         self.resume_hotkey()
         self.start_home_watch()   # first: Voice Typer Home on this PC keeps the graphics card for itself
         self.load_model(self.config.model)
-        if self.config.writer_preload and self.preset_hotkeys and not self._local_home:
+        # not with a home PC: it writes the emails; the local copy is loaded only if it stops answering
+        if self.config.writer_preload and self.preset_hotkeys and not self._local_home and not self.config.home_enabled:
             from voice_typer import writer
 
             if writer.is_downloaded(self.config.writing_model):
