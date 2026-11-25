@@ -1,6 +1,6 @@
 {
-  "version": "0.20.4",
-  "fr": "Courriels : l'objet est écrit seul sur la première ligne, sans « Objet : » devant",
-  "en": "Emails: the subject is written alone on the first line, without \"Subject:\" in front",
+  "version": "0.20.5",
+  "fr": "Courriels : plus jamais « Objet : » devant l'objet, même quand le courriel est écrit par le PC à la maison",
+  "en": "Emails: never \"Subject:\" in front of the subject, even when the email is written by the home PC",
   "required": false
 }

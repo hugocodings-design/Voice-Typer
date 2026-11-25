@@ -121,3 +121,15 @@ def test_no_objet_label_ever():
     assert compose.strip_subject_line("**Subject:** Visit\nHello,") == "Hello,"
     assert compose.strip_subject_line("Bonjour,\n\nL'objet de ma visite : réparer.") == \
         "Bonjour,\n\nL'objet de ma visite : réparer."                     # only a first-line label
+
+
+def test_objet_label_never_reaches_the_email():
+    """The exact case from the screenshot: written by a home PC still on older code."""
+    got = "Objet : Objet 2 points courriels Claude\n\nBonjour Claude,\n\nTexte."
+    assert compose.drop_subject_label(got) == "Objet 2 points courriels Claude\n\nBonjour Claude,\n\nTexte."
+    assert compose.drop_subject_label("Subject: Visit Thursday\n\nHello,") == "Visit Thursday\n\nHello,"
+    assert compose.drop_subject_label("**Objet :** Visite\n\nBonjour,") == "Visite\n\nBonjour,"
+    assert compose.drop_subject_label("objet: Visite") == "Visite"
+    body = "Bonjour,\n\nL'objet de ma demande : la visite."
+    assert compose.drop_subject_label(body) == body                     # a sentence is never touched
+    assert compose.drop_subject_label("") == ""

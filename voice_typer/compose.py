@@ -253,6 +253,22 @@ def strip_subject_line(text: str) -> str:
     return _SUBJECT_LINE.sub("", text.lstrip(), count=1).lstrip("\n")
 
 
+_SUBJECT_LABEL = re.compile(r"^\s*\**\s*(objet|subject|sujet)\s*\**\s*:\s*\**\s*(?=\S)", re.I)
+
+
+def drop_subject_label(text: str) -> str:
+    """Last check before the text is typed, whoever wrote it (this PC, or a home PC still running older code):
+    "Objet : Visite jeudi" on the first line → "Visite jeudi". Never "Objet :" in front of a subject."""
+    if not text:
+        return text
+    first, sep, rest = text.lstrip().partition("\n")
+    label = _SUBJECT_LABEL.match(first)
+    if not label:
+        return text
+    subject = first[label.end():].strip().strip("*").strip()
+    return f"{subject}{sep}{rest}" if subject else rest.lstrip("\n")
+
+
 def with_subject(body: str, subject: str, language: str | None = None) -> str:
     """The subject alone on the first line, then an empty line, then the e-mail — never "Objet :" in front
     (pasted into the subject field or kept as the first line, the label only got in the way)."""
