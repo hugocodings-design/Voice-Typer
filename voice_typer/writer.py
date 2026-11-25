@@ -286,6 +286,7 @@ class Writer:
                                  shots=shots)
         out = _LEAKED_NOTE.sub("", out.strip().strip("«»\"").strip()).strip()
         out = drop_copied_example(out, text, example[2])
+        out = compose.strip_subject_line(out)
         out = _fix_invented_greeting(out, text) or text
         sig = signature_en if english and signature_en.strip() else signature
         out = compose.finish_signature(out, sig, add_signature, signature_blank_line)

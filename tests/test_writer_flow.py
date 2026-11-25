@@ -22,7 +22,7 @@ def test_signature_and_subject_by_code():
     w = FakeWriter("Bonjour Marc,\n\nLa livraison est retardée à jeudi.\n\nMerci,\n(aucune signature)")
     out = w.rewrite("courriel à Marc pour dire que la livraison est retardée", RULES, "Hugo Dasilva",
                     add_signature=True, subject=True)
-    assert out == ("Objet : Livraison retardée\n\nBonjour Marc,\n\nLa livraison est retardée à jeudi.\n\n"
+    assert out == ("Livraison retardée\n\nBonjour Marc,\n\nLa livraison est retardée à jeudi.\n\n"
                    "Merci,\nHugo Dasilva")
     prompt = w.calls[0][0]
     assert "signature" not in prompt.split("Transcription brute")[0].lower()   # rules sent without it
@@ -53,7 +53,7 @@ def test_english_dictation_gets_an_english_email_and_signature():
     w = LangWriter("Hello,\n\nI would like to do a test.\n\nThank you,")
     out = w.rewrite("Hi, I would like to do a test.", RULES, "Hugo Da Silva\nDirecteur de comptes", True, True,
                     signature_en="Hugo Da Silva\nAccount Manager", language="fr")
-    assert out == ("Subject: Test request\n\nHello,\n\nI would like to do a test.\n\nThank you,\n"
+    assert out == ("Test request\n\nHello,\n\nI would like to do a test.\n\nThank you,\n"
                    "Hugo Da Silva\nAccount Manager")
     assert w.calls[0][1] == writer.SYSTEM_EN and "Raw transcript" in w.calls[0][0]
     assert writer.EN_RULES_NOTE in w.calls[0][0]
@@ -142,7 +142,7 @@ def test_vague_subject_gets_a_second_more_precise_try():
     w = SubjectWriter(body, ["Suivi", "Garage Tremblay : terminal hors ligne depuis ce matin"])
     out = w.rewrite("courriel au support le terminal du garage Tremblay ne se connecte plus depuis ce matin",
                     "Mets en forme.", "Hugo", True, True)
-    assert out.startswith("Objet : Garage Tremblay : terminal hors ligne depuis ce matin\n\n")
+    assert out.startswith("Garage Tremblay : terminal hors ligne depuis ce matin\n\n")
     first_ask = w.calls[1][0]
     assert "Bonjour" not in first_ask and "Hugo" not in first_ask          # greeting / signature left out
     assert "garage Tremblay ne se connecte" in first_ask                   # the dictation gives the context
@@ -155,3 +155,9 @@ def test_good_subject_needs_one_request_only():
     w = SubjectWriter(body, ["Fleurs Lina : livraison des 4 terminaux reportée à jeudi"])
     w.rewrite("dis que la livraison des 4 terminaux pour Fleurs Lina est reportée à jeudi", "x", "", False, True)
     assert len(w.calls) == 2
+
+
+def test_subject_line_written_by_the_ai_is_removed():
+    w = FakeWriter("Objet : Livraison\n\nBonjour Marc,\n\nC'est noté.\n\nMerci,")
+    out = w.rewrite("dis à Marc que c'est noté", "Mets en forme.", "", False, False)
+    assert out == "Bonjour Marc,\n\nC'est noté.\n\nMerci,"

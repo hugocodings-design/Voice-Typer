@@ -59,8 +59,8 @@ def test_a_last_sentence_is_not_a_signature():
 
 def test_subject_line():
     assert compose.with_subject("Bonjour Marc,\n\nTexte.", " Objet : « Livraison retardée à jeudi ». ") == \
-        "Objet : Livraison retardée à jeudi\n\nBonjour Marc,\n\nTexte."
-    assert compose.with_subject("Hello Mark,\n\nText.", "Delivery delayed") == "Subject: Delivery delayed\n\nHello Mark,\n\nText."
+        "Livraison retardée à jeudi\n\nBonjour Marc,\n\nTexte."
+    assert compose.with_subject("Hello Mark,\n\nText.", "Delivery delayed") == "Delivery delayed\n\nHello Mark,\n\nText."
     assert compose.with_subject("Bonjour,", "   ") == "Bonjour,"
 
 
@@ -95,7 +95,7 @@ def test_detect_language():
     assert compose.detect_language("Hi, I would like to do a test.") == "en"
     assert compose.detect_language("Bonjour, je voudrais faire un test.") == "fr"
     assert compose.detect_language("OK", "en") == "en"
-    assert compose.with_subject("Bonjour,\n\nTest", "Essai", "en").startswith("Subject: Essai")
+    assert compose.with_subject("Bonjour,\n\nTest", "Essai", "en").startswith("Essai\n\n")
 
 
 def test_subject_source_keeps_only_the_content():
@@ -112,3 +112,12 @@ def test_subject_quality_check():
     assert not compose.subject_ok("Soumission pour trois terminaux livraison incluse", src)   # not this email
     assert not compose.subject_ok("Café Lina : terminal hors ligne, technicien demandé", src,
                                   examples=("Café Lina : terminal hors ligne, technicien demandé",))
+
+
+def test_no_objet_label_ever():
+    assert compose.with_subject("Bonjour,\n\nTexte.", "Objet : Visite du technicien") == \
+        "Visite du technicien\n\nBonjour,\n\nTexte."
+    assert compose.strip_subject_line("Objet : Visite\n\nBonjour,\n\nTexte.") == "Bonjour,\n\nTexte."
+    assert compose.strip_subject_line("**Subject:** Visit\nHello,") == "Hello,"
+    assert compose.strip_subject_line("Bonjour,\n\nL'objet de ma visite : réparer.") == \
+        "Bonjour,\n\nL'objet de ma visite : réparer."                     # only a first-line label

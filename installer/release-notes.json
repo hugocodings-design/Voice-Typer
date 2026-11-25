@@ -1,6 +1,6 @@
 {
-  "version": "0.20.3",
-  "fr": "PC à la maison : compatible avec Home Connections, qui commence à charger les modèles dès le début de la dictée (plus de délai après la mise en veille)",
-  "en": "Home PC: works with Home Connections, which starts loading the models as soon as you start dictating (no more delay after sleep)",
+  "version": "0.20.4",
+  "fr": "Courriels : l'objet est écrit seul sur la première ligne, sans « Objet : » devant",
+  "en": "Emails: the subject is written alone on the first line, without \"Subject:\" in front",
   "required": false
 }

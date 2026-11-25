@@ -244,11 +244,19 @@ def subject_ok(subject: str, source: str, examples: tuple[str, ...] = ()) -> boo
     return not any(subject.strip().lower() == e.lower() for e in examples)
 
 
+_SUBJECT_LINE = re.compile(r"^\s*\**\s*(objet|subject|sujet|titre|title)\s*:[^\n]*\n*", re.I)
+
+
+def strip_subject_line(text: str) -> str:
+    """The AI sometimes starts with its own "Objet : …" line: removed (the subject, when wanted, is added
+    by code, without any label)."""
+    return _SUBJECT_LINE.sub("", text.lstrip(), count=1).lstrip("\n")
+
+
 def with_subject(body: str, subject: str, language: str | None = None) -> str:
+    """The subject alone on the first line, then an empty line, then the e-mail — never "Objet :" in front
+    (pasted into the subject field or kept as the first line, the label only got in the way)."""
     subject = clean_subject(subject)
     if not subject:
         return body
-    english = language == "en" if language in ("fr", "en") else is_english(body)
-    label = "Subject" if english else "Objet"
-    sep = ": " if label == "Subject" else " : "
-    return f"{label}{sep}{subject}\n\n{body}"
+    return f"{subject}\n\n{body}"
