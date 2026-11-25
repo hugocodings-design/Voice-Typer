@@ -1,13 +1,14 @@
-"""« PC à la maison »: send the dictation to Voice Typer Home running on the user's own computer.
+"""« PC à la maison »: send the dictation to Home Connections running on the user's own computer.
 
-The home PC (with an NVIDIA card) runs `home_server` behind Tailscale Funnel, which gives it a public HTTPS
+The home PC (with an NVIDIA card) runs Home Connections (its own repo) behind Tailscale Funnel, which gives it a public HTTPS
 address (https://<pc>.<tailnet>.ts.net). This module is only a CLIENT: plain outbound HTTPS requests, like
 the update check. Nothing listens on this PC (IT requirement, tests/test_no_network_server.py).
 
 - `transcribe()` sends 16-bit audio (zlib-compressed) and gets Whisper's raw text back; clean-up, numbers,
   dictionary and voice commands still run here, with this PC's settings.
 - `rewrite()` sends the text to the home writing AI (same signature/subject rules: compose.py runs there).
-- Every request carries the key as "Authorization: Bearer …". On any failure the caller falls back to the
+- `wake()` asks the home PC to load the models now, when a recording starts (hides the reload after sleep).
+- Every request carries the key as "Authorization: Bearer …" and "X-App: voicetyper-pc". On any failure the caller falls back to the
   local models, so a home PC that is off or asleep only costs the connection timeout.
 """
 
@@ -74,6 +75,7 @@ class HomeClient:
         req = urllib.request.Request(self.url + path, data=body, method="POST" if body is not None else "GET")
         req.add_header("Authorization", f"Bearer {self.key}")
         req.add_header("User-Agent", "VoiceTyper")
+        req.add_header("X-App", "voicetyper-pc")
         for k, v in (headers or {}).items():
             req.add_header(k, v)
         try:
@@ -92,6 +94,11 @@ class HomeClient:
 
     def ping(self) -> dict:
         return self._request("/v1/ping", None, CONNECT_TIMEOUT + 4)
+
+    def wake(self, models: dict) -> dict:
+        """{"whisper": "large-v3-turbo", "writer": "…"}: start loading these now (answer at once)."""
+        return self._request("/v1/wake", json.dumps({"models": models}).encode("utf-8"), CONNECT_TIMEOUT + 2,
+                             {"Content-Type": "application/json"})
 
     def transcribe(self, audio: np.ndarray, sample_rate: int, language: str | None, hotwords: str | None,
                    mode: str, model: str | None = None) -> str:

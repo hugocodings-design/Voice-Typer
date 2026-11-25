@@ -116,7 +116,7 @@ class SettingsPage:
         ttk.Label(c, text=self.t("spd_timing_hint"), style="Muted.TLabel", wraplength=680,
                   justify="left").pack(anchor="w", pady=(6, 0))
 
-        # Home PC (home.py → home_server on the user's own computer, through Tailscale Funnel)
+        # Home PC (home.py → Home Connections on the user's own computer, through Tailscale Funnel)
         c = self._card(body, self.t("home_title"), self.t("home_sub"), wrap=680, **inner_pad)
         self.home_var = tk.BooleanVar(value=self.config.home_enabled)
         ttk.Checkbutton(c, text=self.t("home_enable"), style="Switch.TCheckbutton", variable=self.home_var,

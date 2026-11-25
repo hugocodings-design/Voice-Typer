@@ -5,7 +5,9 @@ transcription et l'écriture IA, puis renvoie le texte : 2 à 3 secondes au lieu
 
 - **Au travail : rien à installer.** Voice Typer fait seulement des requêtes HTTPS sortantes, comme pour les
   mises à jour. Aucun port n'est ouvert, aucun serveur ne tourne sur ce PC.
-- **À la maison :** Tailscale (pour l'adresse publique) et Voice Typer Home (dans le dossier du projet).
+- **À la maison :** Tailscale (pour l'adresse publique) et **Home Connections**, l'application qui reçoit les
+  demandes de toutes vos applications (Voice Typer, Voice Typer Mobile, Flashcards, TalkTome). Elle a remplacé
+  Voice Typer Home (novembre 2026) et vit dans son propre dépôt : `Desktop\PROJETS CLAUDE\HOME CONNECTIONS`.
 - Si la maison ne répond pas (PC éteint, en veille, pas d'internet), la dictée est faite au travail comme
   avant, et un court message le signale.
 
@@ -19,57 +21,38 @@ transcription et l'écriture IA, puis renvoie le texte : 2 à 3 secondes au lieu
    ```
 
    La première fois, un lien s'affiche : ouvrez-le pour autoriser Funnel sur votre compte, puis relancez la
-   commande. Elle affiche votre adresse, par exemple `https://maison.tail1234.ts.net`. Notez-la.
+   commande. Elle affiche votre adresse, par exemple `https://maison.tail1234.ts.net`.
 3. Paramètres Windows → Système → Alimentation → Mise en veille sur secteur : **Jamais**.
 
-`tailscale funnel status` montre l'adresse; `tailscale funnel reset` arrête tout.
+## 2. Home Connections (PC de la maison)
 
-## 2. Voice Typer Home (PC de la maison)
+Double-cliquez sur **`Start Home Connections.bat`** dans son dossier. Une **icône bleue** apparaît près de
+l'horloge ; un clic ouvre la fenêtre :
+- **Modèles** : Whisper, IA des courriels, IA TalkTome / Flashcards, voix TalkTome — état, mémoire graphique,
+  délai de **mise en veille** propre à chacun (30 s à 15 min, ou jamais), « Libérer maintenant ».
+- **Connexion** : l'adresse et **Copier la clé** (la même pour toutes les applications), « Nouvelle clé… ».
+- **Activité** : les dernières demandes de chaque application (jamais leur contenu).
 
-1. Dans le dossier du projet (là où se trouve `Start Voice Typer.bat`), récupérez la dernière version
-   (`git pull`).
-2. Double-cliquez sur **`Start Voice Typer Home.bat`**. Une **icône bleue** apparaît près de l'horloge (sous la
-   petite flèche ^ au besoin). Clic droit dessus :
-   - les modèles chargés et où ils tournent (« carte graphique » = rapide, « PROCESSEUR » = lent);
-   - **Copier la clé** : à coller dans Réglages → PC à la maison sur vos autres ordinateurs;
-   - **Ouvrir le journal**, **Démarrer avec Windows** (cochez-le une fois), **Quitter**.
-   - **Mise en veille après** : 30 s, 1 min, 2 min ou 5 min sans dictée → la carte graphique est libérée pour vos
-     autres programmes (la dictée suivante recharge les modèles : quelques secondes de plus). Choix gardé.
-   Une notification Windows vous prévient si un modèle ne peut pas être chargé ou tourne sur le processeur.
-   (`Start Voice Typer Home.bat --console` : l'ancienne fenêtre noire, pour voir chaque ligne.)
-3. Il utilise **les modèles choisis sur l'ordinateur qui dicte** (Whisper et IA d'écriture) : la première fois
-   qu'un modèle est demandé, il le télécharge et le charge (la dictée est alors faite sur l'autre PC), ensuite
-   il le garde en mémoire. Un modèle qui n'est pas dans les listes de Voice Typer (ex. un dossier importé sur
-   l'autre PC) est remplacé par celui choisi sur ce PC.
-4. Le journal (clic droit → Ouvrir le journal) a une ligne par dictée : « dictée … 0,4 s », « écriture IA … 1,8 s ». Une ligne
-   « modèle en chargement → fait sur l'autre PC » veut dire que l'autre PC l'a faite lui-même.
+Il utilise **les modèles choisis sur l'ordinateur qui dicte**. Dès que vous commencez une dictée, Voice Typer
+lui demande de charger les modèles (`/v1/wake`) : un modèle en veille est prêt quand vous avez fini de parler.
 
-Voice Typer sur ce même PC le détecte tout seul et utilise ses modèles (pas de double chargement sur la carte
-graphique, donc plus d'erreur « out of memory »).
-
-La clé est gardée dans `%APPDATA%\VoiceTyperHome\key.txt`. Pour en créer une nouvelle (si elle a fuité) :
-`Start Voice Typer Home.bat --new-key`, puis mettez la nouvelle clé au travail.
-
-Le menu de l'icône bleue montre aussi la **mémoire graphique** (ex. « 5,1 / 8,0 Go »). Si elle est **pleine**,
-la carte déborde dans la mémoire ordinaire et tout devient 10 à 15 fois plus lent : fermez le Voice Typer normal,
-les jeux et navigateurs sur ce PC, ou choisissez des modèles plus légers (Large v3 Turbo compact, Qwen 1.5B).
+Voice Typer sur ce même PC le détecte tout seul (clé dans `%APPDATA%\HomeConnections\key.txt`) et utilise ses
+modèles : pas de double chargement sur la carte graphique.
 
 ## 3. Au travail
 
 Réglages → **PC à la maison** : collez l'adresse et la clé, cliquez sur **Tester la connexion**, puis activez
-« Utiliser mon PC à la maison ». L'accueil affiche en permanence « PC à la maison : connecté — la carte
-graphique » ou « injoignable ». Après chaque dictée, l'accueil indique « PC à la maison » quand elle y a été
-faite : « transcription 0,6 s (maison) · IA 1,8 s (maison) » — chaque étape faite à la maison est marquée.
+« Utiliser mon PC à la maison ». L'accueil affiche « PC à la maison : connecté — la carte graphique » ou
+« injoignable », et après chaque dictée « transcription 0,6 s (maison) · IA 1,8 s (maison) ».
 
 ## Sécurité
 
-- Voice Typer Home n'écoute que sur 127.0.0.1 : seul Tailscale Funnel peut le joindre. Le chiffrement HTTPS se
+- Home Connections n'écoute que sur 127.0.0.1 : seul Tailscale Funnel peut le joindre. Le chiffrement HTTPS se
   termine sur votre PC : Tailscale ne peut pas lire les dictées.
 - Chaque requête doit porter la clé (256 bits aléatoires). Après 10 mauvaises clés en une minute, tout est
   refusé pendant une minute.
-- Rien n'est écrit sur le disque : ni audio, ni texte. La fenêtre affiche seulement l'heure et le type de
-  requête.
-- Le code serveur (`home_server/`) est hors du paquet `voice_typer` : l'application installée au travail n'en
-  contient pas (`tests/test_no_network_server.py`, `tests/test_home.py`).
+- Rien n'est écrit sur le disque : ni audio, ni texte.
+- Aucun code serveur dans ce dépôt : l'application installée au travail n'en contient pas
+  (`tests/test_no_network_server.py`, `tests/test_home.py`).
 - **Données de l'entreprise :** vos dictées (courriels de clients) quittent le PC du travail pour votre PC
   personnel. Vérifiez que c'est permis avant de l'activer.

@@ -1,6 +1,6 @@
 {
-  "version": "0.20.2",
-  "fr": "PC à la maison : la mémoire de sa carte graphique est affichée sur l'accueil, avec une alerte quand elle est pleine (cause de lenteur)",
-  "en": "Home PC: its graphics card memory is shown on Home, with a warning when it is full (a cause of slowness)",
+  "version": "0.20.3",
+  "fr": "PC à la maison : compatible avec Home Connections, qui commence à charger les modèles dès le début de la dictée (plus de délai après la mise en veille)",
+  "en": "Home PC: works with Home Connections, which starts loading the models as soon as you start dictating (no more delay after sleep)",
   "required": false
 }

@@ -1,10 +1,11 @@
-"""Engine part for « PC à la maison » (home.py is the HTTP client; home_server runs on the home PC).
+"""Engine part for « PC à la maison » (home.py is the HTTP client; Home Connections runs on the home PC).
 
-- `home_client()`: the configured home PC (Réglages), or — on the home PC itself — Voice Typer Home running on
+- `home_client()`: the configured home PC (Réglages), or — on the home PC itself — Home Connections running on
   this same computer (found through its key file): then this app uses its models instead of loading a second
   copy on the graphics card (8 GB is not enough for two), and keeps only a processor copy as a fallback.
 - a background check every minute keeps `home_info` up to date for the Home page (« connecté —
   carte graphique », « injoignable », « IA sur le processeur »); dictations update it too.
+- `wake_home()` at record start: the home PC loads the models while the user speaks.
 Only outbound connections: nothing listens here (tests/test_no_network_server.py).
 """
 
@@ -19,14 +20,18 @@ CHECK_EVERY = 60.0
 
 
 def local_home_key() -> str:
-    """Key of Voice Typer Home on THIS computer, if it was ever started here."""
+    """Key of Home Connections on THIS computer (or of Voice Typer Home, which it replaced)."""
     base = os.environ.get("APPDATA")
     if not base:
         return ""
-    try:
-        return (Path(base) / "VoiceTyperHome" / "key.txt").read_text(encoding="utf-8").strip()
-    except OSError:
-        return ""
+    for folder in ("HomeConnections", "VoiceTyperHome"):
+        try:
+            key = (Path(base) / folder / "key.txt").read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if key:
+            return key
+    return ""
 
 
 def _vram(info: dict) -> dict:
@@ -42,7 +47,7 @@ class HomeMixin:
 
     def _home_init(self) -> None:
         self.home_info = {"state": "off"}
-        self._local_home = False          # Voice Typer Home answers on this same PC
+        self._local_home = False          # Home Connections answers on this same PC
         self._home_stop = threading.Event()
         self._home_lock = threading.Lock()
 
@@ -93,6 +98,23 @@ class HomeMixin:
         if previous != state or writer_device:
             self._set_home_info(state=state, **({"reason": reason} if reason else {}), **info)
 
+    def wake_home(self, preset_id: str | None = None) -> None:
+        """A recording starts: the home PC loads Whisper (and the writing AI for a preset) while the user
+        speaks, so a sleeping home PC costs nothing. Fire and forget; errors are ignored."""
+        client = self.home_client()
+        if client is None or self.home_info.get("state") == "down":
+            return
+        models = {"whisper": self.config.model}
+        if preset_id is not None:
+            models["writer"] = self.config.writing_model
+
+        def run():
+            try:
+                client.wake(models)
+            except home.HomeError:
+                pass
+        threading.Thread(target=run, daemon=True).start()
+
     # ---- background check
     def check_home_now(self) -> None:
         threading.Thread(target=self._check_home, daemon=True).start()
@@ -125,7 +147,7 @@ class HomeMixin:
             self._share_gpu_with_home()
 
     def _share_gpu_with_home(self) -> None:
-        """Voice Typer Home runs here: free the graphics card for it (one copy of each model is enough)."""
+        """Home Connections runs here: free the graphics card for it (one copy of each model is enough)."""
         t = self.transcriber
         if t is not None and getattr(t, "device", "") == "cuda" and self.loading_source is None:
             self.load_model(self.config.model, device="cpu")
@@ -140,7 +162,7 @@ class HomeMixin:
                 pass
 
     def start_home_watch(self) -> None:
-        """At start: look for Voice Typer Home on this PC FIRST (before the speech model goes on the graphics
+        """At start: look for Home Connections on this PC FIRST (before the speech model goes on the graphics
         card), then check the configured home PC in the background and every minute."""
         try:
             if not self.config.home_enabled and local_home_key():
@@ -154,6 +176,6 @@ class HomeMixin:
         self._home_stop.set()
 
     def model_device(self) -> str | None:
-        """Device for the local speech model: the processor when Voice Typer Home on this PC has the card."""
+        """Device for the local speech model: the processor when Home Connections on this PC has the card."""
         return "cpu" if getattr(self, "_local_home", False) else None
 

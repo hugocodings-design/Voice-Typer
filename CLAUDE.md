@@ -25,23 +25,21 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
   `Authorization: Bearer`; audio = zlib int16 PCM; `decode_audio` zip-bomb safe). `Engine.home_client()` →
   `_transcribe_audio` / `WriterMixin.rewrite` try home first, fall back to local; `home_down`/`home_back` events
   once per state change; `timings["home"]` → "PC à la maison" on Home. Config `home_enabled/home_url/home_key`
-  (key never exported, url+key stripped from diagnostics). Server = top-level `home_server/` (NOT in
-  `voice_typer`, excluded in the .spec): stdlib ThreadingHTTPServer on 127.0.0.1:8765 behind Tailscale Funnel,
-  `Guard` (constant-time key, 10 bad keys/min → 1 min lock), `handle()` socket-free API (/v1/ping, /v1/transcribe,
-  /v1/rewrite), per-request models (0.19.1): the client sends `config.model` / `config.writing_model`, `Models.get()` loads it in the background (503 "loading" meanwhile → client does it locally), one Whisper + one writer kept (8 GB), only catalog / home-imported sources else the home PC's own choice (`choose`), one GPU job at a time, nothing written to disk; `timings` `home` / `home_ai` → "(maison)" per step.
-  Sleep: `Models.start()` = asleep (nothing on the card) until the first request, which wakes BOTH models and
-  waits for them (`WAKE_WAIT` 10 s Whisper / 35 s writer, under the client timeouts; 503 only if still loading);
-  `sleep_if_idle()` frees the card after `idle_s` (blue icon « Mise en veille après » 30 s / 1 / 2 / 5 min = `IDLE_CHOICES`, saved in `%APPDATA%\VoiceTyperHome\settings.json` by `save_idle`, read by `load_idle`, applied live by `Models.set_idle`; default 300 s; env `VT_HOME_IDLE_S` overrides, 0 = old preload-and-keep; checked every 5 s) without
-  transcribe/rewrite — pings don't count; ping keeps the last device + `asleep`, so the laptop never shows "processeur".
-  Started from source: `Start Voice Typer Home.bat` → `pythonw run_home.pyw` → `home_server/tray_app.py` (pystray
-  blue icon: loaded models + device, copy key, journal `%APPDATA%\VoiceTyperHome\home.log` with short lines only,
-  « Démarrer avec Windows » = HKCU Run `VoiceTyperHome`, notifications via `Models.on_event` when a model fails or
-  lands on the CPU, mutex `VoiceTyperHome.SingleInstance`); `--console` = old console mode. Guide `docs/HOME.md`.
+  (key never exported, url+key stripped from diagnostics). Server = **Home Connections**, its own private repo
+  (`hugocodings-design/Home-Connections`, folder `..\HOME CONNECTIONS`; replaced `home_server/` / Voice Typer Home
+  in 0.20.3): it imports THIS repo's `voice_typer` as a library (Transcriber, Writer, catalogs, `home.decode_audio`,
+  `ui_theme`, `gui.dialogs`, `tray._icon_image`) — keep those APIs stable or update it too. Same API for us
+  (/v1/ping, /v1/transcribe zlib PCM + `X-VT-Options`, /v1/rewrite, 503 "loading" → local) plus `/v1/wake`;
+  one shared key for all the user's apps. Per-model sleep there; `timings` `home` / `home_ai` → "(maison)" per step.
+  Client sends `X-App: voicetyper-pc`; `HomeClient.wake(models)` fired by `HomeMixin.wake_home(preset)` from
+  `_start_recording` (whisper = `config.model`, + writer = `config.writing_model` for a preset; skipped when home
+  is "down"), so a sleeping home PC loads while the user speaks.
   Laptop side lives in `engine_home.py` (`HomeMixin`): `home_client()` = configured home PC, or on the home PC itself
-  Voice Typer Home found via `%APPDATA%\VoiceTyperHome\key.txt` + ping `http://127.0.0.1:8765` (`_local_home`:
+  Home Connections found via `local_home_key()` (`%APPDATA%\HomeConnections\key.txt`, then the old
+  `VoiceTyperHome\key.txt`) + ping `http://127.0.0.1:8765` (`_local_home`:
   local Whisper reloaded on CPU, preloaded writer dropped — one GPU copy); `start_home_watch()` (local check first,
   before `load_model`) then ping every 60 s → `home_info` / `home_status` event → line on Home
-  (`_render_home_status`); rewrite answers carry `device` → one-time `home_ai_cpu` warning; with a configured home PC the local writer is not preloaded, freed when home turns ok and reloaded (if `writer_preload`) when it turns down (`_home_writer_policy`); Écriture IA status says « écrits par le PC à la maison » + local copy = fallback. Graphics memory (0.20.2): `home_server/gpu_memory.py` reads `nvidia-smi` (cached 10 s, `Models.vram`), /v1/ping adds `vram_used_mb/vram_total_mb`; ≥ 92 % = full (the NVIDIA driver spills to RAM silently → 10–15× slower): tray line + one notification (`health_lines`, `full_message`, also « Dernière dictée lente » when transcription > 0.35 × audio on cuda), laptop Home line `home_status_vram(_full)`
+  (`_render_home_status`); rewrite answers carry `device` → one-time `home_ai_cpu` warning; with a configured home PC the local writer is not preloaded, freed when home turns ok and reloaded (if `writer_preload`) when it turns down (`_home_writer_policy`); Écriture IA status says « écrits par le PC à la maison » + local copy = fallback. /v1/ping `vram_used_mb/vram_total_mb` → laptop Home line `home_status_vram(_full)` (≥ 92 % = full, the driver spills to RAM → 10–15× slower). Guide `docs/HOME.md`
 - Live preview / live typing were REMOVED (0.20): they could only run on the local CPU (never the home PC) and
   fought the final pass; `streaming.py`, `Transcriber.preview` and the overlay caption are gone
 - `writer._generate` passes system prompt + few-shot example as CTranslate2 `static_prompt` (cached), only the

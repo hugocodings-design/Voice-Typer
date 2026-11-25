@@ -27,9 +27,9 @@ class Config:
     presets: list[dict] | None = None   # [{"id","name","hotkey","instructions"}], None = defaults
     signature: str = ""
     signature_en: str = ""
-    home_enabled: bool = False      # « PC à la maison »: dictations processed by Voice Typer Home (home.py)
+    home_enabled: bool = False      # « PC à la maison »: dictations processed by Home Connections (home.py)
     home_url: str = ""              # its Tailscale Funnel address, e.g. https://home-pc.tail1234.ts.net
-    home_key: str = ""              # the key Voice Typer Home shows at start (never exported)""          # used for e-mails written in English ("" = the same signature)
+    home_key: str = ""              # the key of Home Connections (Connexion → Copier la clé; never exported)
     signature_blank_line: bool = False  # empty line between the closing ("Merci,") and the signature
     writer_preload: bool = True         # keep the writing AI loaded (instant presets)
     # Shortcuts

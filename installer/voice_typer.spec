@@ -33,7 +33,7 @@ a = Analysis(
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports + ["pystray._win32", "PIL.ImageTk"],
-    excludes=["home_server", "pytest", "pyflakes", "matplotlib", "IPython", "notebook", "torch"],
+    excludes=["pytest", "pyflakes", "matplotlib", "IPython", "notebook", "torch"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)
