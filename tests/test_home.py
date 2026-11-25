@@ -419,3 +419,23 @@ def test_home_starts_asleep():
         server.threading.Thread = real_thread
     assert m.asleep == {"whisper": "large-v3-turbo", "writer": "qwen-3b"} and started == ["home-idle"]
     assert m.objs["whisper"] is None and not any(m.loading.values())
+
+
+def test_sleep_delay_choice_is_saved_and_applied(tmp_path, monkeypatch):
+    monkeypatch.delenv("VT_HOME_IDLE_S", raising=False)
+    assert server.load_idle(tmp_path) == server.IDLE_S                 # nothing chosen yet: 5 min
+    server.save_idle(30, tmp_path)
+    assert server.load_idle(tmp_path) == 30                            # remembered after a restart
+    (tmp_path / "settings.json").write_text('{"idle_s": 7}')           # not one of the choices
+    assert server.load_idle(tmp_path) == server.IDLE_S
+    assert [server.idle_label(s) for s in server.IDLE_CHOICES] == ["30 s", "1 min", "2 min", "5 min"]
+
+    now = [0.0]
+    m = fake_models()
+    m.clock = lambda: now[0]
+    m.last_use = 0.0
+    m.set_idle(30)
+    now[0] = 25
+    assert m.sleep_if_idle() is False
+    now[0] = 31
+    assert m.sleep_if_idle() is True                                   # freed after 30 s, not 5 min

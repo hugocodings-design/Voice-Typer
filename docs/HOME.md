@@ -33,6 +33,8 @@ transcription et l'écriture IA, puis renvoie le texte : 2 à 3 secondes au lieu
    - les modèles chargés et où ils tournent (« carte graphique » = rapide, « PROCESSEUR » = lent);
    - **Copier la clé** : à coller dans Réglages → PC à la maison sur vos autres ordinateurs;
    - **Ouvrir le journal**, **Démarrer avec Windows** (cochez-le une fois), **Quitter**.
+   - **Mise en veille après** : 30 s, 1 min, 2 min ou 5 min sans dictée → la carte graphique est libérée pour vos
+     autres programmes (la dictée suivante recharge les modèles : quelques secondes de plus). Choix gardé.
    Une notification Windows vous prévient si un modèle ne peut pas être chargé ou tourne sur le processeur.
    (`Start Voice Typer Home.bat --console` : l'ancienne fenêtre noire, pour voir chaque ligne.)
 3. Il utilise **les modèles choisis sur l'ordinateur qui dicte** (Whisper et IA d'écriture) : la première fois

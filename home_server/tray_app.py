@@ -15,7 +15,8 @@ import threading
 import time
 from pathlib import Path
 
-from home_server.server import Models, home_dir, load_or_create_key, make_server
+from home_server.server import (IDLE_CHOICES, Models, home_dir, idle_label, load_idle, load_or_create_key,
+                                make_server, save_idle)
 
 MUTEX_NAME = "VoiceTyperHome.SingleInstance"
 RUN_VALUE = "VoiceTyperHome"
@@ -166,7 +167,7 @@ def run(port: int = 8765) -> None:
         return
     log = setup_log()
     key = load_or_create_key()
-    models = Models(log=log.info)
+    models = Models(log=log.info, idle_s=load_idle())
     try:
         server = make_server(models, key, port, __version__)
     except OSError as exc:
@@ -187,10 +188,24 @@ def run(port: int = 8765) -> None:
             pystray.MenuItem("Ouvrir le journal", lambda: os.startfile(home_dir() / "home.log")),  # noqa: S606
             pystray.MenuItem("Démarrer avec Windows", lambda: (set_autostart(not autostart_enabled()), refresh()),
                              checked=lambda _i: autostart_enabled()),
+            pystray.MenuItem("Mise en veille après", pystray.Menu(*[
+                pystray.MenuItem(idle_label(s), idle_action(s), checked=idle_checked(s), radio=True)
+                for s in IDLE_CHOICES])),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quitter", lambda: (server.shutdown(), icon.stop())),
         ]
         return pystray.Menu(*items)
+
+    def choose_idle(seconds):
+        models.set_idle(seconds)
+        save_idle(seconds)
+        refresh()
+
+    def idle_action(seconds):    # pystray counts parameters: no lambda defaults here
+        return lambda: choose_idle(seconds)
+
+    def idle_checked(seconds):
+        return lambda _item: models.idle_s == seconds
 
     def refresh():
         if icon:

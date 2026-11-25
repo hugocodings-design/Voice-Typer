@@ -42,15 +42,45 @@ MAX_TEXT = 200_000
 LOCK_AFTER = 10            # wrong keys …
 LOCK_WINDOW = 60.0         # … within this many seconds → refuse everything for LOCK_WINDOW
 IDLE_S = float(os.environ.get("VT_HOME_IDLE_S", "300"))   # free the card after this long unused (0 = never)
+IDLE_CHOICES = (30, 60, 120, 300)   # blue icon menu « Mise en veille après » (seconds)
 # How long a request waits for a sleeping model to load before answering "loading" (the other PC then does
 # it itself). Below the client's own timeouts (home.py: 14 s + audio length / 64 s).
 WAKE_WAIT = {"whisper": 10.0, "writer": 35.0}
-IDLE_CHECK_EVERY = 30.0
+IDLE_CHECK_EVERY = 5.0   # small enough for the 30 s choice
 
 
 def home_dir() -> Path:
     base = os.environ.get("APPDATA") or str(Path.home() / ".config")
     return Path(base) / "VoiceTyperHome"
+
+
+def idle_label(seconds: float) -> str:
+    """30 → « 30 s », 120 → « 2 min »."""
+    return f"{seconds:g} s" if seconds < 60 else f"{seconds / 60:g} min"
+
+
+def load_idle(folder: Path | None = None) -> float:
+    """The sleep delay chosen in the blue icon menu (home settings.json), else VT_HOME_IDLE_S / 5 min."""
+    if "VT_HOME_IDLE_S" in os.environ:
+        return IDLE_S
+    try:
+        value = json.loads(((folder or home_dir()) / "settings.json").read_text(encoding="utf-8")).get("idle_s")
+    except (OSError, ValueError, AttributeError):
+        return IDLE_S
+    return float(value) if isinstance(value, (int, float)) and value in IDLE_CHOICES else IDLE_S
+
+
+def save_idle(seconds: float, folder: Path | None = None) -> None:
+    folder = folder or home_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "settings.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data = data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        data = {}
+    data["idle_s"] = seconds
+    path.write_text(json.dumps(data), encoding="utf-8")
 
 
 def load_or_create_key(folder: Path | None = None) -> str:
@@ -155,9 +185,21 @@ class Models:
             for kind in self.KINDS:
                 if self.defaults.get(kind) and self.objs[kind] is None and not self.loading[kind]:
                     self.asleep[kind] = self.defaults[kind]
-        self.log(f"En veille : modèles chargés à la première demande, libérés après {self.idle_s / 60:g} min "
+        self.log(f"En veille : modèles chargés à la première demande, libérés après {idle_label(self.idle_s)} "
                  "sans demande")
-        threading.Thread(target=self._idle_watch, daemon=True, name="home-idle").start()
+        self._start_idle_watch()
+
+    def _start_idle_watch(self) -> None:
+        if not getattr(self, "_idle_thread", None):
+            self._idle_thread = threading.Thread(target=self._idle_watch, daemon=True, name="home-idle")
+            self._idle_thread.start()
+
+    def set_idle(self, seconds: float) -> None:
+        """New sleep delay (blue icon menu), effective at once; counted from the last dictation."""
+        self.idle_s = float(seconds)
+        if self.idle_s > 0:
+            self._start_idle_watch()
+        self.log(f"Mise en veille après {idle_label(self.idle_s)} sans demande")
 
     # ---- the model for a request: ready object, or None while it loads
     def choose(self, kind: str, source: str | None) -> str:
@@ -215,7 +257,7 @@ class Models:
         finally:
             self.gpu.release()
         gc.collect()
-        self.log(f"Inutilisé depuis {self.idle_s / 60:g} min : carte graphique libérée "
+        self.log(f"Inutilisé depuis {idle_label(self.idle_s)} : carte graphique libérée "
                  "(rechargée à la prochaine demande)")
         return True
 

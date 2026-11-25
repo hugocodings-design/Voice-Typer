@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from home_server.server import Models, home_dir, load_or_create_key, make_server
+from home_server.server import Models, home_dir, load_idle, load_or_create_key, make_server
 
 
 def main() -> None:
@@ -23,7 +23,7 @@ def main() -> None:
         print(f"Clé{' (nouvelle)' if args.new_key else ''} : {key}")
         print("Mettez-la dans Réglages → PC à la maison sur vos autres ordinateurs, puis redémarrez Voice Typer Home.")
         return
-    models = Models()
+    models = Models(idle_s=load_idle())
     server = make_server(models, key, args.port, __version__)
     print("=" * 70)
     print(f" Voice Typer Home {__version__} — en écoute sur ce PC seulement (127.0.0.1:{args.port})")
