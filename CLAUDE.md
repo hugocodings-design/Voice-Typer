@@ -29,6 +29,10 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
   `voice_typer`, excluded in the .spec): stdlib ThreadingHTTPServer on 127.0.0.1:8765 behind Tailscale Funnel,
   `Guard` (constant-time key, 10 bad keys/min → 1 min lock), `handle()` socket-free API (/v1/ping, /v1/transcribe,
   /v1/rewrite), per-request models (0.19.1): the client sends `config.model` / `config.writing_model`, `Models.get()` loads it in the background (503 "loading" meanwhile → client does it locally), one Whisper + one writer kept (8 GB), only catalog / home-imported sources else the home PC's own choice (`choose`), one GPU job at a time, nothing written to disk; `timings` `home` / `home_ai` → "(maison)" per step.
+  Sleep: `Models.start()` = asleep (nothing on the card) until the first request, which wakes BOTH models and
+  waits for them (`WAKE_WAIT` 10 s Whisper / 35 s writer, under the client timeouts; 503 only if still loading);
+  `sleep_if_idle()` frees the card after `IDLE_S` (300 s, env `VT_HOME_IDLE_S`, 0 = old preload-and-keep) without
+  transcribe/rewrite — pings don't count; ping keeps the last device + `asleep`, so the laptop never shows "processeur".
   Started from source: `Start Voice Typer Home.bat` → `pythonw run_home.pyw` → `home_server/tray_app.py` (pystray
   blue icon: loaded models + device, copy key, journal `%APPDATA%\VoiceTyperHome\home.log` with short lines only,
   « Démarrer avec Windows » = HKCU Run `VoiceTyperHome`, notifications via `Models.on_event` when a model fails or
