@@ -194,7 +194,7 @@ def test_load_events_reach_the_tray():
     m.loading["writer"] = "qwen-3b"
     m._load("writer", "qwen-3b")
     assert seen == [("writer", "qwen-3b", "cuda", "")]
-    assert m.status()["writer"] == ("qwen-3b", "cuda", None)
+    assert m.status()["writer"] == ("qwen-3b", "cuda", None, False)
 
 
 def test_journal_never_holds_dictations(tmp_path):
@@ -340,3 +340,82 @@ def test_laptop_gets_the_home_graphics_memory(monkeypatch):
     eng = FakeEngine(cfg)
     eng._check_home()
     assert eng.home_info["vram_used"] == 8000 and eng.home_info["vram_total"] == 8192
+
+
+class Clock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+def _join_loaders():
+    for t in list(threading.enumerate()):
+        if t.name != "MainThread" and t.daemon and t.name != "home-idle":
+            t.join(timeout=2)
+
+
+def test_home_frees_the_graphics_card_when_unused():
+    clock = Clock()
+    m = server.Models(builders={"whisper": FakeT, "writer": FakeW},
+                      defaults={"whisper": "large-v3-turbo", "writer": "qwen-3b"},
+                      allowed={"whisper": {"small", "large-v3-turbo"}, "writer": {"qwen-3b"}},
+                      log=lambda *_: None, idle_s=300, clock=clock)
+    m.last_device = {"whisper": "cuda", "writer": "cuda"}
+    g = server.Guard(KEY)
+    # starts asleep: nothing on the card, yet the laptop is told the models run on the graphics card
+    m.asleep = {"whisper": "large-v3-turbo", "writer": "qwen-3b"}
+    status, out = server.handle(m, g, "GET", "/v1/ping", _h(), b"")
+    assert out["asleep"] == ["whisper", "writer"] and out["device"] == "cuda" and out["writer_device"] == "cuda"
+    assert out["whisper"] == "large-v3-turbo" and m.objs["whisper"] is None and m.objs["writer"] is None
+    from home_server import tray_app
+
+    assert "en veille" in tray_app.status_lines(m.status())[0]
+    # a dictation wakes BOTH models (an e-mail needs the writing AI right after) and is answered, not refused
+    body = home.encode_audio(np.zeros(1600, dtype=np.float32))
+    status, out = server.handle(m, g, "POST", "/v1/transcribe", _h(**{"X-VT-Options": _opts()}), body)
+    assert status == 200 and out["model"] == "large-v3-turbo"
+    _join_loaders()
+    assert m.objs["writer"] is not None and m.asleep == {}
+    # pings every minute do not count as use; 5 min after the last dictation the card is freed
+    clock.now += 299
+    server.handle(m, g, "GET", "/v1/ping", _h(), b"")
+    assert m.sleep_if_idle() is False
+    clock.now += 2
+    assert m.sleep_if_idle() is True
+    assert m.objs["whisper"] is None and m.objs["writer"] is None
+    assert m.asleep == {"whisper": "large-v3-turbo", "writer": "qwen-3b"}
+    assert m.sleep_if_idle() is False          # nothing left to free
+    # an e-mail wakes them again
+    req = json.dumps({"text": "salut"}).encode()
+    status, out = server.handle(m, g, "POST", "/v1/rewrite", _h(), req)
+    assert status == 200 and out["text"] == "SALUT\nHugo"
+    _join_loaders()
+    assert m.objs["whisper"] is not None
+
+
+def test_home_never_sleeps_during_a_dictation_or_with_idle_off():
+    clock = Clock()
+    m = fake_models()
+    m.clock, m.idle_s = clock, 300
+    clock.now += 1000
+    with m.gpu:                                # a dictation is running on the card
+        assert m.sleep_if_idle() is False
+    m.idle_s = 0
+    assert m.sleep_if_idle() is False
+    assert m.objs["whisper"] is not None
+
+
+def test_home_starts_asleep():
+    m = fake_models(ready=False)
+    m.idle_s = 300
+    started = []
+    real_thread = server.threading.Thread
+    server.threading.Thread = lambda *a, **k: started.append(k.get("name")) or real_thread(target=lambda: None)
+    try:
+        m.start()
+    finally:
+        server.threading.Thread = real_thread
+    assert m.asleep == {"whisper": "large-v3-turbo", "writer": "qwen-3b"} and started == ["home-idle"]
+    assert m.objs["whisper"] is None and not any(m.loading.values())

@@ -12,14 +12,20 @@ Security:
 - size limits (5 min of audio, 200 kB of text), zip-bomb safe audio, one dictation at a time on the GPU;
 - nothing is written to disk: no audio, no text, no log of the content.
 
+Sleep: the models only sit on the graphics card while they are used. Home starts asleep, the first request
+wakes both models (Whisper first, then the writing AI) and waits for them (WAKE_WAIT), and IDLE_S seconds
+without a dictation or e-mail free the card again for this PC's other programs (TalkTome, Flashcards…).
+Pings (every minute from each computer) do not count as use.
+
 API (JSON answers):
-  GET  /v1/ping        → {"ok", "version", "whisper", "writer", "device"}
+  GET  /v1/ping        → {"ok", "version", "whisper", "writer", "device", "asleep"}
   POST /v1/transcribe  ← zlib(16-bit PCM), header X-VT-Options {"language","hotwords","mode","sample_rate"}
                        → {"text", "seconds"}
   POST /v1/rewrite     ← {"text","instructions","signature","signature_en","add_signature","subject",
                           "signature_blank_line","language"} → {"text", "timings"}
 """
 
+import gc
 import hmac
 import json
 import os
@@ -35,6 +41,11 @@ MAX_BODY = 10 * 1024 * 1024
 MAX_TEXT = 200_000
 LOCK_AFTER = 10            # wrong keys …
 LOCK_WINDOW = 60.0         # … within this many seconds → refuse everything for LOCK_WINDOW
+IDLE_S = float(os.environ.get("VT_HOME_IDLE_S", "300"))   # free the card after this long unused (0 = never)
+# How long a request waits for a sleeping model to load before answering "loading" (the other PC then does
+# it itself). Below the client's own timeouts (home.py: 14 s + audio length / 64 s).
+WAKE_WAIT = {"whisper": 10.0, "writer": 35.0}
+IDLE_CHECK_EVERY = 30.0
 
 
 def home_dir() -> Path:
@@ -67,8 +78,14 @@ class Models:
 
     KINDS = ("whisper", "writer")
 
-    def __init__(self, builders=None, defaults=None, allowed=None, log=print):
+    def __init__(self, builders=None, defaults=None, allowed=None, log=print, idle_s: float = IDLE_S,
+                 clock=time.monotonic):
         self.log = log
+        self.idle_s = idle_s
+        self.clock = clock
+        self.last_use = clock()
+        self.asleep: dict[str, str] = {}   # {kind: source} put to sleep, reloaded by the next request
+        self.last_device = {k: "" for k in self.KINDS}   # device while asleep (the laptop shows it)
         self._builders = builders          # {"whisper": fn(source), "writer": fn(source)} — None = real ones
         self.defaults = dict(defaults or {})
         self._allowed = allowed            # {"whisper": set, "writer": set} — None = from the catalogs
@@ -96,6 +113,14 @@ class Models:
         self._allowed = {"whisper": {m.source for m in models.CATALOG} | custom | {self.defaults["whisper"]},
                          "writer": {m.source for m in writer.LLM_CATALOG} | {self.defaults["writer"]}}
         self._cfg = cfg
+        try:
+            from voice_typer import gpu
+
+            where = "cuda" if gpu.cuda_available() else "cpu"
+        except Exception:  # noqa: BLE001
+            where = ""
+        for kind in self.KINDS:
+            self.last_device[kind] = self.last_device[kind] or where
 
     def _build(self, kind: str, source: str):
         if self._builders:
@@ -120,6 +145,20 @@ class Models:
             if self.defaults.get(kind):
                 self.get(kind, None)
 
+    def start(self) -> None:
+        """At start: asleep (nothing on the card until the first request) with the idle watch, or, with
+        IDLE_S = 0, the old behaviour: both models loaded now and kept."""
+        if self.idle_s <= 0:
+            self.preload()
+            return
+        with self.state:
+            for kind in self.KINDS:
+                if self.defaults.get(kind) and self.objs[kind] is None and not self.loading[kind]:
+                    self.asleep[kind] = self.defaults[kind]
+        self.log(f"En veille : modèles chargés à la première demande, libérés après {self.idle_s / 60:g} min "
+                 "sans demande")
+        threading.Thread(target=self._idle_watch, daemon=True, name="home-idle").start()
+
     # ---- the model for a request: ready object, or None while it loads
     def choose(self, kind: str, source: str | None) -> str:
         allowed = (self._allowed or {}).get(kind)
@@ -127,15 +166,75 @@ class Models:
             return self.defaults.get(kind, "")
         return source
 
-    def get(self, kind: str, source: str | None):
+    def get(self, kind: str, source: str | None, wait: float = 0.0):
+        """The model, or None while it loads. A sleeping Home wakes both models (an e-mail needs Whisper,
+        then the writing AI right after) and waits up to `wait` seconds for this one."""
         source = self.choose(kind, source)
         with self.state:
+            self.last_use = self.clock()
             if self.names[kind] == source and self.objs[kind] is not None:
                 return self.objs[kind]
-            if self.loading[kind] != source:
-                self.loading[kind] = source
-                threading.Thread(target=self._load, args=(kind, source), daemon=True).start()
+            todo = [(kind, source)]
+            for other in self.KINDS:
+                if other != kind and other in self.asleep and self.objs[other] is None:
+                    todo.append((other, self.asleep[other]))
+            for k, _ in todo:
+                self.asleep.pop(k, None)
+            todo = [(k, s) for k, s in todo if self.loading[k] != s]
+            for k, s in todo:
+                self.loading[k] = s
+        if todo:
+            threading.Thread(target=lambda: [self._load(k, s) for k, s in todo], daemon=True).start()
+        deadline = time.monotonic() + wait
+        while time.monotonic() < deadline:
+            time.sleep(0.05)
+            with self.state:
+                if self.names[kind] == source and self.objs[kind] is not None:
+                    self.last_use = self.clock()
+                    return self.objs[kind]
+                if self.loading[kind] is None:   # failed: the next request uses this PC's own model
+                    return None
         return None
+
+    # ---- sleep
+    def sleep_if_idle(self) -> bool:
+        """Free the graphics card after idle_s seconds without a dictation or e-mail. True if it did."""
+        if self.idle_s <= 0:
+            return False
+        if not self.gpu.acquire(blocking=False):   # a dictation is running
+            return False
+        try:
+            with self.state:
+                loaded = [k for k in self.KINDS if self.objs[k] is not None]
+                if not loaded or any(self.loading.values()) or self.clock() - self.last_use < self.idle_s:
+                    return False
+                for k in loaded:
+                    self.asleep[k] = self.names[k]
+                    self.last_device[k] = getattr(self.objs[k], "device", "") or self.last_device[k]
+                    self.objs[k], self.names[k] = None, ""
+        finally:
+            self.gpu.release()
+        gc.collect()
+        self.log(f"Inutilisé depuis {self.idle_s / 60:g} min : carte graphique libérée "
+                 "(rechargée à la prochaine demande)")
+        return True
+
+    def _idle_watch(self) -> None:
+        while True:
+            time.sleep(IDLE_CHECK_EVERY)
+            try:
+                self.sleep_if_idle()
+            except Exception as exc:  # noqa: BLE001 — never stop watching
+                self.log(f"Mise en veille impossible : {exc}")
+
+    def device_of(self, kind: str) -> str:
+        """Device of the model, or the one it ran on before going to sleep."""
+        obj = self.objs[kind]
+        return getattr(obj, "device", "") if obj is not None else (
+            self.last_device[kind] if kind in self.asleep else "")
+
+    def name_of(self, kind: str) -> str:
+        return self.names[kind] or self.asleep.get(kind, "")
 
     def _load(self, kind: str, source: str) -> None:
         with self.load_lock:
@@ -166,8 +265,9 @@ class Models:
                     pass
 
     def status(self) -> dict:
-        """{kind: (name, device, loading)} for the tray menu and /v1/ping."""
-        return {k: (self.names[k], getattr(self.objs[k], "device", ""), self.loading[k]) for k in self.KINDS}
+        """{kind: (name, device, loading, asleep)} for the tray menu."""
+        return {k: (self.names[k], getattr(self.objs[k], "device", ""), self.loading[k], k in self.asleep)
+                for k in self.KINDS}
 
     def vram_info(self) -> dict:
         """{"vram_used_mb", "vram_total_mb"} for /v1/ping (nothing without nvidia-smi)."""
@@ -180,16 +280,22 @@ class Models:
 
     def transcribe(self, transcriber, audio, language, hotwords, mode) -> str:
         with self.gpu:
-            return transcriber.transcribe(audio, language, hotwords, mode=mode)
+            try:
+                return transcriber.transcribe(audio, language, hotwords, mode=mode)
+            finally:
+                self.last_use = self.clock()   # idle time counts from the END of the work
 
     def rewrite(self, writer, req: dict) -> tuple[str, dict]:
         with self.gpu:
-            out = writer.rewrite(
-                req["text"], req.get("instructions", ""), req.get("signature", ""),
-                bool(req.get("add_signature")), bool(req.get("subject")),
-                signature_blank_line=bool(req.get("signature_blank_line")),
-                signature_en=req.get("signature_en", "") or "", language=req.get("language"))
-            return out, dict(getattr(writer, "last_timings", {}) or {})
+            try:
+                out = writer.rewrite(
+                    req["text"], req.get("instructions", ""), req.get("signature", ""),
+                    bool(req.get("add_signature")), bool(req.get("subject")),
+                    signature_blank_line=bool(req.get("signature_blank_line")),
+                    signature_en=req.get("signature_en", "") or "", language=req.get("language"))
+                return out, dict(getattr(writer, "last_timings", {}) or {})
+            finally:
+                self.last_use = self.clock()
 
 
 class Guard:
@@ -233,10 +339,11 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
     if auth != "ok":
         return (429 if auth == "locked" else 401), {"error": auth}
     if method == "GET" and path == "/v1/ping":
-        return 200, {"ok": True, "version": version, "whisper": models.names["whisper"],
-                     "writer": models.names["writer"], "device": models.device,
-                     "writer_device": getattr(models.objs["writer"], "device", ""),
-                     "loading": [v for v in models.loading.values() if v], **models.vram_info()}
+        return 200, {"ok": True, "version": version, "whisper": models.name_of("whisper"),
+                     "writer": models.name_of("writer"), "device": models.device_of("whisper"),
+                     "writer_device": models.device_of("writer"),
+                     "loading": [v for v in models.loading.values() if v],
+                     "asleep": sorted(models.asleep), **models.vram_info()}
     if method != "POST" or path not in ("/v1/transcribe", "/v1/rewrite"):
         return 404, {"error": "not_found"}
     if len(body) > MAX_BODY:
@@ -253,7 +360,7 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
                 audio = home.decode_audio(body, MAX_AUDIO_SECONDS * SAMPLE_RATE * 2)
             except ValueError:
                 return 413, {"error": "too_long"}
-            transcriber = models.get("whisper", _str_or_none(opts.get("model")))
+            transcriber = models.get("whisper", _str_or_none(opts.get("model")), wait=WAKE_WAIT["whisper"])
             if transcriber is None:
                 return 503, {"error": "loading"}
             started = time.perf_counter()
@@ -272,7 +379,7 @@ def handle(models: Models, guard: Guard, method: str, path: str, headers, body: 
             if not isinstance(req.get(k, ""), str):
                 return 400, {"error": "bad_request"}
         _str_or_none(req.get("language"), {"fr", "en"})
-        writer = models.get("writer", _str_or_none(req.get("writing_model")))
+        writer = models.get("writer", _str_or_none(req.get("writing_model")), wait=WAKE_WAIT["writer"])
         if writer is None:
             return 503, {"error": "loading"}
         started = time.perf_counter()

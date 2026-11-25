@@ -40,9 +40,12 @@ def status_lines(status: dict) -> list[str]:
     """Menu lines: « Whisper : small — carte graphique » / « IA d'écriture : chargement de … »."""
     out = []
     for kind in ("whisper", "writer"):
-        name, device, loading = status.get(kind, ("", "", None))
+        name, device, loading, *rest = status.get(kind, ("", "", None))
+        asleep = bool(rest and rest[0])
         if loading:
             out.append(f"{LABELS[kind]} : chargement de {short(loading)}…")
+        elif asleep:
+            out.append(f"{LABELS[kind]} : en veille (carte graphique libre)")
         elif name:
             where = "carte graphique" if device == "cuda" else "PROCESSEUR (lent)"
             out.append(f"{LABELS[kind]} : {short(name)} — {where}")
@@ -212,7 +215,7 @@ def run(port: int = 8765) -> None:
     log.info(f"Modèles de ce PC : {models.defaults['whisper']}, {models.defaults['writer']}")
     icon = pystray.Icon("VoiceTyperHome", _icon_image(BLUE), "Voice Typer Home", menu())
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    models.preload()
+    models.start()   # asleep until the first request; frees the card after IDLE_S without use
     def keep_menu_fresh():   # "chargement de …" lines change while models load; warn once when the card fills
         from home_server import gpu_memory
 

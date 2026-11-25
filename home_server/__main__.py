@@ -39,7 +39,7 @@ def main() -> None:
     models.configure()
     print(f" Modèles de ce PC (utilisés si l'autre PC n'en précise pas) : {models.defaults['whisper']}, "
           f"{models.defaults['writer']}")
-    models.preload()   # in the background: answers "loading" until ready
+    models.start()   # asleep until the first request (waits for the models), frees the card after IDLE_S unused
     try:
         server.serve_forever()
     except KeyboardInterrupt:
