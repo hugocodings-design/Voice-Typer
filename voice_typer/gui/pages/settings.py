@@ -135,8 +135,9 @@ class SettingsPage:
         key_entry.bind("<FocusOut>", lambda _e: self._save_home())
         row = ttk.Frame(c)
         row.pack(fill="x", pady=(8, 0))
+        ttk.Button(row, text=self.t("home_paste"), style="Accent.TButton", command=self._paste_home).pack(side="left")
         self.home_test_btn = ttk.Button(row, text=self.t("home_test"), command=self._test_home)
-        self.home_test_btn.pack(side="left")
+        self.home_test_btn.pack(side="left", padx=(8, 0))
         self.home_test_info = ttk.Label(row, text="", style="Muted.TLabel", wraplength=520, justify="left")
         self.home_test_info.pack(side="left", padx=10)
         ttk.Label(c, text=self.t("home_note"), style="Muted.TLabel", wraplength=680,
@@ -399,6 +400,25 @@ class SettingsPage:
         self.config.home_enabled = self.home_var.get()
         self.config.save()
         self.engine.check_home_now()
+
+    def _paste_home(self) -> None:
+        """The connection code Home Connections copies (address#key=…) → both fields, then a connection test."""
+        from voice_typer import home
+
+        try:
+            url, key = home.parse_connection_code(self.root.clipboard_get())
+        except (tk.TclError, home.HomeError):    # empty clipboard, or not a code
+            self.home_test_info.configure(text=self.t("home_paste_none"))
+            return
+        if url:
+            self.home_url_var.set(url)
+        if key:
+            self.home_key_var.set(key)
+        if url and key:
+            self._test_home()
+        else:
+            self._save_home()
+            self.home_test_info.configure(text=self.t("home_paste_key" if key else "home_paste_url"))
 
     def _test_home(self) -> None:
         from voice_typer import home

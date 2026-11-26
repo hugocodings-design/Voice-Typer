@@ -25,7 +25,12 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
   `Authorization: Bearer`; audio = zlib int16 PCM; `decode_audio` zip-bomb safe). `Engine.home_client()` →
   `_transcribe_audio` / `WriterMixin.rewrite` try home first, fall back to local; `home_down`/`home_back` events
   once per state change; `timings["home"]` → "PC à la maison" on Home. Config `home_enabled/home_url/home_key`
-  (key never exported, url+key stripped from diagnostics). Server = **Home Connections**, its own private repo
+  (key never exported, url+key stripped from diagnostics). Réglages « Coller depuis Home Connections » (0.20.6):
+  `home.parse_connection_code` reads the code Home Connections copies (`<address>#key=<key>` → both fields, then
+  a connection test; a bare key / address → that field only). While the window is shown (`Window._watch_window_open`
+  every 2 s: state normal/zoomed, not withdrawn to the tray nor minimized) → `HomeMixin.set_window_open` →
+  `HomeClient.presence(True)` every 15 s (`/v1/presence`, Home Connections ≥ 1.3 keeps this app's models ready,
+  chosen in its Applications tab), one `presence(False)` when it goes; errors ignored. Server = **Home Connections**, its own private repo
   (`hugocodings-design/Home-Connections`, folder `..\HOME CONNECTIONS`; replaced `home_server/` / Voice Typer Home
   in 0.20.3): it imports THIS repo's `voice_typer` as a library (Transcriber, Writer, catalogs, `home.decode_audio`,
   `ui_theme`, `gui.dialogs`, `tray._icon_image`) — keep those APIs stable or update it too. Same API for us

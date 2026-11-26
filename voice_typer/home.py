@@ -8,6 +8,7 @@ the update check. Nothing listens on this PC (IT requirement, tests/test_no_netw
   dictionary and voice commands still run here, with this PC's settings.
 - `rewrite()` sends the text to the home writing AI (same signature/subject rules: compose.py runs there).
 - `wake()` asks the home PC to load the models now, when a recording starts (hides the reload after sleep).
+- `presence()` tells it the window is open (every 15 s): it keeps this app's models ready (Home Connections ≥ 1.3).
 - Every request carries the key as "Authorization: Bearer …" and "X-App: voicetyper-pc". On any failure the caller falls back to the
   local models, so a home PC that is off or asleep only costs the connection timeout.
 """
@@ -41,6 +42,28 @@ def normalize_url(url: str) -> str:
     if not parts.hostname:
         raise HomeError("bad_url")
     return url
+
+
+def parse_connection_code(text: str) -> tuple[str, str]:
+    """« Coller depuis Home Connections »: the code Home Connections copies (« Copier le code de connexion »),
+    '<address>#key=<key>' → (address, key). Either can be "" when the text only holds the other one (a bare key, or
+    just the address). HomeError("bad_code") when it holds neither. Same rules as Home Connections'
+    settings.parse_connection_code and the phone apps."""
+    import re
+
+    text = (text or "").strip()
+    is_key = re.compile(r"[A-Za-z0-9_-]{32,}").fullmatch
+    if "#key=" in text:
+        address, _, key = text.partition("#key=")
+        address, key = address.strip().rstrip("/"), key.strip()
+        if address.startswith(("https://", "http://")) and is_key(key):
+            return address, key
+        raise HomeError("bad_code")
+    if is_key(text):
+        return "", text
+    if text.startswith(("https://", "http://")) and " " not in text:
+        return text.rstrip("/"), ""
+    raise HomeError("bad_code")
 
 
 def encode_audio(audio: np.ndarray) -> bytes:
@@ -94,6 +117,12 @@ class HomeClient:
 
     def ping(self) -> dict:
         return self._request("/v1/ping", None, CONNECT_TIMEOUT + 4)
+
+    def presence(self, active: bool) -> dict:
+        """« Voice Typer's window is open » (or no longer): Home Connections ≥ 1.3 loads the models chosen for this
+        app (its Applications tab) and keeps them ready; older versions answer 404 (HomeError, ignored)."""
+        return self._request("/v1/presence", json.dumps({"active": bool(active)}).encode("utf-8"), CONNECT_TIMEOUT + 2,
+                             {"Content-Type": "application/json"})
 
     def wake(self, models: dict) -> dict:
         """{"whisper": "large-v3-turbo", "writer": "…"}: start loading these now (answer at once)."""

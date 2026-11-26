@@ -1,6 +1,6 @@
 {
-  "version": "0.20.5",
-  "fr": "Courriels : plus jamais « Objet : » devant l'objet, même quand le courriel est écrit par le PC à la maison",
-  "en": "Emails: never \"Subject:\" in front of the subject, even when the email is written by the home PC",
+  "version": "0.20.6",
+  "fr": "PC à la maison : bouton « Coller depuis Home Connections » (adresse et clé d'un coup), et ses modèles se chargent dès que la fenêtre de Voice Typer est ouverte",
+  "en": "Home PC: \"Paste from Home Connections\" button (address and key at once), and its models load as soon as Voice Typer's window is open",
   "required": false
 }

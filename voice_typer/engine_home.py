@@ -50,6 +50,8 @@ class HomeMixin:
         self._local_home = False          # Home Connections answers on this same PC
         self._home_stop = threading.Event()
         self._home_lock = threading.Lock()
+        self._window_open = False
+        self._presence_thread = None
 
     # ---- which home PC
     def home_client(self):
@@ -116,6 +118,38 @@ class HomeMixin:
         threading.Thread(target=run, daemon=True).start()
 
     # ---- background check
+    # ---- « the window is open »: the home PC keeps this app's models ready (Home Connections → Applications)
+    PRESENCE_EVERY = 15.0
+
+    def set_window_open(self, is_open: bool) -> None:
+        """Called by the window (shown / hidden in the tray). While open: /v1/presence every PRESENCE_EVERY s; when
+        it goes: one {"active": false}, then each model sleeps after its own delay on the home PC."""
+        if is_open == self._window_open:
+            return
+        self._window_open = is_open
+        if is_open:
+            if self._presence_thread is None or not self._presence_thread.is_alive():
+                self._presence_thread = threading.Thread(target=self._presence_loop, daemon=True, name="vt-presence")
+                self._presence_thread.start()
+        else:
+            client = self.home_client()
+            if client is not None:
+                threading.Thread(target=self._send_presence, args=(client, False), daemon=True).start()
+
+    def _presence_loop(self) -> None:
+        while self._window_open and not self._home_stop.is_set():
+            client = self.home_client()
+            if client is not None:
+                self._send_presence(client, True)
+            self._home_stop.wait(self.PRESENCE_EVERY)
+
+    @staticmethod
+    def _send_presence(client, active: bool) -> None:
+        try:
+            client.presence(active)
+        except home.HomeError:
+            pass     # a hint only: off / older Home Connections → nothing to keep ready
+
     def check_home_now(self) -> None:
         threading.Thread(target=self._check_home, daemon=True).start()
 
