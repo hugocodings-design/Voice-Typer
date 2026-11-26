@@ -43,6 +43,28 @@ def normalize_url(url: str) -> str:
     return url
 
 
+def parse_connection_code(text: str) -> tuple[str, str]:
+    """« Coller depuis Home Connections »: the code Home Connections copies (« Copier le code de connexion »),
+    '<address>#key=<key>' → (address, key). Either can be "" when the text only holds the other one (a bare key, or
+    just the address). HomeError("bad_code") when it holds neither. Same rules as Home Connections'
+    settings.parse_connection_code and the phone apps."""
+    import re
+
+    text = (text or "").strip()
+    is_key = re.compile(r"[A-Za-z0-9_-]{32,}").fullmatch
+    if "#key=" in text:
+        address, _, key = text.partition("#key=")
+        address, key = address.strip().rstrip("/"), key.strip()
+        if address.startswith(("https://", "http://")) and is_key(key):
+            return address, key
+        raise HomeError("bad_code")
+    if is_key(text):
+        return "", text
+    if text.startswith(("https://", "http://")) and " " not in text:
+        return text.rstrip("/"), ""
+    raise HomeError("bad_code")
+
+
 def encode_audio(audio: np.ndarray) -> bytes:
     pcm = (np.clip(audio, -1.0, 1.0) * 32767).astype("<i2").tobytes()
     return zlib.compress(pcm, 6)

@@ -1,6 +1,6 @@
 {
-  "version": "0.20.5",
-  "fr": "Courriels : plus jamais « Objet : » devant l'objet, même quand le courriel est écrit par le PC à la maison",
-  "en": "Emails: never \"Subject:\" in front of the subject, even when the email is written by the home PC",
+  "version": "0.20.6",
+  "fr": "PC à la maison : nouveau bouton « Coller depuis Home Connections » qui remplit l'adresse et la clé d'un coup",
+  "en": "Home PC: new \"Paste from Home Connections\" button that fills in the address and key at once",
   "required": false
 }

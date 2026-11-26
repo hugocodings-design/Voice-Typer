@@ -201,3 +201,14 @@ def test_laptop_gets_the_home_graphics_memory(monkeypatch):
     eng = FakeEngine(cfg)
     eng._check_home()
     assert eng.home_info["vram_used"] == 8000 and eng.home_info["vram_total"] == 8192
+
+
+def test_connection_code_from_home_connections():
+    key = "AbC-_" + "x" * 40
+    assert home.parse_connection_code(f"  https://hugo.tail3001ff.ts.net/#key={key}\n") == \
+        ("https://hugo.tail3001ff.ts.net", key)
+    assert home.parse_connection_code(key) == ("", key)
+    assert home.parse_connection_code("https://hugo.tail3001ff.ts.net/") == ("https://hugo.tail3001ff.ts.net", "")
+    for bad in ("", "bonjour", "https://x.ts.net#key=court", "ftp://x#key=" + key, "#key=" + key):
+        with pytest.raises(home.HomeError):
+            home.parse_connection_code(bad)
