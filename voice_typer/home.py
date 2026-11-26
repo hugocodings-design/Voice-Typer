@@ -8,6 +8,7 @@ the update check. Nothing listens on this PC (IT requirement, tests/test_no_netw
   dictionary and voice commands still run here, with this PC's settings.
 - `rewrite()` sends the text to the home writing AI (same signature/subject rules: compose.py runs there).
 - `wake()` asks the home PC to load the models now, when a recording starts (hides the reload after sleep).
+- `presence()` tells it the window is open (every 15 s): it keeps this app's models ready (Home Connections ≥ 1.3).
 - Every request carries the key as "Authorization: Bearer …" and "X-App: voicetyper-pc". On any failure the caller falls back to the
   local models, so a home PC that is off or asleep only costs the connection timeout.
 """
@@ -116,6 +117,12 @@ class HomeClient:
 
     def ping(self) -> dict:
         return self._request("/v1/ping", None, CONNECT_TIMEOUT + 4)
+
+    def presence(self, active: bool) -> dict:
+        """« Voice Typer's window is open » (or no longer): Home Connections ≥ 1.3 loads the models chosen for this
+        app (its Applications tab) and keeps them ready; older versions answer 404 (HomeError, ignored)."""
+        return self._request("/v1/presence", json.dumps({"active": bool(active)}).encode("utf-8"), CONNECT_TIMEOUT + 2,
+                             {"Content-Type": "application/json"})
 
     def wake(self, models: dict) -> dict:
         """{"whisper": "large-v3-turbo", "writer": "…"}: start loading these now (answer at once)."""

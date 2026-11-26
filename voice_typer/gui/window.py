@@ -468,6 +468,15 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
                 self.overlay.flash(f"{self.t('lang_now')} {self.lang_name(payload)}")
 
     # ================================================================== window lifecycle
+    def _watch_window_open(self) -> None:
+        """Every 2 s: is the window shown (not in the tray, not minimized)? The home PC keeps this app's models
+        ready while it is (engine_home.set_window_open → /v1/presence)."""
+        try:
+            self.engine.set_window_open(self.root.state() in ("normal", "zoomed"))
+        except Exception:  # noqa: BLE001 — never break the window for a hint
+            pass
+        self.root.after(2000, self._watch_window_open)
+
     def _show_window(self) -> None:
         self.root.deiconify()
         self.root.lift()
@@ -557,4 +566,5 @@ class Window(HomePage, DictionaryPage, ModelsPage, SettingsPage, WritingPage,
             if start_hidden and self.tray.available:
                 self.root.withdraw()
             self.engine.start()
+        self.root.after(2000, self._watch_window_open)
         self.root.mainloop()

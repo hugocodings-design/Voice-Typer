@@ -212,3 +212,42 @@ def test_connection_code_from_home_connections():
     for bad in ("", "bonjour", "https://x.ts.net#key=court", "ftp://x#key=" + key, "#key=" + key):
         with pytest.raises(home.HomeError):
             home.parse_connection_code(bad)
+
+
+def test_client_says_the_window_is_open(monkeypatch):
+    sent = []
+    monkeypatch.setattr(home, "_open", lambda req, timeout: sent.append(req) or Answer({"ok": True, "models": []}))
+    home.HomeClient("hugo.tail1.ts.net", KEY).presence(True)
+    assert sent[0].full_url == "https://hugo.tail1.ts.net/v1/presence"
+    assert json.loads(sent[0].data) == {"active": True} and sent[0].get_header("X-app") == "voicetyper-pc"
+
+
+def test_window_open_sends_presence_then_leaves():
+    import threading
+
+    from voice_typer.config import Config
+
+    cfg = Config()
+    cfg.home_enabled, cfg.home_url, cfg.home_key = True, "hugo.tail1.ts.net", KEY
+    eng = FakeEngine(cfg)
+    calls, got = [], threading.Event()
+
+    class Client:
+        def presence(self, active):
+            calls.append(active)
+            got.set()
+            if active is None:
+                raise home.HomeError("unreachable")
+
+    eng.home_client = lambda: Client()
+    eng.PRESENCE_EVERY = 0.05
+    eng.set_window_open(True)
+    assert got.wait(2)
+    eng.set_window_open(True)                      # already open: nothing new
+    eng.set_window_open(False)
+    eng._presence_thread.join(2)
+    import time
+    time.sleep(0.1)
+    # the loop's last « open » may land just after « closed » (Home Connections then forgets it after 45 s)
+    assert calls[0] is True and calls.count(False) == 1 and not eng._presence_thread.is_alive()
+    eng._send_presence(Client(), None)             # errors are swallowed
