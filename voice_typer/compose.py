@@ -269,6 +269,15 @@ def drop_subject_label(text: str) -> str:
     return f"{subject}{sep}{rest}" if subject else rest.lstrip("\n")
 
 
+_CJK_CHARS = re.compile(r"[\u2e80-\u2fdf\u3000-\u303f\u3040-\u30ff\u3100-\u31ff\u3400-\u4dbf\u4e00-\u9fff"
+                        r"\ua960-\ua97f\uac00-\ud7af\uf900-\ufaff\ufe30-\ufe4f\uff00-\uffef]+")
+
+
+def strip_cjk(text: str) -> str:
+    """Last safety net: no Chinese / Japanese / Korean characters in a French or English e-mail."""
+    return _CJK_CHARS.sub("", text) if text else text
+
+
 def with_subject(body: str, subject: str, language: str | None = None) -> str:
     """The subject alone on the first line, then an empty line, then the e-mail — never "Objet :" in front
     (pasted into the subject field or kept as the first line, the label only got in the way)."""

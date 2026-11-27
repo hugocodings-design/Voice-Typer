@@ -161,3 +161,39 @@ def test_subject_line_written_by_the_ai_is_removed():
     w = FakeWriter("Objet : Livraison\n\nBonjour Marc,\n\nC'est noté.\n\nMerci,")
     out = w.rewrite("dis à Marc que c'est noté", "Mets en forme.", "", False, False)
     assert out == "Bonjour Marc,\n\nC'est noté.\n\nMerci,"
+
+
+class _VocabTok(_Tok):
+    VOCAB = {"Bon": 0, "jour": 1, "神": 2, "通": 3, "8": 4, "é": 5, "ア": 6}
+
+    def get_vocab(self):
+        return dict(self.VOCAB)
+
+    def decode_batch(self, batch):
+        names = {v: k for k, v in self.VOCAB.items()}
+        return [names[ids[0]] for ids in batch]
+
+
+def test_chinese_pieces_are_forbidden_and_digits_not_penalised():
+    """Screenshot case: "1-88神通6-9906" — Qwen wrote Chinese in the middle of a phone number."""
+    assert sorted(writer.cjk_tokens(_VocabTok())) == ["ア", "神", "通"]
+    calls = []
+
+    class Gen:
+        def generate_batch(self, batch, **kw):
+            calls.append(kw)
+            return [type("R", (), {"sequences_ids": [[1]]})()]
+
+    w = writer.Writer.__new__(writer.Writer)
+    w.tokenizer, w.generator = _VocabTok(), Gen()
+    w._suppress = [[t] for t in writer.cjk_tokens(w.tokenizer)]
+    w._generate("appelle au 1-888-6", "SYSTEM")
+    assert calls[0]["repetition_penalty"] == 1.0                     # repeated digits are fine
+    assert ["神"] in calls[0]["suppress_sequences"] and ["8"] not in calls[0]["suppress_sequences"]
+
+
+def test_chinese_never_reaches_the_email():
+    from voice_typer import compose
+
+    assert compose.strip_cjk("au 1-88神通6-9906 extension 2") == "au 1-886-9906 extension 2"
+    assert compose.strip_cjk("Café à Montréal, été") == "Café à Montréal, été"   # French accents untouched

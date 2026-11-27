@@ -48,7 +48,9 @@ Separate project and repo from Speechify (`../SPEECHIFY HUGO`).
 - Live preview / live typing were REMOVED (0.20): they could only run on the local CPU (never the home PC) and
   fought the final pass; `streaming.py`, `Transcriber.preview` and the overlay caption are gone
 - `writer._generate` passes system prompt + few-shot example as CTranslate2 `static_prompt` (cached), only the
-  dictation turn is new; falls back to one prompt if `static_prompt` is unsupported
+  dictation turn is new; falls back to one prompt if `static_prompt` is unsupported; `repetition_penalty=1.0` (1.05 punished repeated digits "1-888" → Qwen wrote "神通"
+  instead), `suppress_sequences` = every vocab piece that decodes to Chinese/Japanese/Korean (`cjk_tokens`, built at
+  load with `decode_batch`), and `compose.strip_cjk` on the output + on every rewrite reaching the laptop
 - `transfer.py` — settings export/import (Réglages → Transférer vers un autre PC). Allowlist `PORTABLE` (user's work and taste only: never mic, update state, history, local model folders); `read_export` validates types, `apply_settings` merges `custom_models` (keeps this PC's local folders). Import saves then `Window._restart()` → new process with `--restart`, which waits up to 15 s for the single-instance mutex (`app.MUTEX_NAME`)
 - `voice_typer/gui/` — tkinter window polling `engine.events`; never call tkinter from worker threads. `window.py` = `Window` built from page mixins (`pages/*.py`), `wizard.py` (first-run assistant, `config.first_run_done`), `shortcuts.py` (recorder + conflict check `_taken_hotkeys`)
 - `voice_typer/models.py` — model catalog (speed/accuracy), language list, download/import helpers

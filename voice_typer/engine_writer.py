@@ -101,11 +101,11 @@ class WriterMixin:
                 if device and device != "cuda" and not getattr(self, "_warned_home_cpu", False):
                     self._warned_home_cpu = True   # once per session: the home graphics card is full
                     self._emit("home_ai_cpu")
-                return compose.drop_subject_label(out)   # a home PC on older code still wrote "Objet :"
+                return compose.strip_cjk(compose.drop_subject_label(out))   # a home PC on older code still wrote "Objet :"
             except home.HomeError as exc:
                 self._home_result(False, str(exc))
-        return compose.drop_subject_label(
-            self.rewrite_local(text, instructions, self.config.signature, add_signature, subject))
+        return compose.strip_cjk(compose.drop_subject_label(
+            self.rewrite_local(text, instructions, self.config.signature, add_signature, subject)))
 
     def rewrite_local(self, text: str, instructions: str, signature: str, add_signature: bool = False,
                       subject: bool = False) -> str:

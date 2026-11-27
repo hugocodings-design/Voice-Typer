@@ -206,6 +206,27 @@ def default_presets(ui: str) -> list[dict]:
     ]
 
 
+_CJK = re.compile(r"[\u2e80-\u2fdf\u3000-\u303f\u3040-\u30ff\u3100-\u31ff\u3400-\u4dbf\u4e00-\u9fff"
+                  r"\ua960-\ua97f\uac00-\ud7af\uf900-\ufaff\ufe30-\ufe4f\uff00-\uffef]")
+
+
+def cjk_tokens(tokenizer) -> list[str]:
+    """Vocabulary pieces that write Chinese / Japanese / Korean characters. Qwen was trained largely on Chinese:
+    given the chance (e.g. a digit it was discouraged from repeating), it can put "神通" in the middle of a phone
+    number. These pieces are forbidden in generation (CTranslate2 `suppress_sequences`)."""
+    vocab = list(tokenizer.get_vocab().items())
+    try:   # ~150,000 pieces: decoded in one batch (fast, in Rust)
+        texts = tokenizer.decode_batch([[idx] for _t, idx in vocab])
+    except Exception:  # noqa: BLE001
+        texts = []
+        for _t, idx in vocab:
+            try:
+                texts.append(tokenizer.decode([idx]))
+            except Exception:  # noqa: BLE001
+                texts.append("")
+    return [token for (token, _idx), text in zip(vocab, texts) if _CJK.search(text)]
+
+
 class Writer:
     def __init__(self, source: str, device: str = "auto", cpu_compute: str = "int8",
                  gpu_compute: str = "int8_float16", cpu_threads: int = 0):
@@ -213,6 +234,7 @@ class Writer:
         self.last_timings: dict = {}   # seconds of the last rewrite: {"rewrite", "subject"}
         path = download(source)
         self.tokenizer = Tokenizer.from_file(str(Path(path) / "tokenizer.json"))
+        self._suppress = [[t] for t in cjk_tokens(self.tokenizer)]
         self.gpu_error: str | None = None
         want_gpu = device == "cuda" or (device == "auto" and gpu.cuda_available())
         if want_gpu:
@@ -239,8 +261,13 @@ class Writer:
             static += f"<|im_start|>user\n{q}<|im_end|>\n<|im_start|>assistant\n{a}<|im_end|>\n"
         turn = f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n"
         encode = self.tokenizer.encode
-        options = dict(max_length=max_tokens, sampling_topk=1, repetition_penalty=1.05,
+        # No repetition penalty: it punished repeated digits ("1-888-…", "5989") and pushed the model to other,
+        # sometimes Chinese, pieces. Chinese/Japanese/Korean pieces are forbidden outright.
+        options = dict(max_length=max_tokens, sampling_topk=1, repetition_penalty=1.0,
                        include_prompt_in_result=False, end_token=["<|im_end|>", "<|endoftext|>"])
+        suppress = getattr(self, "_suppress", None)
+        if suppress:
+            options["suppress_sequences"] = suppress
         try:
             result = self.generator.generate_batch(
                 [encode(turn, add_special_tokens=False).tokens],
@@ -248,7 +275,7 @@ class Writer:
         except TypeError:  # older CTranslate2 without static prompts: the whole prompt each time
             result = self.generator.generate_batch([encode(static + turn, add_special_tokens=False).tokens],
                                                    **options)
-        return self.tokenizer.decode(result[0].sequences_ids[0], skip_special_tokens=True).strip()
+        return compose.strip_cjk(self.tokenizer.decode(result[0].sequences_ids[0], skip_special_tokens=True)).strip()
 
     def rewrite(self, text: str, instructions: str, signature: str = "", add_signature: bool = False,
                 subject: bool = False, signature_blank_line: bool = False, signature_en: str = "",

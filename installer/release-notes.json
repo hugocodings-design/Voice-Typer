@@ -1,6 +1,6 @@
 {
-  "version": "0.20.6",
-  "fr": "PC à la maison : bouton « Coller depuis Home Connections » (adresse et clé d'un coup), et ses modèles se chargent dès que la fenêtre de Voice Typer est ouverte",
-  "en": "Home PC: \"Paste from Home Connections\" button (address and key at once), and its models load as soon as Voice Typer's window is open",
+  "version": "0.20.7",
+  "fr": "Écriture IA : plus de caractères chinois dans les courriels (numéros de téléphone corrects)",
+  "en": "AI writing: no more Chinese characters in emails (phone numbers come out right)",
   "required": false
 }
